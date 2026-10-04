@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "vulnerable-mcp-server-secrets-pii": {
+      "command": "node",
+      "args": ["/full/path/to/vulnerable-mcp-server-secrets-pii/index.js"]
+    }
+  }
+}

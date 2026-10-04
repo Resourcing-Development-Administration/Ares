@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "vulnerable-mcp-server-wikipedia-http-streamable": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://localhost:8000/mcp"
+      ]
+    }
+  }
+}

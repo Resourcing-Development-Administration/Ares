@@ -1,0 +1,93 @@
+============================================================
+📊 TEST SUMMARY
+============================================================
+✅ Successful: 18/63
+❌ Failed: 45/63
+
+✅ SUCCESSFUL MODELS:
+  • deepseek/deepseek-r1-0528-qwen3-8b:free (3090ms)
+  • deepseek/deepseek-r1-distill-llama-70b:free (15668ms)
+  • deepseek/deepseek-r1-distill-qwen-32b:free (4558ms)
+  • featherless/qwerky-72b:free (29076ms)
+  • meta-llama/llama-3.1-8b-instruct:free (7809ms)
+  • meta-llama/llama-3.2-11b-vision-instruct:free (3702ms)
+  • meta-llama/llama-3.2-1b-instruct:free (2913ms)
+  • meta-llama/llama-3.2-3b-instruct:free (2147ms)
+  • meta-llama/llama-3.3-70b-instruct:free (3837ms)
+  • meta-llama/llama-3.3-8b-instruct:free (1915ms)
+  • meta-llama/llama-4-maverick:free (2722ms)
+  • meta-llama/llama-4-scout:free (5079ms)
+  • mistralai/mistral-7b-instruct:free (3323ms)
+  • opengvlab/internvl3-14b:free (1938ms)
+  • opengvlab/internvl3-2b:free (1778ms)
+  • qwen/qwen2.5-vl-32b-instruct:free (7607ms)
+  • qwen/qwen2.5-vl-72b-instruct:free (6888ms)
+  • qwen/qwq-32b:free (4548ms)
+
+❌ FAILED MODELS:
+  • agentica-org/deepcoder-14b-preview:free (383ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • arliai/qwq-32b-arliai-rpr-v1:free (141ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • cognitivecomputations/dolphin3.0-mistral-24b:free (110ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • cognitivecomputations/dolphin3.0-r1-mistral-24b:free (124ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • deepseek/deepseek-chat-v3-0324:free (110ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • deepseek/deepseek-chat:free (118ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • deepseek/deepseek-r1-0528:free (138ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • deepseek/deepseek-r1-distill-qwen-14b:free (159ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • deepseek/deepseek-r1:free (119ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • deepseek/deepseek-v3-base:free (112ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • google/gemini-2.0-flash-exp:free (164ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • google/gemma-2-9b-it:free (116ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • google/gemma-3-12b-it:free (124ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • google/gemma-3-1b-it:free (130ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • google/gemma-3-27b-it:free (119ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • google/gemma-3-4b-it:free (105ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • google/gemma-3n-e4b-it:free (104ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • microsoft/mai-ds-r1:free (118ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • microsoft/phi-4-reasoning-plus:free (111ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • microsoft/phi-4-reasoning:free (113ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • mistralai/devstral-small:free (109ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • mistralai/mistral-nemo:free (96ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • mistralai/mistral-small-24b-instruct-2501:free (106ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • mistralai/mistral-small-3.1-24b-instruct:free (92ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • moonshotai/kimi-dev-72b:free (109ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • moonshotai/kimi-vl-a3b-thinking:free (173ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • nousresearch/deephermes-3-llama-3-8b-preview:free (105ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • nousresearch/deephermes-3-mistral-24b-preview:free (112ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • nvidia/llama-3.1-nemotron-ultra-253b-v1:free (108ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • nvidia/llama-3.3-nemotron-super-49b-v1:free (134ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • open-r1/olympiccoder-32b:free (102ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • qwen/qwen-2.5-72b-instruct:free (123ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • qwen/qwen-2.5-coder-32b-instruct:free (107ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • qwen/qwen-2.5-vl-7b-instruct:free (102ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • qwen/qwen3-14b:free (185ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • qwen/qwen3-235b-a22b:free (98ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • qwen/qwen3-30b-a3b:free (131ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • qwen/qwen3-32b:free (115ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • qwen/qwen3-8b:free (154ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • rekaai/reka-flash-3:free (98ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • sarvamai/sarvam-m:free (101ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • shisa-ai/shisa-v2-llama3.3-70b:free (100ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • thudm/glm-4-32b:free (104ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • thudm/glm-z1-32b:free (100ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+  • tngtech/deepseek-r1t-chimera:free (96ms) - No endpoints found matching your data policy. Enable prompt training here: https://openrouter.ai/settings/privacy
+
+📊 PERFORMANCE ANALYSIS:
+
+🏃‍♂️ FASTEST MODELS:
+  1. opengvlab/internvl3-2b:free (1778ms)
+  2. meta-llama/llama-3.3-8b-instruct:free (1915ms)
+  3. opengvlab/internvl3-14b:free (1938ms)
+
+🐌 SLOWEST MODELS:
+  1. featherless/qwerky-72b:free (29076ms)
+  2. deepseek/deepseek-r1-distill-llama-70b:free (15668ms)
+  3. meta-llama/llama-3.1-8b-instruct:free (7809ms)
+
+📈 AVERAGE RESPONSE TIME: 6033ms
+
+⚡ FAST (<5s): 12 models
+🔄 MEDIUM (5-15s): 4 models
+🐌 SLOW (>15s): 2 models
+
+🎯 CONCLUSION:
+⚠️  SOME MODELS WORKING - Check failed models above

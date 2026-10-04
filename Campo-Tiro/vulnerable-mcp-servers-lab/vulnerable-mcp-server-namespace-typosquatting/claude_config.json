@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "twittter-mcp": {
+      "command": "node",
+      "args": ["/full/path/to/vulnerable-mcp-server-namespace-typosquatting/index.js"]
+    }
+  }
+}

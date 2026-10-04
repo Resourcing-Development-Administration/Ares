@@ -1,0 +1,8 @@
+{
+    "mcpServers": {
+      "vulnerable-mcp-server-filesystem-workspace-actions": {
+        "command": "python3",
+        "args": ["/full/path/to/vulnerable-mcp-server-filesystem-workspace-actions-mcp.py", "/full/path/to/your-sandbox-workspace"]
+      }
+    }
+}

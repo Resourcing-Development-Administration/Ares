@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "vulnerable-mcp-server-outdated-pacakges": {
+      "command": "node",
+      "args": ["/full/path/to/vulnerable-mcp-server-outdated-pacakges/index.js"]
+    }
+  }
+}
