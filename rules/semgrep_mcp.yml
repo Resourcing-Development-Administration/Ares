@@ -1,0 +1,132 @@
+# Ruleset custom de Ares para supplychain.source_sast -- deliberadamente chico
+# y curado a mano (no el registro público de semgrep: correr con
+# --config <este archivo> nunca sale a red, a diferencia de --config auto/p/ci).
+# Cubre las clases de vulnerabilidad que Ares ya CONFIRMA en black-box
+# (dynamic.command_injection_confirmed, dynamic.path_traversal_confirmed) pero
+# ahora mirando el código fuente real -- para atrapar el caso donde el bug
+# está ahí pero el fuzzing black-box no lo disparó con los casos probados.
+#
+# mode: taint sigue el dato desde el parámetro de un tool MCP (@mcp.tool() /
+# @app.tool(), Python; server.tool(...) callback, Node) hasta un sink
+# peligroso, en vez de solo grepear por la presencia del sink (eso ya lo hace
+# supplychain.malicious_patterns con regex sobre DESCRIPCIONES, no sobre código).
+rules:
+  - id: ares-py-tool-param-to-shell
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Un parámetro de un tool MCP (@mcp.tool()/@app.tool()) llega a una llamada de shell
+      sin pasar por sanitización -- command injection confirmable (ver
+      dynamic.command_injection_confirmed para la confirmación black-box equivalente).
+    metadata:
+      ares_test_id: supplychain.source_sast
+      ares_category: command_injection
+    pattern-sources:
+      - patterns:
+          - pattern-inside: |
+              @$DECORATOR.tool(...)
+              def $FUNC(...):
+                ...
+          - pattern: $PARAM
+    pattern-sanitizers:
+      - pattern: shlex.quote(...)
+      - pattern: shlex.split(...)
+    pattern-sinks:
+      - pattern: subprocess.$F(..., shell=True, ...)
+      - pattern: os.system(...)
+      - pattern: os.popen(...)
+
+  - id: ares-py-tool-param-to-path
+    mode: taint
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Un parámetro de un tool MCP llega a apertura/lectura de archivo sin resolver contra un
+      directorio base -- path traversal confirmable (ver dynamic.path_traversal_confirmed).
+    metadata:
+      ares_test_id: supplychain.source_sast
+      ares_category: path_traversal
+    pattern-sources:
+      - patterns:
+          - pattern-inside: |
+              @$DECORATOR.tool(...)
+              def $FUNC(...):
+                ...
+          - pattern: $PARAM
+    pattern-sanitizers:
+      - pattern: os.path.realpath(...)
+      - pattern: Path(...).resolve(...)
+    pattern-sinks:
+      - pattern: open(...)
+      - pattern: Path(...)
+
+  - id: ares-py-eval-exec
+    languages: [python]
+    severity: ERROR
+    message: >-
+      eval()/exec() sobre datos potencialmente controlados por el cliente MCP -- ejecución de
+      código arbitraria si algún argumento de tool llega hasta acá.
+    metadata:
+      ares_test_id: supplychain.source_sast
+      ares_category: code_execution
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: exec(...)
+
+  - id: ares-py-insecure-deserialize
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Deserialización insegura (pickle/yaml.load sin SafeLoader) -- ejecución de código si el
+      payload lo controla un cliente MCP.
+    metadata:
+      ares_test_id: supplychain.source_sast
+      ares_category: insecure_deserialization
+    patterns:
+      - pattern-either:
+          - pattern: pickle.loads(...)
+          - pattern: pickle.load(...)
+          - pattern: yaml.load($X)
+      - metavariable-pattern:
+          metavariable: $X
+          patterns:
+            - pattern-not: yaml.load(..., Loader=yaml.SafeLoader)
+
+  - id: ares-js-tool-param-to-shell
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      Un parámetro de un tool MCP llega a exec/execSync/child_process sin sanitizar --
+      command injection confirmable (ver dynamic.command_injection_confirmed).
+    metadata:
+      ares_test_id: supplychain.source_sast
+      ares_category: command_injection
+    pattern-sources:
+      - patterns:
+          - pattern-inside: |
+              $SERVER.tool($NAME, $SCHEMA, async ($PARAMS) => { ... })
+          - pattern: $PARAMS
+      - patterns:
+          - pattern-inside: |
+              $SERVER.tool($NAME, $SCHEMA, ($PARAMS) => { ... })
+          - pattern: $PARAMS
+    pattern-sinks:
+      - pattern: child_process.exec(...)
+      - pattern: child_process.execSync(...)
+      - pattern: exec(...)
+      - pattern: execSync(...)
+
+  - id: ares-js-eval
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "eval()/new Function() sobre datos potencialmente controlados por un cliente MCP."
+    metadata:
+      ares_test_id: supplychain.source_sast
+      ares_category: code_execution
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: new Function(...)

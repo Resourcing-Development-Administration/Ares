@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ares-mcp-redteam"
+version = "0.3.0"
+description = "Motor de pruebas de seguridad red-team para servidores Model Context Protocol (MCP)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "mcp[cli]<2",
+    "httpx",
+    "jsonschema",
+    "rich",
+    "pydantic",
+    "pyyaml",
+    "fastapi",
+    "uvicorn",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio"]
+live-agent = ["anthropic"]  # openai/ollama usan httpx (ya core dep), sin paquete extra
+sast = ["semgrep"]
+
+[project.scripts]
+ares = "cli.main:main"
+
+[tool.setuptools]
+packages = [
+    "engine",
+    "engine.core",
+    "engine.recon",
+    "engine.static",
+    "engine.dynamic",
+    "engine.adversarial",
+    "engine.auth",
+    "engine.exposure",
+    "engine.supplychain",
+    "engine.reporting",
+    "engine.policy",
+    "engine.discovery",
+    "cli",
+    "payloads",
+    "webui",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

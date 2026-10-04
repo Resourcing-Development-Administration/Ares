@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<title>Reporte MCP Red Team — http://127.0.0.1:8765/mcp</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, sans-serif; background:#0b0f14; color:#e5e7eb; margin:0; padding:2rem; }
+  h1 { font-size:1.5rem; }
+  .summary { display:flex; gap:1rem; flex-wrap:wrap; margin:1rem 0 2rem; }
+  .stat { background:#111827; border:1px solid #1f2937; border-radius:8px; padding:.75rem 1.25rem; }
+  .stat b { font-size:1.4rem; display:block; }
+  .filters { margin-bottom:1rem; display:flex; gap:.5rem; flex-wrap:wrap; }
+  .filters button { background:#1f2937; color:#e5e7eb; border:1px solid #374151; border-radius:6px; padding:.4rem .8rem; cursor:pointer; }
+  .filters button.active { background:#374151; }
+  .card { background:#111827; border:1px solid #1f2937; border-radius:10px; padding:1rem 1.25rem; margin-bottom:.75rem; }
+  .card.suppressed { opacity:.55; }
+  .card-head { display:flex; gap:.6rem; align-items:center; margin-bottom:.4rem; font-size:.75rem; }
+  .badge { color:white; padding:.15rem .5rem; border-radius:4px; font-weight:600; }
+  .cat { color:#9ca3af; text-transform:uppercase; letter-spacing:.05em; }
+  .target { color:#9ca3af; margin-left:auto; }
+  .desc { color:#d1d5db; }
+  pre { background:#030712; padding:.75rem; border-radius:6px; overflow-x:auto; font-size:.8rem; white-space:pre-wrap; word-break:break-word; }
+  .remediation { color:#a7f3d0; font-size:.9rem; }
+  .meta { color:#4b5563; font-size:.7rem; margin-top:.5rem; }
+  details summary { cursor:pointer; color:#93c5fd; margin:.5rem 0; }
+  .fw-badges { margin:.3rem 0 .5rem; display:flex; gap:.4rem; flex-wrap:wrap; }
+  .fw-chip { color:white; font-size:.68rem; padding:.15rem .5rem; border-radius:999px; text-decoration:none; }
+  .conf-badge { font-size:.68rem; padding:.1rem .5rem; border-radius:4px; text-transform:uppercase; letter-spacing:.03em; }
+  .conf-verified { background:#064e3b; color:#6ee7b7; }
+  .conf-heuristic { background:#3f2d05; color:#fbbf24; }
+  .risk-panel { margin:.6rem 0; background:#0b0f14; border:1px solid #1f2937; border-radius:8px; padding:.4rem .8rem; }
+  .risk-panel summary { font-size:.8rem; }
+  .risk-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:.8rem; margin-top:.6rem; font-size:.82rem; }
+  .risk-grid code { display:block; background:#030712; padding:.3rem .5rem; border-radius:4px; margin-top:.2rem; word-break:break-all; }
+  .risk-grid ul { margin:.3rem 0 0; padding-left:1.1rem; color:#d1d5db; }
+  .biz-chips { display:flex; gap:.3rem; flex-wrap:wrap; margin-top:.3rem; }
+  .biz-chip { color:white; font-size:.68rem; padding:.1rem .45rem; border-radius:4px; }
+  .policy-chip { color:white; font-size:.68rem; padding:.1rem .5rem; border-radius:4px; margin-left:.5rem; }
+</style></head>
+<body>
+  <h1>🛡️ Reporte MCP Red Team</h1>
+  <p>Target: <b>http://127.0.0.1:8765/mcp</b> · Scan ID: e877c91d · 2026-10-03T07:57:07.318464+00:00 → 2026-10-03T07:57:07.372869+00:00</p>
+
+  <div class="summary">
+    <div class="stat"><b>8</b>tests ejecutados</div>
+    <div class="stat"><b>1</b>hallazgos confirmados</div>
+    <div class="stat"><b style="color:#7f1d1d">0</b>critical</div>
+    <div class="stat"><b style="color:#b91c1c">1</b>high</div>
+    <div class="stat"><b style="color:#b45309">0</b>medium</div>
+    <div class="stat"><b style="color:#1d4ed8">0</b>low</div>
+    
+    <div class="stat"><b style="color:#1d4ed8">85/100 (B)</b>score de exposición</div>
+  </div>
+
+  <div class="card" style="border-color:#b45309; border-width:2px;"><h3 style="color:#b45309">Veredicto de policy (production): CONDITIONAL</h3><p class="desc">1 hallazgo(s) evaluado(s) contra policy.yaml. "BLOCK" = no apto para production tal como está; "CONDITIONAL" = requiere revisión manual; "ALLOW" = sin objeciones de policy.</p></div>
+  
+  
+
+  <details><summary>Errores/skips durante el scan</summary><ul><li>conexión inicial rechazada/fallida (no aborta el scan): All connection attempts failed</li><li>test &#x27;recon.enumerate&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/recon/tests.py&quot;, line 34, in enumerate_surface
+    tools = await target.list_tools()
+                  ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li><li>test &#x27;recon.suspicious_descriptions&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/recon/tests.py&quot;, line 77, in suspicious_descriptions
+    tools = ctx.get(&quot;tools&quot;) or await target.list_tools()
+                                      ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li><li>test &#x27;recon.excessive_permissions&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/recon/tests.py&quot;, line 182, in excessive_permissions
+    tools = ctx.get(&quot;tools&quot;) or await target.list_tools()
+                                      ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li><li>test &#x27;static.schema_permissive&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/static/tests.py&quot;, line 19, in schema_permissive
+    tools = ctx.get(&quot;tools&quot;) or await target.list_tools()
+                                      ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li><li>test &#x27;static.no_schema&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/static/tests.py&quot;, line 68, in no_schema
+    tools = ctx.get(&quot;tools&quot;) or await target.list_tools()
+                                      ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li><li>test &#x27;dynamic.fuzz_tools&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/dynamic/tests.py&quot;, line 36, in fuzz_tools
+    tools = ctx.get(&quot;tools&quot;) or await target.list_tools()
+                                      ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li><li>test &#x27;dynamic.command_injection_confirmed&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/dynamic/tests.py&quot;, line 171, in command_injection_confirmed
+    tools = ctx.get(&quot;tools&quot;) or await target.list_tools()
+                                      ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li><li>test &#x27;dynamic.path_traversal_confirmed&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/dynamic/tests.py&quot;, line 226, in path_traversal_confirmed
+    tools = ctx.get(&quot;tools&quot;) or await target.list_tools()
+                                      ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li><li>test &#x27;dynamic.credential_harvest_paths&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/dynamic/tests.py&quot;, line 281, in credential_harvest_paths
+    tools = ctx.get(&quot;tools&quot;) or await target.list_tools()
+                                      ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li><li>test &#x27;dynamic.fuzz_resources&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_resources&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/dynamic/tests.py&quot;, line 355, in fuzz_resources
+    resources = ctx.get(&quot;resources&quot;) or await target.list_resources()
+                                              ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_resources&#x27;
+</li><li>test &#x27;adv.injection_passthrough&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/adversarial/tests.py&quot;, line 44, in injection_passthrough
+    tools = ctx.get(&quot;tools&quot;) or await target.list_tools()
+                                      ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li><li>test &#x27;adv.confused_deputy&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/adversarial/tests.py&quot;, line 216, in confused_deputy
+    tools = ctx.get(&quot;tools&quot;) or await target.list_tools()
+                                      ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li><li>test &#x27;adv.destructive_no_confirmation&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/adversarial/tests.py&quot;, line 269, in destructive_no_confirmation
+    tools = ctx.get(&quot;tools&quot;) or await target.list_tools()
+                                      ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li><li>test &#x27;supplychain.secret_exposure&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/supplychain/tests.py&quot;, line 68, in secret_exposure
+    tools = ctx.get(&quot;tools&quot;) or await target.list_tools()
+                                      ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li><li>test &#x27;supplychain.tool_squatting&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/supplychain/tests.py&quot;, line 117, in tool_squatting
+    tools = ctx.get(&quot;tools&quot;) or await target.list_tools()
+                                      ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li><li>test &#x27;supplychain.exfiltration_chain&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/supplychain/tests.py&quot;, line 181, in exfiltration_chain
+    tools = ctx.get(&quot;tools&quot;) or await target.list_tools()
+                                      ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li><li>test &#x27;supplychain.malicious_patterns&#x27; falló con excepción: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+Traceback (most recent call last):
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py&quot;, line 121, in run_scan
+    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File &quot;/usr/lib/python3.13/asyncio/tasks.py&quot;, line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File &quot;/home/user/Tools/RedTeam/MCP/Ares/engine/supplychain/tests.py&quot;, line 229, in malicious_patterns
+    tools = ctx.get(&quot;tools&quot;) or await target.list_tools()
+                                      ^^^^^^^^^^^^^^^^^
+AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;list_tools&#x27;
+</li></ul></details>
+
+  <div class="filters">
+    <button onclick="filt('all')" class="active">Todos</button>
+    <button onclick="filt('findings')">Solo hallazgos</button>
+    <button onclick="filt('critical')">Critical</button>
+    <button onclick="filt('high')">High</button>
+    <button onclick="filt('medium')">Medium</button>
+    <button onclick="filt('low')">Low</button>
+    <button onclick="filt('suppressed')">Suprimidos</button>
+  </div>
+
+  <div id="cards">
+    
+        <div class="card" data-sev="high" data-cat="exposure" data-passed="false" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#b91c1c">FINDING · HIGH</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">exposure</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>Endpoint MCP servido sin TLS</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP07:2025 Insufficient Authentication &amp; Authorization</a><a href="https://owasp.org/API-Security/editions/2023/en/0x11-t10/" target="_blank" class="fw-chip" style="background:#0891b2" title="OWASP-API">API8:2023 Security Misconfiguration</a></div>
+          <p class="desc">&#x27;http://127.0.0.1:8765/mcp&#x27; usa http:// en vez de https://. Todo el tráfico (incluyendo tokens de auth en headers) viaja en texto plano.</p>
+          
+          
+    <details class="risk-panel">
+      <summary>Riesgo — CVSS 6.5 (medium) · rating High (OWASP) · AIVSS 7.5 · remediación: trivial <span class="policy-chip" style="background:#b45309">implementación: CONDITIONAL</span></summary>
+      <div class="risk-grid">
+        <div><b>Vector CVSS v3.1</b><code>AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:L/A:N</code></div>
+        <div><b>Facilidad de explotación</b>
+          <ul>
+            <li>Vector de ataque: red (Internet/red)</li>
+            <li>Complejidad: alta</li>
+            <li>Privilegios requeridos: ninguno</li>
+            <li>Interacción de usuario: ninguna</li>
+          </ul>
+        </div>
+        <div><b>Impacto al negocio (OWASP Risk Rating)</b><div class="biz-chips"><span class="biz-chip" style="background:#b45309">financial: medium</span><span class="biz-chip" style="background:#b45309">reputational: medium</span><span class="biz-chip" style="background:#7f1d1d">compliance: high</span><span class="biz-chip" style="background:#7f1d1d">privacy: high</span></div></div>
+        <div><b>Esfuerzo de remediación: trivial</b><p class="desc">Servir exclusivamente sobre TLS -- config de infraestructura, no código.</p></div>
+        
+        <div><b>AIVSS 7.5/10 <span style="color:#9ca3af;font-weight:normal">(aproximación, complementa el rating de arriba)</span></b>
+          <ul>
+            <li>Factores agénticos: autonomía 3, uso de herramientas 3, no-determinismo 3</li>
+            <li>Threat multiplier: 1.0 (confidence del finding) · mitigation factor: 1.0</li>
+          </ul>
+          <p class="desc" style="font-size:.75rem">Aproximación declarada (AARS/mitigation_factor no son observables del target real) -- score complementario, NO reemplaza el CVSS+OWASP Risk Rating oficial de este finding.</p>
+        </div>
+      </div>
+    </details>
+    
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          <p class='remediation'><b>Remediación:</b> Servir el endpoint MCP exclusivamente sobre TLS (https/wss), incluso en redes internas.</p>
+          <div class="meta">test_id: exposure.transport_security · id: 04457857 · 2026-10-03T07:57:07.365991+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="recon" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">recon</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>Sin sesión viva para verificar audit logging</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP08:2025 Lack of Audit and Telemetry</a></div>
+          <p class="desc">La conexión inicial falló (ver el error de conexión reportado aparte); no se pudo consultar si el server declara el capability &#x27;logging&#x27; -- no es que no lo declare, es que Ares no pudo ni preguntarle.</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: recon.audit_logging · id: 4c47c735 · 2026-10-03T07:57:07.348061+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="static" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-heuristic" title="señal heurística, revisar manualmente">heuristic</span>
+            <span class="cat">static</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>Sin server_info disponible</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP04:2025 Software Supply Chain Attacks &amp; Dependency Tampering</a><a href="https://genai.owasp.org/llm-top-10/" target="_blank" class="fw-chip" style="background:#7c3aed" title="OWASP-LLM">LLM03:2025 Supply Chain</a></div>
+          <p class="desc">La sesión no completó &#x27;initialize&#x27; con éxito; no hay name/version para comparar.</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: static.known_cve_check · id: 0b14c72b · 2026-10-03T07:57:07.350686+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="adversarial" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">adversarial</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>Sin --baseline: nada que comparar</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP03:2025 Tool Poisoning</a><a href="https://genai.owasp.org/llm-top-10/" target="_blank" class="fw-chip" style="background:#7c3aed" title="OWASP-LLM">LLM03:2025 Supply Chain</a></div>
+          <p class="desc">Este test necesita un reporte.json de una corrida anterior contra este mismo server (--baseline) para detectar cambios de definición entre corridas.</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: adv.rug_pull · id: 8505eb0e · 2026-10-03T07:57:07.357071+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="auth" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">auth</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>Conexión sin credenciales RECHAZADA</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP07:2025 Insufficient Authentication &amp; Authorization</a><a href="https://owasp.org/API-Security/editions/2023/en/0x11-t10/" target="_blank" class="fw-chip" style="background:#0891b2" title="OWASP-API">API2:2023 Broken Authentication</a><a href="https://atlas.mitre.org/matrices/ATLAS" target="_blank" class="fw-chip" style="background:#b91c1c" title="ATLAS">Initial Access</a></div>
+          <p class="desc">Intentar conectar sin Authorization/API-Key fue rechazado por el server (All connection attempts failed). Buena señal: la autenticación parece exigirse antes de aceptar la sesión.</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: auth.unauthenticated_access · id: 0429eccc · 2026-10-03T07:57:07.360320+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="auth" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">auth</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>No se pudo evaluar metadata OAuth</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP07:2025 Insufficient Authentication &amp; Authorization</a><a href="https://owasp.org/API-Security/editions/2023/en/0x11-t10/" target="_blank" class="fw-chip" style="background:#0891b2" title="OWASP-API">API2:2023 Broken Authentication</a></div>
+          <p class="desc">Error de red/parseo durante el chequeo: All connection attempts failed</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: auth.oauth_metadata_security · id: 9b460681 · 2026-10-03T07:57:07.365471+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="exposure" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">exposure</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>No se pudo evaluar CORS</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP07:2025 Insufficient Authentication &amp; Authorization</a><a href="https://owasp.org/API-Security/editions/2023/en/0x11-t10/" target="_blank" class="fw-chip" style="background:#0891b2" title="OWASP-API">API8:2023 Security Misconfiguration</a></div>
+          <p class="desc">OPTIONS falló: All connection attempts failed</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: exposure.cors_misconfig · id: 8845bf83 · 2026-10-03T07:57:07.371144+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="exposure" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">exposure</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>Alcance interno: 127.0.0.1 -&gt; 127.0.0.1</h3>
+          <div class="fw-badges"><a href="https://owasp.org/API-Security/editions/2023/en/0x11-t10/" target="_blank" class="fw-chip" style="background:#0891b2" title="OWASP-API">API8:2023 Security Misconfiguration</a></div>
+          <p class="desc">&#x27;127.0.0.1&#x27; resuelve a 127.0.0.1, una IP privada/loopback. El blast radius de cualquier hallazgo confirmado se limita a quien tenga acceso a esta red.</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: exposure.network_reachability · id: d3cf557d · 2026-10-03T07:57:07.372253+00:00</div>
+        </div>
+        
+  </div>
+
+<script>
+function filt(mode) {
+  document.querySelectorAll('.card').forEach(c => {
+    let show = true;
+    if (mode === 'findings') show = c.dataset.passed === 'false' && c.dataset.suppressed === 'false';
+    else if (mode === 'suppressed') show = c.dataset.suppressed === 'true';
+    else if (mode !== 'all') show = c.dataset.sev === mode && c.dataset.passed === 'false' && c.dataset.suppressed === 'false';
+    c.style.display = show ? 'block' : 'none';
+  });
+  document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+</body></html>

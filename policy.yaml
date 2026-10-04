@@ -1,0 +1,61 @@
+# Policy por defecto de Ares.
+# Cada regla mapea un prefijo de test_id (o "*" para severidad-only) a un
+# veredicto por ambiente. El veredicto final del scan es el más restrictivo
+# de todos los findings NO pasados (passed=false) que matchean alguna regla,
+# combinado con la severidad como fallback si ningún test_id específico matchea.
+# Orden de restricción: BLOCK > CONDITIONAL > ALLOW.
+#
+# Inspirado en mcpscan/guard/mcp_guard/policy.py (mcp-guard), adaptado a Python/YAML propio.
+
+rules:
+  - pattern: "auth.unauthenticated_access"
+    production: BLOCK
+    development: CONDITIONAL
+  - pattern: "auth.weak_credentials"
+    production: BLOCK
+    development: CONDITIONAL
+  - pattern: "adv.ssrf_exfil"
+    production: BLOCK
+    development: CONDITIONAL
+  - pattern: "dynamic.command_injection_confirmed"
+    production: BLOCK
+    development: BLOCK
+  - pattern: "dynamic.path_traversal_confirmed"
+    production: BLOCK
+    development: CONDITIONAL
+  - pattern: "supplychain.secret_exposure"
+    production: BLOCK
+    development: CONDITIONAL
+  - pattern: "supplychain.malicious_patterns"
+    production: BLOCK
+    development: CONDITIONAL
+  - pattern: "supplychain.tool_squatting"
+    production: CONDITIONAL
+    development: ALLOW
+  - pattern: "supplychain.exfiltration_chain"
+    production: CONDITIONAL
+    development: ALLOW
+  - pattern: "adv.destructive_no_confirmation"
+    production: CONDITIONAL
+    development: ALLOW
+  - pattern: "exposure.transport_security"
+    production: CONDITIONAL
+    development: ALLOW
+  - pattern: "exposure.cors_misconfig"
+    production: CONDITIONAL
+    development: ALLOW
+
+# fallback por severidad cuando ningún pattern específico matchea el test_id
+severity_fallback:
+  critical:
+    production: BLOCK
+    development: CONDITIONAL
+  high:
+    production: CONDITIONAL
+    development: ALLOW
+  medium:
+    production: ALLOW
+    development: ALLOW
+  low:
+    production: ALLOW
+    development: ALLOW

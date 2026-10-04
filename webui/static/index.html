@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ares — Dashboard</title>
+<style>
+  :root {
+    --bg:#0b0f14; --bg-raised:#111827; --bg-sunken:#030712;
+    --border:#1f2937; --border-strong:#374151;
+    --text:#e5e7eb; --text-dim:#9ca3af; --text-faint:#6b7280;
+    --accent:#2563eb; --accent-light:#93c5fd;
+    --ok:#065f46; --warn:#b45309; --bad:#7f1d1d;
+    --radius:10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(ellipse at top, #0f1620 0%, #0b0f14 55%);
+    color: var(--text); margin:0; padding:1.6rem 2rem 3rem; line-height:1.4;
+  }
+  .page { max-width: 980px; margin: 0 auto; }
+
+  header.top { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:.4rem; margin-bottom:.2rem; }
+  h1 { font-size:1.5rem; margin:0; letter-spacing:-.01em; }
+  .sub { color:var(--text-dim); margin:.3rem 0 1.2rem; font-size:.92rem; }
+
+  .warn {
+    background:linear-gradient(0deg, rgba(63,45,5,.9), rgba(63,45,5,.9)), var(--bg-raised);
+    border:1px solid var(--warn); border-radius:var(--radius); padding:.7rem 1rem;
+    font-size:.85rem; margin-bottom:1.4rem; display:flex; gap:.6rem; align-items:flex-start;
+  }
+  .warn .ico { font-size:1.1rem; line-height:1; }
+
+  /* Tabs */
+  .tabs { display:flex; gap:.4rem; margin:0 0 1.4rem; border-bottom:1px solid var(--border); }
+  .tabs button {
+    background:transparent; color:var(--text-dim); border:none; border-bottom:2px solid transparent;
+    padding:.6rem 1rem; cursor:pointer; font-size:.92rem; font-weight:500; transition:color .12s, border-color .12s;
+  }
+  .tabs button:hover { color:var(--text); }
+  .tabs button.active { color:var(--accent-light); border-bottom-color:var(--accent); }
+
+  .panel { display:none; }
+  .panel.active { display:block; animation: fadein .15s ease; }
+  @keyframes fadein { from { opacity:0; transform:translateY(2px);} to { opacity:1; transform:none; } }
+
+  /* Section cards (replace bare fieldsets visually) */
+  fieldset {
+    border:1px solid var(--border); border-radius:14px; margin-bottom:1.1rem; padding:1.1rem 1.2rem 1.2rem;
+    background:linear-gradient(180deg, rgba(255,255,255,.015), transparent); min-width:0;
+  }
+  legend {
+    color:var(--accent-light); padding:0 .5rem; font-weight:600; font-size:.95rem; display:flex; align-items:center; gap:.4rem;
+  }
+  legend .legend-ico { font-size:1rem; }
+  legend small { color:var(--text-faint); font-weight:normal; font-size:.78rem; }
+
+  label { display:flex; align-items:center; gap:.35rem; font-size:.83rem; color:var(--text-dim); margin:.6rem 0 .3rem; font-weight:500; }
+  label:first-child { margin-top:0; }
+
+  input[type=text], input[type=number], input[type=url], select, textarea {
+    width:100%; box-sizing:border-box; background:var(--bg-raised); color:var(--text); border:1px solid var(--border-strong);
+    border-radius:8px; padding:.5rem .65rem; font-family:inherit; font-size:.88rem;
+    transition: border-color .12s, box-shadow .12s;
+  }
+  input::placeholder, textarea::placeholder { color:#4b5563; }
+  input:focus, select:focus, textarea:focus {
+    outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(37,99,235,.18);
+  }
+
+  .row { display:flex; gap:1.1rem; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:220px; }
+
+  .checkline { display:flex; align-items:flex-start; gap:.55rem; margin:.5rem 0; padding:.5rem .6rem; border-radius:8px; background:rgba(255,255,255,.015); }
+  .checkline input[type=checkbox] { margin-top:.2rem; accent-color: var(--accent); width:15px; height:15px; flex-shrink:0; }
+  .checkline label { margin:0; color:#d1d5db; font-weight:400; font-size:.85rem; flex:1; }
+
+  .cat-group { margin-bottom:.9rem; }
+  .cat-group h4 { margin:0 0 .4rem; color:var(--accent-light); font-size:.74rem; text-transform:uppercase; letter-spacing:.07em; padding-bottom:.25rem; border-bottom:1px solid var(--border); }
+
+  /* Mode tabs — bigger, clearer cards */
+  .mode-tabs { display:flex; gap:.6rem; margin-bottom: 1.1rem; }
+  .mode-tabs button {
+    flex:1; background:var(--bg-raised); color:var(--text-dim); border:1px solid var(--border);
+    border-radius:12px; padding:.75rem .9rem; cursor:pointer; text-align:left; transition:border-color .12s, box-shadow .12s, transform .08s;
+  }
+  .mode-tabs button:hover { border-color:var(--border-strong); transform:translateY(-1px); }
+  .mode-tabs button b { display:block; color:var(--text); font-size:.95rem; margin-bottom:.15rem; }
+  .mode-tabs button span { font-size:.76rem; display:block; }
+  .mode-tabs button.active { border-color:var(--accent); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px rgba(37,99,235,.12); background:#121a2b; }
+
+  button.primary {
+    background:var(--accent); color:white; border:none; border-radius:9px; padding:.7rem 1.6rem; font-size:1rem;
+    font-weight:600; cursor:pointer; box-shadow:0 2px 8px rgba(37,99,235,.35); transition:background .12s, transform .08s;
+  }
+  button.primary:hover:not(:disabled) { background:#1d4ed8; }
+  button.primary:active:not(:disabled) { transform:translateY(1px); }
+  button.primary:disabled { background:var(--border-strong); box-shadow:none; cursor:not-allowed; color:var(--text-faint); }
+
+  button.secondary {
+    background:var(--bg-raised); color:var(--text); border:1px solid var(--border-strong); border-radius:8px;
+    padding:.45rem .9rem; cursor:pointer; font-size:.85rem; transition:border-color .12s;
+  }
+  button.secondary:hover { border-color:var(--accent); }
+
+  #log {
+    background:var(--bg-sunken); border:1px solid var(--border); border-radius:10px; padding:.85rem 1.1rem;
+    height:280px; overflow-y:auto; font-size:.78rem; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space:pre-wrap; margin-top:1.2rem;
+  }
+  #log:empty::before { content:"— el log en vivo va a aparecer acá al correr —"; color:var(--text-faint); font-style:italic; }
+
+  #result { margin-top:1rem; }
+  .stat {
+    display:inline-flex; flex-direction:column-reverse; background:var(--bg-raised); border:1px solid var(--border);
+    border-radius:10px; padding:.55rem 1.1rem; margin:0 .6rem .6rem 0; font-size:.78rem; color:var(--text-dim);
+  }
+  .stat b { font-size:1.35rem; color:var(--text); display:block; }
+
+  .verdict { padding:.7rem 1.1rem; border-radius:10px; font-weight:700; margin:.8rem 0; font-size:.95rem; letter-spacing:.01em; }
+  .verdict.BLOCK { background:var(--bad); }
+  .verdict.CONDITIONAL { background:var(--warn); }
+  .verdict.ALLOW { background:var(--ok); }
+
+  .sev-CRITICAL, .sev-critical { color:#f87171; font-weight:600; }
+  .sev-HIGH, .sev-high { color:#fca5a5; }
+  .sev-MEDIUM, .sev-medium { color:#fbbf24; }
+
+  a { color:var(--accent-light); }
+
+  table { width:100%; border-collapse:collapse; margin-top:.9rem; font-size:.85rem; }
+  th { text-align:left; padding:.5rem .6rem; color:var(--text-dim); font-size:.74rem; text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--border-strong); }
+  td { text-align:left; padding:.55rem .6rem; border-bottom:1px solid var(--border); }
+  tr:hover td { background:rgba(255,255,255,.02); }
+
+  .hint { color:var(--text-faint); font-size:.76rem; margin:.3rem 0 0; }
+
+  details.adv { margin-top:.4rem; border-top:1px dashed var(--border); padding-top:.6rem; }
+  details.adv summary { cursor:pointer; color:var(--accent-light); font-size:.87rem; padding:.3rem 0; font-weight:500; list-style:none; }
+  details.adv summary::-webkit-details-marker { display:none; }
+  details.adv summary::before { content:"▸ "; }
+  details.adv[open] summary::before { content:"▾ "; }
+
+  .pill { display:inline-block; background:var(--bg-raised); border:1px solid var(--border-strong); border-radius:999px; padding:.1rem .6rem; font-size:.7rem; color:var(--text-dim); margin-left:.4rem; }
+  .net-tag { color:#fbbf24; font-size:.72rem; margin-left:.3rem; }
+
+  /* Tooltip "?" helper ------------------------------------------------ */
+  .tip {
+    display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;
+    width:15px; height:15px; border-radius:50%; background:var(--bg-raised); color:var(--text-faint);
+    font-size:.65rem; font-weight:700; border:1px solid var(--border-strong); cursor:help;
+    position:relative; user-select:none; line-height:1;
+  }
+  .tip:hover, .tip:focus-visible { background:var(--accent); color:#fff; border-color:var(--accent); outline:none; }
+  .tip::after {
+    content: attr(data-tip);
+    position:absolute; bottom:135%; left:0; transform:translateX(-6%);
+    background:#0d1420; color:var(--text); border:1px solid var(--border-strong); border-radius:8px;
+    padding:.6rem .75rem; width:max(240px, min(320px, 60vw)); font-size:.74rem; font-weight:400; line-height:1.45;
+    white-space:normal; opacity:0; visibility:hidden; transition:opacity .1s ease; pointer-events:none;
+    z-index:80; box-shadow:0 8px 24px rgba(0,0,0,.5); text-align:left;
+  }
+  .tip:hover::after, .tip:focus-visible::after { opacity:1; visibility:visible; }
+  .checkline .tip { margin-left:.1rem; }
+  legend .tip { margin-left:.1rem; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>🛡️ Ares — Dashboard</h1>
+  </header>
+  <p class="sub">MCP Red Team Tool — corré <code>scan</code>/<code>vet</code>/<code>full</code> desde el navegador o revisá reportes anteriores.</p>
+
+  <div class="warn">
+    <span class="ico">⚠️</span>
+    <span>Este dashboard puede lanzar procesos locales (transporte stdio) y abrir conexiones
+    salientes reales según el modo/tests/flags elegidos. Pensado para <b>localhost</b> — no lo expongas a redes
+    no confiables sin auth/proxy encima.</span>
+  </div>
+
+  <div class="tabs">
+    <button class="active" onclick="showPanel('scan')">🆕 Nuevo scan</button>
+    <button onclick="showPanel('reports')">📋 Reportes anteriores</button>
+  </div>
+
+  <div id="panel-scan" class="panel active">
+
+    <div class="mode-tabs">
+      <button class="active" data-mode="scan" onclick="setMode('scan')">
+        <b>🎯 scan</b><span>Tests seleccionados (o los default) contra UN target</span>
+      </button>
+      <button data-mode="vet" onclick="setMode('vet')">
+        <b>🔬 vet</b><span>TODOS los tests (incl. opt-in) contra UN target — intrusivo</span>
+      </button>
+      <button data-mode="full" onclick="setMode('full')">
+        <b>🗂️ full</b><span>Varios targets en paralelo + correlación cross-server</span>
+      </button>
+    </div>
+
+    <fieldset id="target-fieldset">
+      <legend><span class="legend-ico">📡</span> Target
+        <span class="tip" tabindex="0" data-tip="A quién le vas a apuntar el scan: el servidor MCP que querés auditar.">?</span>
+      </legend>
+      <div class="row">
+        <div>
+          <label>Transporte
+            <span class="tip" tabindex="0" data-tip="Cómo se conecta Ares al MCP. stdio = proceso local que vos lanzás (comando+args). http/sse = URL remota o local por red. Cambia qué campos aparecen abajo.">?</span>
+          </label>
+          <select id="transport" onchange="toggleTransport()">
+            <option value="stdio">stdio (proceso local)</option>
+            <option value="http">http (streamable-http)</option>
+            <option value="sse">sse</option>
+          </select>
+        </div>
+        <div>
+          <label>Nombre (opcional)
+            <span class="tip" tabindex="0" data-tip="Solo etiqueta visual, no cambia el scan en nada. Es el nombre que vas a ver después en «Reportes anteriores» y en target_name del JSON. Vacío = usa el comando o la URL como nombre.">?</span>
+          </label>
+          <input type="text" id="name" placeholder="mi-servidor">
+        </div>
+      </div>
+      <div class="row" id="stdio-fields">
+        <div>
+          <label>Comando
+            <span class="tip" tabindex="0" data-tip="El ejecutable que levanta el server MCP. Ej: python3, node, .venv/bin/python. Es lo primero que Ares ejecuta para hablarle al server por stdin/stdout.">?</span>
+          </label>
+          <input type="text" id="command" placeholder="python3">
+        </div>
+        <div>
+          <label>Args
+            <span class="tip" tabindex="0" data-tip="Argumentos del comando, separados por espacio. Ej: mi_servidor.py, o servidor.js --puerto 3000. Se le pasan tal cual al comando de arriba.">?</span>
+          </label>
+          <input type="text" id="args" placeholder="target_server.py">
+        </div>
+      </div>
+      <div class="row" id="url-fields" style="display:none">
+        <div>
+          <label>URL
+            <span class="tip" tabindex="0" data-tip="Dirección del MCP remoto o local por red. Ej: http://127.0.0.1:8765/mcp, https://mcp.miempresa.com/mcp. A dónde se conecta Ares por HTTP/SSE.">?</span>
+          </label>
+          <input type="text" id="url" placeholder="http://127.0.0.1:8765/mcp">
+        </div>
+      </div>
+      <button type="button" class="secondary" onclick="loadDiscovered()" style="margin-top:.6rem;">
+        🔍 Descubrir servers configurados localmente
+      </button>
+      <p class="hint">Lista los MCPs ya declarados en Claude Desktop/Cursor/VSCode/Windsurf/Codex en esta máquina.</p>
+      <div id="discovered"></div>
+    </fieldset>
+
+    <fieldset id="full-fieldset" style="display:none">
+      <legend><span class="legend-ico">🗂️</span> Targets para <code>full</code>
+        <small>(varios MCPs en paralelo)</small>
+      </legend>
+      <p class="hint">Tildá servers de la lista de "Descubrir" (fieldset de arriba, ahora con checkboxes) o pegá
+      un config JSON estilo Claude Desktop acá abajo — lo que pegues acá tiene prioridad.</p>
+      <label>Config JSON (opcional) — <code>{"mcpServers": {...}}</code>
+        <span class="tip" tabindex="0" data-tip="Un batch definido a mano, mismo formato que un claude_desktop_config.json. Equivale a full --config archivo.json — útil para un batch fijo que no está declarado en ningún cliente MCP de esta máquina. Si lo llenás, tiene prioridad sobre los checkboxes de «Descubrir».">?</span>
+      </label>
+      <textarea id="full_config_json" rows="4" placeholder='{"mcpServers": {"miserver": {"command": "python3", "args": ["server.py"]}}}'></textarea>
+      <div class="row" style="margin-top:.5rem">
+        <div>
+          <label>Modo por target
+            <span class="tip" tabindex="0" data-tip="vet o scan, aplicado a CADA target del batch. vet = cobertura máxima (default). scan = más rápido, solo tests default. Igual que --mode en ./ares.sh full.">?</span>
+          </label>
+          <select id="full_mode">
+            <option value="vet">vet — cobertura máxima (default, más lento)</option>
+            <option value="scan">scan — solo tests default (más rápido)</option>
+          </select>
+        </div>
+        <div>
+          <label>Concurrencia
+            <span class="tip" tabindex="0" data-tip="Cuántos targets corren al mismo tiempo. Default 3. Subilo si tenés muchos targets y CPU/red de sobra, bajalo si querés ir con más cuidado. Igual que --concurrency.">?</span>
+          </label>
+          <input type="number" id="concurrency" value="3" min="1">
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend><span class="legend-ico">🔐</span> Autenticación
+        <small>(solo http/sse — se aplica a cada target si es <code>full</code>)</small>
+      </legend>
+      <div class="row">
+        <div>
+          <label>Tipo
+            <span class="tip" tabindex="0" data-tip="Cómo se arma el header de auth. bearer (lo más común) → Authorization: Bearer <token>. apikey/custom → el token crudo en el header que pongas al lado.">?</span>
+          </label>
+          <select id="auth_type">
+            <option value="bearer">bearer</option>
+            <option value="apikey">apikey</option>
+            <option value="custom">custom</option>
+          </select>
+        </div>
+        <div>
+          <label>Token / credencial
+            <span class="tip" tabindex="0" data-tip="Tu token/API key real, o dejalo vacío si querés probar sin auth. Vacío = el scan corre SIN ninguna credencial — es intencional, no un error: así respondés «¿qué puede hacer un atacante externo?».">?</span>
+          </label>
+          <input type="text" id="auth_token" placeholder="(vacío = sin auth)">
+        </div>
+        <div>
+          <label>Nombre de header (apikey/custom)
+            <span class="tip" tabindex="0" data-tip="El nombre literal del header HTTP, ej. X-API-Key. Solo se usa si Tipo es apikey o custom; con bearer se ignora (siempre es Authorization).">?</span>
+          </label>
+          <input type="text" id="auth_header_name" placeholder="X-API-Key">
+        </div>
+      </div>
+      <label>Headers extra (uno por línea, "Clave: Valor")
+        <span class="tip" tabindex="0" data-tip="Headers HTTP crudos adicionales, uno por línea, formato Clave: Valor (ej. Cookie: sesion=abc123). Para credenciales que no son ni Bearer ni API key.">?</span>
+      </label>
+      <textarea id="headers_raw" rows="2"></textarea>
+      <div class="checkline" id="compare-auth-line">
+        <input type="checkbox" id="compare_auth">
+        <label for="compare_auth">--compare-auth: correr con y sin credenciales, y diffear qué mitiga la auth (solo scan/vet, no full)</label>
+        <span class="tip" tabindex="0" data-tip="Corre el scan DOS veces: una vez CON el token y otra vez SIN nada, y compara qué hallazgos desaparecen al autenticarse (auth sí protege) vs cuáles quedan igual (auth no protege eso). Sin Token cargado, tildarlo no hace nada.">?</span>
+      </div>
+
+      <details class="adv">
+        <summary>Avanzado: segunda identidad <span class="pill">cross_session_context_bleed</span></summary>
+        <p class="hint">Una SEGUNDA credencial/tenant válido contra el MISMO server — habilita
+        <code>auth.cross_session_context_bleed</code> (MCP10:2025 Context Injection &amp; Over-Sharing):
+        planta un canario con la credencial de arriba y confirma si aparece en una sesión nueva
+        abierta con esta, sin que nadie se lo haya dado ahí. Solo aplica a transporte http/sse;
+        sin esto, ese test se saltea solo (necesita las dos para tener sentido).</p>
+        <div class="row" style="margin-top:.4rem">
+          <div>
+            <label>Tipo (segunda identidad)
+              <span class="tip" tabindex="0" data-tip="Misma semántica que el campo 'Tipo' de arriba, aplicado a esta segunda credencial independiente.">?</span>
+            </label>
+            <select id="auth_type_b">
+              <option value="bearer">bearer</option>
+              <option value="apikey">apikey</option>
+              <option value="custom">custom</option>
+            </select>
+          </div>
+          <div>
+            <label>Token / credencial (segunda identidad)
+              <span class="tip" tabindex="0" data-tip="Vacío = auth.cross_session_context_bleed se saltea solo. Tiene que ser una credencial DISTINTA a la de arriba -- otro usuario/tenant válido del mismo server.">?</span>
+            </label>
+            <input type="text" id="auth_token_b" placeholder="(vacío = test se saltea)">
+          </div>
+          <div>
+            <label>Nombre de header (apikey/custom)
+              <span class="tip" tabindex="0" data-tip="Igual que el de arriba, para esta segunda credencial. Solo se usa si Tipo (segunda identidad) es apikey o custom.">?</span>
+            </label>
+            <input type="text" id="auth_header_name_b" placeholder="X-API-Key">
+          </div>
+        </div>
+      </details>
+    </fieldset>
+
+    <fieldset>
+      <legend><span class="legend-ico">⚙️</span> Opciones</legend>
+      <div class="row">
+        <div>
+          <label>Ambiente (policy)
+            <span class="tip" tabindex="0" data-tip="Contra qué reglas de policy.yaml se evalúa el veredicto. production (default, más estricto) o development. En vet/full vet queda forzado a production. Cambia el veredicto final BLOCK/CONDITIONAL/ALLOW.">?</span>
+          </label>
+          <select id="environment">
+            <option value="production">production</option>
+            <option value="development">development</option>
+          </select>
+          <p class="hint" id="environment-hint"></p>
+        </div>
+        <div>
+          <label>Max fuzz cases por tool
+            <span class="tip" tabindex="0" data-tip="Cuántos casos de fuzzing genera dynamic.fuzz_tools/fuzz_resources por tool. Vacío = 25 en scan, 50 en vet/full. Controla la profundidad del fuzzing, no afecta a los demás tests.">?</span>
+          </label>
+          <input type="number" id="max_fuzz_cases" placeholder="25 (scan) / 50 (vet)">
+        </div>
+        <div>
+          <label>Delay entre llamadas a tools (ms)
+            <span class="tip" tabindex="0" data-tip="Pausa entre cada llamada a un tool. 0 default; subilo (ej. 250) si el target es sensible/productivo. Equivale a --request-delay-ms.">?</span>
+          </label>
+          <input type="number" id="request_delay_ms" value="0" min="0">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>--source-path <span class="pill">dependency_vulnerabilities + source_sast</span>
+            <span class="tip" tabindex="0" data-tip="Ruta LOCAL (en la máquina donde corre ares.sh serve, no en tu navegador) al código fuente del server que auditás. Habilita el chequeo de CVEs reales (OSV.dev) y SAST con semgrep si está instalado. Sin esta ruta, esos dos tests no tienen nada que mirar.">?</span>
+          </label>
+          <input type="text" id="source_path" placeholder="./mi_servidor">
+        </div>
+        <div>
+          <label>--package-name <span class="pill">typosquatting_check</span>
+            <span class="tip" tabindex="0" data-tip="Nombre de paquete npm/pypi declarado, ej. mcp-server-fetch. Habilita static.typosquatting_check — compara contra una lista curada de paquetes MCP oficiales conocidos, por similitud Jaro-Winkler.">?</span>
+          </label>
+          <input type="text" id="package_name" placeholder="mcp-server-fetch">
+        </div>
+        <div>
+          <label>--oob-callback-host <span class="pill">ssrf_exfil</span>
+            <span class="tip" tabindex="0" data-tip="host:puerto alcanzable por el target, que vos mismo levantás (sin servicios de terceros). Para que adv.ssrf_exfil confirme SSRF por un callback real en vez de solo inferirlo — el finding sale como confidence: verified.">?</span>
+          </label>
+          <input type="text" id="oob_callback_host" placeholder="192.168.1.50:8899">
+        </div>
+      </div>
+      <div class="checkline">
+        <input type="checkbox" id="allow_network">
+        <label for="allow_network">--allow-network: habilitar tests que hacen conexiones externas reales (en <code>vet</code>/<code>full vet</code> ya va forzado)</label>
+        <span class="tip" tabindex="0" data-tip="Gate explícito para tests marcados requires_network (ej. adv.ssrf_exfil, dependency_vulnerabilities). Sin esto, esos tests se saltean aunque los tildes en «Tests» — es un gate separado a propósito, para que un efecto de red real nunca sea «sin querer».">?</span>
+      </div>
+      <div class="checkline">
+        <input type="checkbox" id="verbose">
+        <label for="verbose">--verbose: ver en vivo cada llamada real (list_tools/call_tool/read_resource) con su request/response, no solo el resumen por test</label>
+        <span class="tip" tabindex="0" data-tip="Agrega al log en vivo una línea → (request) y ← (response) por cada llamada real que hace cada test, con el tiempo que tardó. Útil para diagnosticar un error de conexión o por qué un test no encuentra lo que esperás.">?</span>
+      </div>
+
+      <details class="adv">
+        <summary>Avanzado: reducir ruido, live-agent, baseline/webhook</summary>
+        <div class="row" style="margin-top:.6rem">
+          <div>
+            <label>--allowlist <span class="pill">reducir ruido</span>
+              <span class="tip" tabindex="0" data-tip="Ruta a un .ares_allowlist.yml. Vacío = auto-detecta uno en el directorio del proyecto si existe. Suprime findings ya revisados y aceptados por el equipo — nunca se borran del reporte, solo dejan de contar para score/policy/CI.">?</span>
+            </label>
+            <input type="text" id="allowlist_path" placeholder="(vacío = auto-detecta .ares_allowlist.yml)">
+          </div>
+          <div>
+            <label>--min-confidence
+              <span class="tip" tabindex="0" data-tip="Piso de confidence que gatea score/policy. heuristic (default, todo cuenta) o verified (solo hechos observados directamente). Gran reductor de ruido en CI sin perder visibilidad de lo heurístico en el reporte.">?</span>
+            </label>
+            <select id="min_confidence">
+              <option value="heuristic">heuristic (default, todo cuenta)</option>
+              <option value="verified">verified (solo hechos confirmados gatean score/policy)</option>
+            </select>
+          </div>
+          <div>
+            <label>--live-agent-provider <span class="pill">adv.live_agent_injection</span>
+              <span class="tip" tabindex="0" data-tip="Proveedor de agente real para adv.live_agent_injection. auto (el primero con credencial disponible), uno fijo, o all (compara los 3). Sin ANTHROPIC_API_KEY/OPENAI_API_KEY/OLLAMA_HOST en el entorno del servidor, el test se saltea con un finding informativo.">?</span>
+            </label>
+            <select id="live_agent_provider">
+              <option value="auto">auto (el primero disponible)</option>
+              <option value="anthropic">anthropic</option>
+              <option value="openai">openai</option>
+              <option value="ollama">ollama</option>
+              <option value="all">all (compara los 3)</option>
+            </select>
+          </div>
+          <div>
+            <label>--test-timeout-s
+              <span class="tip" tabindex="0" data-tip="Segundos máximos por test antes de cortarlo. Default 60. Fail-closed: un test colgado se corta solo y el resto del scan sigue.">?</span>
+            </label>
+            <input type="number" id="test_timeout_s" value="60" min="1">
+          </div>
+        </div>
+        <div class="row" style="margin-top:.6rem">
+          <div>
+            <label>--baseline <span class="pill">diff contra corrida anterior</span>
+              <span class="tip" tabindex="0" data-tip="Ruta a un reporte.json de una corrida anterior. Agrega al resultado qué hallazgos son nuevos / resueltos / persisten desde esa corrida. En full se aplica igual a cada target.">?</span>
+            </label>
+            <input type="text" id="baseline_path" placeholder="reporte_anterior.json (scan/vet) o reportes_full/&lt;target&gt;.json (full)">
+          </div>
+          <div>
+            <label>--webhook-on-regression
+              <span class="tip" tabindex="0" data-tip="URL propia a la que avisar. Requiere --baseline: si aparecen hallazgos NUEVOS respecto al baseline, hace un POST JSON liviano (nunca evidencia cruda — solo test_id/severity/target/title).">?</span>
+            </label>
+            <input type="url" id="webhook_on_regression" placeholder="https://hooks.miempresa.com/ares (requiere --baseline)">
+          </div>
+        </div>
+      </details>
+
+      <details class="adv">
+        <summary>Avanzado: aislamiento del subprocess y resiliencia <span class="pill">solo stdio</span></summary>
+        <p class="hint">Los defaults ya son seguros — esto es para AJUSTAR, no para "activar" protección que
+        de otro modo no estaría. Por default, el subprocess que Ares lanza (transporte stdio) corre con
+        límites reales de memoria/CPU/procesos/FDs (<code>prlimit</code>) y namespaces aislados de
+        PID/IPC/red (<code>bwrap</code>) — no puede ver ni señalizar al proceso de Ares ni a nada del
+        host, y no tiene red real salvo que tildes <code>--allow-network</code> arriba.</p>
+        <div class="checkline">
+          <input type="checkbox" id="no_sandbox">
+          <label for="no_sandbox">--no-sandbox: desactivar el aislamiento de proceso completo (prlimit + bwrap)</label>
+          <span class="tip" tabindex="0" data-tip="Apaga TODO el aislamiento del subprocess stdio -- vuelve al comportamiento de un escáner sin sandbox. Casi nunca hace falta tildarlo; existe para debuggear o para un host donde prlimit/bwrap no están disponibles de todas formas.">?</span>
+        </div>
+        <div class="row" style="margin-top:.6rem">
+          <div>
+            <label>--sandbox-mem-mb
+              <span class="tip" tabindex="0" data-tip="Tope de memoria virtual (MB) del subprocess vía prlimit. Default 512 -- de sobra para cualquier server MCP legítimo respondiendo un tool call.">?</span>
+            </label>
+            <input type="number" id="sandbox_mem_mb" placeholder="512" min="1">
+          </div>
+          <div>
+            <label>--sandbox-cpu-s
+              <span class="tip" tabindex="0" data-tip="Tope de tiempo de CPU (segundos) del subprocess vía prlimit. Default 120.">?</span>
+            </label>
+            <input type="number" id="sandbox_cpu_s" placeholder="120" min="1">
+          </div>
+          <div>
+            <label>--sandbox-nproc
+              <span class="tip" tabindex="0" data-tip="Tope de procesos/threads -- bloquea fork bombs. Vacío (recomendado) = calculado dinámicamente como 'lo que el host ya tiene corriendo + margen', NUNCA un número fijo adivinado (RLIMIT_NPROC es un tope sobre el total del usuario en todo el host, no por proceso hijo).">?</span>
+            </label>
+            <input type="number" id="sandbox_nproc" placeholder="(auto)" min="1">
+          </div>
+          <div>
+            <label>--sandbox-nofile
+              <span class="tip" tabindex="0" data-tip="Tope de file descriptors abiertos del subprocess vía prlimit. Default 256.">?</span>
+            </label>
+            <input type="number" id="sandbox_nofile" placeholder="256" min="1">
+          </div>
+        </div>
+        <div class="row" style="margin-top:.6rem">
+          <div>
+            <label>--max-consecutive-timeouts <span class="pill">circuit breaker</span>
+              <span class="tip" tabindex="0" data-tip="Tras N timeouts seguidos, se saltea el resto de la batería de una en vez de pagar el timeout completo (--test-timeout-s) test por test contra un target que dejó de responder de forma sostenida. Default 3, 0 = sin límite (comportamiento viejo).">?</span>
+            </label>
+            <input type="number" id="max_consecutive_timeouts" placeholder="3" min="0">
+          </div>
+          <div>
+            <label>--max-text-for-analysis
+              <span class="tip" tabindex="0" data-tip="Tope de caracteres analizados con regex (descripciones de tools, schemas). Default 200000 -- de sobra para cualquier tool legítimo; confirmado que sin este cap, una descripción de 10MB hacía que un solo test tardara ~57s.">?</span>
+            </label>
+            <input type="number" id="max_text_for_analysis" placeholder="200000" min="1">
+          </div>
+          <div>
+            <label>--max-response-content
+              <span class="tip" tabindex="0" data-tip="Tope de caracteres de una respuesta de call_tool/read_resource. Default 2000000.">?</span>
+            </label>
+            <input type="number" id="max_response_content" placeholder="2000000" min="1">
+          </div>
+        </div>
+        <div class="checkline">
+          <input type="checkbox" id="no_session_reset">
+          <label for="no_session_reset">--no-session-reset: no cerrar/reabrir la sesión tras un timeout</label>
+          <span class="tip" tabindex="0" data-tip="Por default, tras un timeout Ares cierra la sesión vieja (y el subprocess, si es stdio -- matando lo que lo haya colgado) y abre una nueva antes del siguiente test, para no arrastrar estado envenenado. Tildar esto vuelve a reusar la misma sesión de siempre.">?</span>
+        </div>
+      </details>
+    </fieldset>
+
+    <fieldset id="tests-fieldset">
+      <legend><span class="legend-ico">🧪</span> Tests <small id="tests-hint"></small>
+        <span class="tip" tabindex="0" data-tip="Checkboxes agrupados por categoría, cargados en vivo desde el motor. Vienen pre-tildados los default_enabled=true — los mismos que correrían con ./ares.sh scan sin pasar --tests. El ícono ⚠️ significa que además necesita --allow-network tildado arriba.">?</span>
+      </legend>
+      <div id="tests-container">cargando…</div>
+    </fieldset>
+
+    <button class="primary" id="run-btn" onclick="runScan()">▶ Correr</button>
+
+    <div id="log"></div>
+    <div id="result"></div>
+  </div>
+
+  <div id="panel-reports" class="panel">
+    <div id="reports-list">cargando…</div>
+  </div>
+</div>
+
+<script>
+let testsMeta = [];
+let currentMode = 'scan';
+let discoveredServers = [];
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'reports') loadReports();
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-tabs button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+
+  document.getElementById('full-fieldset').style.display = mode === 'full' ? 'block' : 'none';
+  document.getElementById('target-fieldset').style.display = mode === 'full' ? 'none' : 'block';
+  document.getElementById('compare-auth-line').style.display = mode === 'full' ? 'none' : 'flex';
+
+  const testsFieldset = document.getElementById('tests-fieldset');
+  const testsHint = document.getElementById('tests-hint');
+  if (mode === 'vet') {
+    testsFieldset.style.display = 'none';
+    testsHint.textContent = '';
+  } else if (mode === 'full') {
+    testsFieldset.style.display = 'none';
+    testsHint.textContent = '';
+  } else {
+    testsFieldset.style.display = 'block';
+    testsHint.textContent = '';
+  }
+
+  const envHint = document.getElementById('environment-hint');
+  envHint.textContent = mode === 'vet' ? 'vet fuerza production' : '';
+
+  document.getElementById('run-btn').textContent = mode === 'full' ? '▶ Correr full' : (mode === 'vet' ? '▶ Correr vet' : '▶ Correr scan');
+}
+
+function toggleTransport() {
+  const t = document.getElementById('transport').value;
+  document.getElementById('stdio-fields').style.display = t === 'stdio' ? 'flex' : 'none';
+  document.getElementById('url-fields').style.display = t === 'stdio' ? 'none' : 'flex';
+}
+
+async function loadTests() {
+  const res = await fetch('/api/tests');
+  testsMeta = await res.json();
+  const byCat = {};
+  testsMeta.forEach(t => { (byCat[t.category] ||= []).push(t); });
+  let html = '';
+  for (const cat of Object.keys(byCat).sort()) {
+    html += `<div class="cat-group"><h4>${esc(cat)}</h4>`;
+    for (const t of byCat[cat]) {
+      const netTag = t.requires_network ? ' <span class="net-tag">⚠️ red externa</span>' : '';
+      const tip = t.description ? `<span class="tip" tabindex="0" data-tip="${esc(t.description)}">?</span>` : '';
+      html += `<div class="checkline">
+        <input type="checkbox" class="test-cb" id="test-${esc(t.id)}" value="${esc(t.id)}" ${t.default_enabled ? 'checked' : ''}>
+        <label for="test-${esc(t.id)}">${esc(t.id)} — ${esc(t.name)}${netTag}</label>
+        ${tip}
+      </div>`;
+    }
+    html += `</div>`;
+  }
+  document.getElementById('tests-container').innerHTML = html;
+}
+
+async function loadDiscovered() {
+  const res = await fetch('/api/discover');
+  discoveredServers = await res.json();
+  const box = document.getElementById('discovered');
+  if (!discoveredServers.length) { box.innerHTML = '<p class="sub">Sin configs conocidos en esta máquina.</p>'; return; }
+  box.innerHTML = '<table><tr><th></th><th>Cliente</th><th>Server</th><th>Target</th><th></th></tr>' +
+    discoveredServers.map((s, i) => `<tr>
+      <td><input type="checkbox" class="discovered-cb" data-idx="${i}"></td>
+      <td>${esc(s.client)}</td><td>${esc(s.server_name)}</td>
+      <td>${esc(s.url || (s.command + ' ' + (s.args||[]).join(' ')))}</td>
+      <td><button type="button" class="secondary" onclick='fillFrom(${JSON.stringify(s).replace(/'/g, "&apos;")})'>usar en scan/vet</button></td></tr>`).join('') +
+    '</table><p class="hint">"usar en scan/vet" rellena el Target de arriba con ese server. Para <code>full</code>, tildá el checkbox de la izquierda en los que quieras incluir.</p>';
+}
+
+function fillFrom(s) {
+  if (s.url) {
+    document.getElementById('transport').value = 'http';
+    document.getElementById('url').value = s.url;
+  } else {
+    document.getElementById('transport').value = 'stdio';
+    document.getElementById('command').value = s.command || '';
+    document.getElementById('args').value = (s.args || []).join(' ');
+  }
+  toggleTransport();
+}
+
+function truncateJs(value, n = 200) {
+  let s = (typeof value === 'string') ? value : JSON.stringify(value);
+  s = (s || '').replace(/\n/g, ' ');
+  return s.length <= n ? s : s.slice(0, n) + '…';
+}
+
+function log(line) {
+  const el = document.getElementById('log');
+  el.textContent += line + "\n";
+  el.scrollTop = el.scrollHeight;
+}
+
+function collectBaseParams() {
+  return {
+    mode: currentMode,
+    name: document.getElementById('name').value,
+    auth_type: document.getElementById('auth_type').value,
+    auth_token: document.getElementById('auth_token').value,
+    auth_header_name: document.getElementById('auth_header_name').value,
+    headers_raw: document.getElementById('headers_raw').value,
+    compare_auth: document.getElementById('compare_auth').checked,
+    environment: document.getElementById('environment').value,
+    max_fuzz_cases: document.getElementById('max_fuzz_cases').value,
+    request_delay_ms: document.getElementById('request_delay_ms').value,
+    source_path: document.getElementById('source_path').value,
+    package_name: document.getElementById('package_name').value,
+    oob_callback_host: document.getElementById('oob_callback_host').value,
+    allow_network: document.getElementById('allow_network').checked,
+    verbose: document.getElementById('verbose').checked,
+    allowlist_path: document.getElementById('allowlist_path').value,
+    min_confidence: document.getElementById('min_confidence').value,
+    live_agent_provider: document.getElementById('live_agent_provider').value,
+    test_timeout_s: document.getElementById('test_timeout_s').value,
+    baseline_path: document.getElementById('baseline_path').value,
+    webhook_on_regression: document.getElementById('webhook_on_regression').value,
+    auth_type_b: document.getElementById('auth_type_b').value,
+    auth_token_b: document.getElementById('auth_token_b').value,
+    auth_header_name_b: document.getElementById('auth_header_name_b').value,
+    no_sandbox: document.getElementById('no_sandbox').checked,
+    sandbox_mem_mb: document.getElementById('sandbox_mem_mb').value,
+    sandbox_cpu_s: document.getElementById('sandbox_cpu_s').value,
+    sandbox_nproc: document.getElementById('sandbox_nproc').value,
+    sandbox_nofile: document.getElementById('sandbox_nofile').value,
+    max_consecutive_timeouts: document.getElementById('max_consecutive_timeouts').value,
+    max_text_for_analysis: document.getElementById('max_text_for_analysis').value,
+    max_response_content: document.getElementById('max_response_content').value,
+    no_session_reset: document.getElementById('no_session_reset').checked,
+    tests: Array.from(document.querySelectorAll('.test-cb:checked')).map(cb => cb.value),
+  };
+}
+
+function runScan() {
+  if (currentMode === 'full') { runFull(); return; }
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  document.getElementById('log').textContent = '';
+  document.getElementById('result').innerHTML = '';
+
+  const params = {
+    ...collectBaseParams(),
+    transport: document.getElementById('transport').value,
+    command: document.getElementById('command').value,
+    args: document.getElementById('args').value,
+    url: document.getElementById('url').value,
+  };
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws/scan`);
+  ws.onopen = () => ws.send(JSON.stringify(params));
+  ws.onmessage = (msg) => {
+    const data = JSON.parse(msg.data);
+    if (data.type === 'progress') {
+      const e = data.event;
+      if (e.type === 'test_started') log(`▶ ${e.test_id} — ${e.name}`);
+      else if (e.type === 'tool_call') {
+        const elapsed = e.elapsed_ms ? ` (${e.elapsed_ms.toFixed(1)}ms)` : '';
+        log(`    → ${e.kind}(${truncateJs(e.request)})${elapsed}`);
+        if (e.error) log(`      ✖ error: ${truncateJs(e.error, 120)}`);
+        else if (e.response !== null && e.response !== undefined) log(`      ← ${truncateJs(e.response)}`);
+      }
+      else if (e.type === 'test_finished') log(`  ${e.confirmed ? '🔴' : '🟢'} ${e.findings_count} findings, ${e.confirmed} confirmados`);
+      else if (e.type === 'test_error') log(`  ✖ error en ${e.test_id}: ${e.error}${e.timeout ? ' (timeout)' : ''}`);
+      else if (e.type === 'connection_error') log(`✖ error de conexión: ${e.error}`);
+      else if (e.type === 'scan_started') log(`— scan ${e.scan_id} iniciado (${e.tests_selected.length} tests) —`);
+      else if (e.type === 'noise_reduction') log(`  · reducción de ruido: ${e.allowlisted} suprimido(s) por allowlist, ${e.below_confidence_floor} por piso de confidence`);
+      else if (e.type === 'log') log(e.message);
+    } else if (data.type === 'fatal_error') {
+      log(`✖ FATAL: ${data.error}`);
+      btn.disabled = false;
+    } else if (data.type === 'done') {
+      renderResult(data);
+      btn.disabled = false;
+    }
+  };
+  ws.onerror = () => { log('✖ error de WebSocket'); btn.disabled = false; };
+}
+
+function renderResult(data) {
+  const s = data.summary, sc = data.score, pv = data.policy_verdict;
+  let html = `<div class="stat"><b>${s.confirmed_findings}</b>hallazgos confirmados</div>`;
+  if (s.suppressed_findings) html += `<div class="stat"><b>${s.suppressed_findings}</b>suprimidos (no gatean score/policy)</div>`;
+  if (sc) html += `<div class="stat"><b>${sc.score}/100 (${sc.grade})</b>score</div>`;
+  html += `<div class="verdict ${pv.overall}">Policy (${pv.environment}): ${pv.overall}</div>`;
+  if (data.auth_impact) {
+    html += `<p>${data.auth_impact.summary}</p>`;
+  }
+  if (data.baseline_diff) {
+    html += `<p><b>Baseline:</b> ${data.baseline_diff.summary}</p>`;
+  }
+  html += `<p><a href="${data.links.html}" target="_blank">reporte HTML</a> ·
+    <a href="${data.links.json}" target="_blank">JSON</a> ·
+    <a href="${data.links.sarif}" target="_blank">SARIF</a></p>`;
+  if (data.links_without_auth) {
+    html += `<p>Corrida sin auth: <a href="${data.links_without_auth.html}" target="_blank">reporte HTML</a></p>`;
+  }
+  document.getElementById('result').innerHTML = html;
+}
+
+function runFull() {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  document.getElementById('log').textContent = '';
+  document.getElementById('result').innerHTML = '';
+
+  const selected = Array.from(document.querySelectorAll('.discovered-cb:checked'))
+    .map(cb => discoveredServers[parseInt(cb.dataset.idx, 10)]);
+
+  const params = {
+    ...collectBaseParams(),
+    full_config_json: document.getElementById('full_config_json').value,
+    full_selected_targets: selected,
+    full_mode: document.getElementById('full_mode').value,
+    concurrency: document.getElementById('concurrency').value,
+  };
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws/full`);
+  ws.onopen = () => ws.send(JSON.stringify(params));
+  ws.onmessage = (msg) => {
+    const data = JSON.parse(msg.data);
+    if (data.type === 'progress') {
+      const e = data.event;
+      if (e.type === 'test_started') log(`[${data.target}] ▶ ${e.test_id}`);
+      else if (e.type === 'tool_call') {
+        const elapsed = e.elapsed_ms ? ` (${e.elapsed_ms.toFixed(1)}ms)` : '';
+        log(`[${data.target}]     → ${e.kind}(${truncateJs(e.request)})${elapsed}`);
+        if (e.error) log(`[${data.target}]       ✖ error: ${truncateJs(e.error, 120)}`);
+        else if (e.response !== null && e.response !== undefined) log(`[${data.target}]       ← ${truncateJs(e.response)}`);
+      }
+      else if (e.type === 'test_finished') log(`[${data.target}]   ${e.confirmed ? '🔴' : '🟢'} ${e.findings_count} findings, ${e.confirmed} confirmados`);
+      else if (e.type === 'test_error') log(`[${data.target}]   ✖ error en ${e.test_id}: ${e.error}`);
+      else if (e.type === 'connection_error') log(`[${data.target}] ✖ error de conexión: ${e.error}`);
+      else if (e.type === 'log') log(`[${data.target}] ${e.message}`);
+    } else if (data.type === 'target_done') {
+      log(`[${data.target}] ✔ listo — ${data.summary.confirmed_findings} hallazgos, grade ${data.score ? data.score.grade : '?'}, policy ${data.policy_verdict ? data.policy_verdict.overall : '?'}`);
+    } else if (data.type === 'target_error') {
+      log(`[${data.target}] ✖ falló: ${data.error}`);
+    } else if (data.type === 'fatal_error') {
+      log(`✖ FATAL: ${data.error}`);
+      btn.disabled = false;
+    } else if (data.type === 'full_done') {
+      renderFullResult(data);
+      btn.disabled = false;
+    }
+  };
+  ws.onerror = () => { log('✖ error de WebSocket'); btn.disabled = false; };
+}
+
+function renderFullResult(data) {
+  let html = `<h3>Resumen full (${data.results.length} target(s))</h3>`;
+  html += '<table><tr><th>Target</th><th>Hallazgos</th><th>Grade</th><th>Policy</th><th>Reporte</th></tr>' +
+    data.results.map(r => {
+      if (r.error) return `<tr><td>${r.name}</td><td colspan="3" style="color:#f87171">error: ${r.error}</td><td></td></tr>`;
+      const grade = r.score ? r.score.grade : '?';
+      const pv = r.policy_verdict ? r.policy_verdict.overall : '?';
+      return `<tr><td>${r.name}</td><td>${r.summary.confirmed_findings}</td><td>${grade}</td>
+        <td class="verdict ${pv}" style="display:inline-block;padding:.1rem .5rem">${pv}</td>
+        <td><a href="${r.links.html}" target="_blank">HTML</a> · <a href="${r.links.json}" target="_blank">JSON</a></td></tr>`;
+    }).join('') + '</table>';
+
+  if (data.cross_server && data.cross_server.applicable) {
+    html += `<h3 style="margin-top:1.2rem">Correlación cross-server</h3><p class="sub">${data.cross_server.summary}</p>`;
+    if (data.cross_server.tool_shadowing.length) {
+      html += '<h4>Tool shadowing</h4><table><tr><th>Sev</th><th>Tipo</th><th>Servers</th><th>Tools</th><th>Detalle</th></tr>' +
+        data.cross_server.tool_shadowing.map(i => `<tr><td class="sev-${i.severity}">${i.severity}</td><td>${i.kind}</td>
+          <td>${i.servers.join(' / ')}</td><td>${i.tools.join(' / ')}</td><td>${i.detail}</td></tr>`).join('') + '</table>';
+    }
+    if (data.cross_server.cross_server_exfil_chains.length) {
+      html += '<h4>Cadenas de exfiltración cross-server</h4><table><tr><th>Sev</th><th>Servers</th><th>Tools</th><th>Detalle</th></tr>' +
+        data.cross_server.cross_server_exfil_chains.map(i => `<tr><td class="sev-${i.severity}">${i.severity}</td>
+          <td>${i.servers.join(' / ')}</td><td>${i.tools.join(' / ')}</td><td>${i.detail}</td></tr>`).join('') + '</table>';
+    }
+    if (!data.cross_server.tool_shadowing.length && !data.cross_server.cross_server_exfil_chains.length) {
+      html += '<p style="color:#6ee7b7">✓ sin indicios de tool shadowing ni cadenas de exfiltración cross-server.</p>';
+    }
+  } else if (data.results.filter(r => !r.error).length >= 2) {
+    html += '<p class="sub" style="margin-top:1rem">Correlación cross-server no disponible para esta corrida.</p>';
+  }
+
+  document.getElementById('result').innerHTML = html;
+}
+
+async function loadReports() {
+  const res = await fetch('/api/reports');
+  const reports = await res.json();
+  const box = document.getElementById('reports-list');
+  if (!reports.length) { box.innerHTML = '<p class="sub">Sin reportes todavía.</p>'; return; }
+  box.innerHTML = '<table><tr><th>Target</th><th>Modo</th><th>Fecha</th><th>Score</th><th>Policy</th><th>Reporte</th></tr>' +
+    reports.map(r => {
+      const href = (r.links && r.links.html) ? r.links.html : `/reports/${r.scan_id}/report.html`;
+      return `<tr>
+      <td>${r.target_name}${r.batch_id ? ' <span class="pill">full</span>' : ''}</td>
+      <td>${r.mode || 'scan'}</td>
+      <td>${r.started_at}</td>
+      <td>${r.score ? r.score.score + '/100 (' + r.score.grade + ')' : '—'}</td>
+      <td>${r.policy_verdict ? r.policy_verdict.overall : '—'}</td>
+      <td><a href="${href}" target="_blank">ver</a></td>
+    </tr>`;
+    }).join('') + '</table>';
+}
+
+loadTests();
+</script>
+</body>
+</html>

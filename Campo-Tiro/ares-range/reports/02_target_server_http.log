@@ -1,0 +1,111 @@
+Error de conexión: All connection attempts failed
+▶ corriendo recon.enumerate — Enumeración de tools/resources/prompts
+  ✖ error en recon.enumerate: 'NoneType' object has no attribute 'list_tools'
+▶ corriendo recon.suspicious_descriptions — Análisis de descripciones 
+sospechosas (tool poisoning / line jumping)
+  ✖ error en recon.suspicious_descriptions: 'NoneType' object has no attribute 
+'list_tools'
+▶ corriendo recon.audit_logging — Soporte de audit/telemetría (logging 
+capability)
+  🟢 1 findings, 0 confirmados
+▶ corriendo recon.excessive_permissions — Detección de permisos/alcance excesivo
+declarado
+  ✖ error en recon.excessive_permissions: 'NoneType' object has no attribute 
+'list_tools'
+▶ corriendo static.schema_permissive — Detección de schemas demasiado permisivos
+  ✖ error en static.schema_permissive: 'NoneType' object has no attribute 
+'list_tools'
+▶ corriendo static.no_schema — Tools sin input_schema definido
+  ✖ error en static.no_schema: 'NoneType' object has no attribute 'list_tools'
+▶ corriendo static.known_cve_check — CVEs conocidos de servers MCP oficiales 
+(feed curado)
+  🟢 1 findings, 0 confirmados
+▶ corriendo dynamic.fuzz_tools — Fuzzing black-box de parámetros por tool
+  ✖ error en dynamic.fuzz_tools: 'NoneType' object has no attribute 'list_tools'
+▶ corriendo dynamic.command_injection_confirmed — Command injection confirmado 
+por canario
+  ✖ error en dynamic.command_injection_confirmed: 'NoneType' object has no 
+attribute 'list_tools'
+▶ corriendo dynamic.path_traversal_confirmed — Path traversal confirmado por 
+contenido de /etc/passwd
+  ✖ error en dynamic.path_traversal_confirmed: 'NoneType' object has no 
+attribute 'list_tools'
+▶ corriendo dynamic.credential_harvest_paths — Path traversal dirigido a 
+credenciales conocidas (SSH, cloud, configs MCP)
+  ✖ error en dynamic.credential_harvest_paths: 'NoneType' object has no 
+attribute 'list_tools'
+▶ corriendo dynamic.fuzz_resources — Fuzzing de URIs de resources (estáticos y 
+templates)
+  ✖ error en dynamic.fuzz_resources: 'NoneType' object has no attribute 
+'list_resources'
+▶ corriendo adv.injection_passthrough — Passthrough de prompt injection sin 
+sanitizar
+  ✖ error en adv.injection_passthrough: 'NoneType' object has no attribute 
+'list_tools'
+▶ corriendo adv.confused_deputy — Confused deputy / escalación de alcance
+  ✖ error en adv.confused_deputy: 'NoneType' object has no attribute 
+'list_tools'
+▶ corriendo adv.destructive_no_confirmation — Ejecución de acciones destructivas
+sin confirmación
+  ✖ error en adv.destructive_no_confirmation: 'NoneType' object has no attribute
+'list_tools'
+▶ corriendo adv.rug_pull — Rug pull: la definición de un tool cambió desde el 
+baseline
+  🟢 1 findings, 0 confirmados
+▶ corriendo supplychain.secret_exposure — Secretos expuestos en definiciones
+  ✖ error en supplychain.secret_exposure: 'NoneType' object has no attribute 
+'list_tools'
+▶ corriendo supplychain.tool_squatting — Tool squatting / confused deputy
+  ✖ error en supplychain.tool_squatting: 'NoneType' object has no attribute 
+'list_tools'
+▶ corriendo supplychain.exfiltration_chain — Cadena de exfiltración lector -> 
+emisor
+  ✖ error en supplychain.exfiltration_chain: 'NoneType' object has no attribute 
+'list_tools'
+▶ corriendo supplychain.malicious_patterns — Patrones de contenido malicioso 
+(heurística tipo YARA)
+  ✖ error en supplychain.malicious_patterns: 'NoneType' object has no attribute 
+'list_tools'
+▶ corriendo auth.unauthenticated_access — Acceso sin autenticación
+  🟢 1 findings, 0 confirmados
+▶ corriendo auth.oauth_metadata_security — Seguridad de metadata OAuth 2.1 (RFC 
+9728 / MCP authorization spec)
+  🟢 1 findings, 0 confirmados
+▶ corriendo exposure.transport_security — Transporte sin TLS
+  🔴 1 findings, 1 confirmados
+▶ corriendo exposure.cors_misconfig — Configuración CORS insegura
+  🟢 1 findings, 0 confirmados
+▶ corriendo exposure.network_reachability — Clasificación de alcance de red 
+(interno vs público)
+  🟢 1 findings, 0 confirmados
+▶ corriendo exposure.session_id_entropy — Entropía y longitud del Mcp-Session-Id
+(transporte http)
+  🟢 0 findings, 0 confirmados
+
+Resumen: 1 hallazgos confirmados de 8 tests
+  por severidad: {'info': 0, 'low': 0, 'medium': 0, 'high': 1, 'critical': 0}
+  Score: 85/100 (grade B) — RIESGO ALTO — 1 hallazgo(s) de severidad alta 
+confirmado(s).
+  Policy verdict: CONDITIONAL
+
+Reporte guardado: 
+/home/user/Tools/RedTeam/MCP/Ares/Campo-Tiro/ares-range/reports/02_target_server
+_http.html / 
+/home/user/Tools/RedTeam/MCP/Ares/Campo-Tiro/ares-range/reports/02_target_server
+_http.json
+SARIF guardado: 
+/home/user/Tools/RedTeam/MCP/Ares/Campo-Tiro/ares-range/reports/02_target_server
+_http.sarif
+             Hallazgos confirmados — http://127.0.0.1:8765/mcp (1)              
+┏━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
+┃ Sev  ┃ Conf     ┃ Test ID        ┃ Target ┃ Título          ┃ Remediación    ┃
+┡━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━┩
+│ HIGH │ verified │ exposure.tran… │ server │ Endpoint MCP    │ Servir el      │
+│      │          │                │        │ servido sin TLS │ endpoint MCP   │
+│      │          │                │        │                 │ exclusivamente │
+│      │          │                │        │                 │ sobre TLS      │
+│      │          │                │        │                 │ (https/wss),   │
+│      │          │                │        │                 │ incluso en     │
+│      │          │                │        │                 │ redes          │
+│      │          │                │        │                 │ internas.      │
+└──────┴──────────┴────────────────┴────────┴─────────────────┴────────────────┘

@@ -1,0 +1,83 @@
+/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/pydantic_settings/sources/utils.py:47: IncompleteFieldDefinitionWarning: Field 'lifespan' has an incomplete definition: its annotation contains an unresolved forward reference, so settings sources may fail to correctly resolve its value. Call `model_rebuild()` on the model where the field is defined, once all the referenced types are defined.
+  warnings.warn(
+▶ corriendo recon.enumerate — Enumeración de tools/resources/prompts
+  🟢 1 findings, 0 confirmados
+▶ corriendo recon.suspicious_descriptions — Análisis de descripciones 
+sospechosas (tool poisoning / line jumping)
+  🟢 1 findings, 0 confirmados
+▶ corriendo recon.audit_logging — Soporte de audit/telemetría (logging 
+capability)
+  🔴 1 findings, 1 confirmados
+▶ corriendo recon.excessive_permissions — Detección de permisos/alcance excesivo
+declarado
+  🟢 1 findings, 0 confirmados
+▶ corriendo static.schema_permissive — Detección de schemas demasiado permisivos
+  🔴 1 findings, 1 confirmados
+▶ corriendo static.no_schema — Tools sin input_schema definido
+  🔴 1 findings, 1 confirmados
+▶ corriendo static.known_cve_check — CVEs conocidos de servers MCP oficiales 
+(feed curado)
+  🟢 1 findings, 0 confirmados
+▶ corriendo dynamic.fuzz_tools — Fuzzing black-box de parámetros por tool
+  ✖ error en dynamic.fuzz_tools: timeout (timeout)
+▶ corriendo dynamic.command_injection_confirmed — Command injection confirmado 
+por canario
+  + Exception Group Traceback (most recent call last):
+  |   File "/home/user/Tools/RedTeam/MCP/Ares/Campo-Tiro/ares-range/hostile_to_scanner.py", line 52, in <module>
+  |     mcp.run(transport="stdio")
+  |     ~~~~~~~^^^^^^^^^^^^^^^^^^^
+  |   File "/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/mcp/server/fastmcp/server.py", line 299, in run
+  |     anyio.run(self.run_stdio_async)
+  |     ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/anyio/_core/_eventloop.py", line 83, in run
+  |     return async_backend.run(func, args, {}, backend_options)
+  |            ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 2548, in run
+  |     return runner.run(wrapper())
+  |            ~~~~~~~~~~^^^^^^^^^^^
+  |   File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+  |     return self._loop.run_until_complete(task)
+  |            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  |   File "/usr/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+  |     return future.result()
+  |            ~~~~~~~~~~~~~^^
+  |   File "/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 2531, in wrapper
+  |     return await func(*args)
+  |            ^^^^^^^^^^^^^^^^^
+  |   File "/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/mcp/server/fastmcp/server.py", line 758, in run_stdio_async
+  |     async with stdio_server() as (read_stream, write_stream):
+  |                ~~~~~~~~~~~~^^
+  |   File "/usr/lib/python3.13/contextlib.py", line 221, in __aexit__
+  |     await anext(self.gen)
+  |   File "/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/mcp/server/stdio.py", line 85, in stdio_server
+  |     async with anyio.create_task_group() as tg:
+  |                ~~~~~~~~~~~~~~~~~~~~~~~^^
+  |   File "/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 847, in __aexit__
+  |     raise BaseExceptionGroup(
+  |         "unhandled errors in a TaskGroup", self._exceptions
+  |     ) from None
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Traceback (most recent call last):
+    |   File "/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/anyio/_core/_tasks.py", line 327, in _run_coro
+    |     retval = await self._coro
+    |              ^^^^^^^^^^^^^^^^
+    |   File "/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/mcp/server/stdio.py", line 80, in stdout_writer
+    |     await stdout.write(json + "\n")
+    |   File "/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/anyio/_core/_fileio.py", line 144, in write
+    |     return await to_thread.run_sync(self._fp.write, b, limiter=self._limiter)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/anyio/to_thread.py", line 65, in run_sync
+    |     return await get_async_backend().run_sync_in_worker_thread(
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |         func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |     )
+    |     ^
+    |   File "/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 2706, in run_sync_in_worker_thread
+    |     return await future
+    |            ^^^^^^^^^^^^
+    |   File "/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 1100, in run
+    |     result = context.run(func, *args)
+    | BrokenPipeError: [Errno 32] Broken pipe
+    +------------------------------------

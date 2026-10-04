@@ -1,0 +1,2682 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Ares",
+          "informationUri": "https://modelcontextprotocol.io",
+          "rules": [
+            {
+              "id": "adv.destructive_no_confirmation",
+              "name": "adv.destructive_no_confirmation",
+              "shortDescription": {
+                "text": "Tool destructivo sin parámetro de confirmación: 'delete_customer'"
+              },
+              "fullDescription": {
+                "text": "No se detectó parámetro de confirmación/dry_run en el schema."
+              },
+              "help": {
+                "text": "Requerir un parámetro explícito de confirmación (y hacerlo cumplir server-side), y/o depender de human-in-the-loop del cliente MCP para acciones destructivas."
+              },
+              "properties": {
+                "category": "adversarial",
+                "tags": [
+                  "OWASP-LLM:LLM06:2025",
+                  "AGENTIC:human-in-the-loop-bypass"
+                ],
+                "security-severity": "8.1"
+              }
+            },
+            {
+              "id": "adv.injection_passthrough",
+              "name": "adv.injection_passthrough",
+              "shortDescription": {
+                "text": "Payload de injection reflejado intacto por 'fetch_docs'"
+              },
+              "fullDescription": {
+                "text": "El parámetro 'doc_id' acepta y refleja/almacena contenido con instrucciones dirigidas a un LLM sin ningún tipo de sanitización o escapado -- la llamada fue exitosa (is_error=false), no un rechazo. Si este dato vuelve a ser leído por el agente (ej. vía otro tool de lectura), puede resultar en secuestro del contexto."
+              },
+              "help": {
+                "text": "Sanitizar o marcar explícitamente (delimitadores, encoding) cualquier contenido externo antes de que pueda volver a integrarse al contexto del modelo. Aplicar el principio de 'never mix instructions and data'."
+              },
+              "properties": {
+                "category": "adversarial",
+                "tags": [
+                  "OWASP-MCP:MCP06:2025",
+                  "OWASP-LLM:LLM01:2025",
+                  "ATLAS"
+                ],
+                "security-severity": "6.5"
+              }
+            },
+            {
+              "id": "dynamic.command_injection_confirmed",
+              "name": "dynamic.command_injection_confirmed",
+              "shortDescription": {
+                "text": "Command injection CONFIRMADO en 'run_diagnostic' vía 'cmd'"
+              },
+              "fullDescription": {
+                "text": "El canario 'ARES_RT_3cf9dc1991db8948' apareció en la respuesta tras eliminar cualquier eco literal del payload — el comando inyectado se ejecutó realmente en el host, no fue solo reflejado como texto."
+              },
+              "help": {
+                "text": "Nunca pasar input de usuario a un shell (subprocess con shell=True, execSync, os.system). Usar APIs que reciban argumentos como lista, sin interpretación de shell."
+              },
+              "properties": {
+                "category": "dynamic",
+                "tags": [
+                  "OWASP-MCP:MCP05:2025",
+                  "OWASP-LLM:LLM05:2025",
+                  "ATLAS:AML.T0085.001"
+                ],
+                "security-severity": "9.8"
+              }
+            },
+            {
+              "id": "dynamic.fuzz_tools",
+              "name": "dynamic.fuzz_tools",
+              "shortDescription": {
+                "text": "Leak de información interna en 'notify_webhook'"
+              },
+              "fullDescription": {
+                "text": "path absoluto del filesystem filtrado. Detectado al enviar payload adversarial."
+              },
+              "help": {
+                "text": "Capturar excepciones y devolver mensajes de error genéricos al cliente; loguear el detalle solo server-side."
+              },
+              "properties": {
+                "category": "dynamic",
+                "tags": [
+                  "OWASP-LLM:LLM05:2025",
+                  "OWASP-API:API8:2023"
+                ],
+                "security-severity": "5.3"
+              }
+            },
+            {
+              "id": "dynamic.path_traversal_confirmed",
+              "name": "dynamic.path_traversal_confirmed",
+              "shortDescription": {
+                "text": "Path traversal CONFIRMADO en 'read_config' vía 'name'"
+              },
+              "fullDescription": {
+                "text": "La respuesta contiene contenido real de /etc/passwd tras enviar '/etc/passwd' como 'name'."
+              },
+              "help": {
+                "text": "Resolver y validar la ruta contra un directorio base permitido (allowlist), rechazando cualquier ruta que escape de ese directorio."
+              },
+              "properties": {
+                "category": "dynamic",
+                "tags": [
+                  "OWASP-API:API8:2023",
+                  "ATLAS"
+                ],
+                "security-severity": "7.5"
+              }
+            },
+            {
+              "id": "recon.audit_logging",
+              "name": "recon.audit_logging",
+              "shortDescription": {
+                "text": "Sin soporte de logging declarado"
+              },
+              "fullDescription": {
+                "text": "El server NO declara el capability 'logging'. Esto no prueba que no loguee nada server-side (puede hacerlo fuera del protocolo MCP), pero sí significa que no hay un canal estándar para que el cliente reciba esos logs, y es una señal de que la telemetría no fue una prioridad de diseño."
+              },
+              "help": {
+                "text": "Implementar el capability 'logging' del protocolo MCP y loguear cada tool call (nombre, argumentos, resultado, identidad del cliente) server-side como mínimo, para poder auditar e investigar incidentes después del hecho."
+              },
+              "properties": {
+                "category": "recon",
+                "tags": [
+                  "OWASP-MCP:MCP08:2025"
+                ],
+                "security-severity": "0.0"
+              }
+            },
+            {
+              "id": "recon.excessive_permissions",
+              "name": "recon.excessive_permissions",
+              "shortDescription": {
+                "text": "Tool con capacidad potencialmente peligrosa: 'delete_customer'"
+              },
+              "fullDescription": {
+                "text": "Palabras clave de alto riesgo detectadas: ['delete']. Validar sandboxing, límites y confirmación humana antes de ejecutar."
+              },
+              "help": {
+                "text": "Asegurar sandboxing estricto, allowlist de comandos/paths, y human-in-the-loop para operaciones destructivas o de ejecución arbitraria."
+              },
+              "properties": {
+                "category": "recon",
+                "tags": [
+                  "OWASP-MCP:MCP02:2025",
+                  "OWASP-LLM:LLM06:2025",
+                  "AGENTIC:excessive-agency"
+                ],
+                "security-severity": "5.6"
+              }
+            },
+            {
+              "id": "recon.suspicious_descriptions",
+              "name": "recon.suspicious_descriptions",
+              "shortDescription": {
+                "text": "Descripción sospechosa en 'run_diagnostic' (description)"
+              },
+              "fullDescription": {
+                "text": "Patrones detectados: instrucción imperativa fuera de contexto normal de uso, ejecución encubierta"
+              },
+              "help": {
+                "text": "Revisar manualmente la descripción del tool Y de cada parámetro; eliminar instrucciones dirigidas al modelo que no sean documentación legítima de uso, y cualquier carácter Unicode invisible."
+              },
+              "properties": {
+                "category": "recon",
+                "tags": [
+                  "OWASP-MCP:MCP03:2025",
+                  "OWASP-LLM:LLM01:2025",
+                  "ATLAS:AML.T0011.002"
+                ],
+                "security-severity": "5.9"
+              }
+            },
+            {
+              "id": "static.schema_permissive",
+              "name": "static.schema_permissive",
+              "shortDescription": {
+                "text": "Schema permisivo en tool 'fetch_docs'"
+              },
+              "fullDescription": {
+                "text": "parámetro string 'doc_id' sin enum/pattern/maxLength (riesgo de injection/path traversal)"
+              },
+              "help": {
+                "text": "Restringir tipos, usar enum/pattern/maxLength en parámetros string, y additionalProperties=false salvo necesidad explícita."
+              },
+              "properties": {
+                "category": "static",
+                "tags": [
+                  "OWASP-API:API8:2023"
+                ],
+                "security-severity": "4.8"
+              }
+            },
+            {
+              "id": "supplychain.dependency_vulnerabilities",
+              "name": "supplychain.dependency_vulnerabilities",
+              "shortDescription": {
+                "text": "pyyaml 5.1: GHSA-3pqx-4fqf-j49f — CVSS 9.8 (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H)"
+              },
+              "fullDescription": {
+                "text": "Deserialization of Untrusted Data in PyYAML"
+              },
+              "help": {
+                "text": "Actualizar a: ['5.2']"
+              },
+              "properties": {
+                "category": "supplychain",
+                "tags": [
+                  "OWASP-MCP:MCP04:2025",
+                  "OWASP-LLM:LLM03:2025"
+                ],
+                "security-severity": "9.8"
+              }
+            },
+            {
+              "id": "supplychain.exfiltration_chain",
+              "name": "supplychain.exfiltration_chain",
+              "shortDescription": {
+                "text": "Posible cadena de exfiltración: tools lectoras + tools emisoras"
+              },
+              "fullDescription": {
+                "text": "Tools lectoras de datos sensibles: ['fetch_docs', 'read_config']. Tools que envían datos afuera: ['notify_webhook', 'notify_webhok']. Un agente comprometido (vía prompt injection indirecta) puede encadenar lector->emisor para exfiltrar datos sin que ninguna tool individual sea 'maliciosa' por sí sola."
+              },
+              "help": {
+                "text": "Requerir confirmación humana explícita antes de que datos leídos de fuentes sensibles se pasen a una tool de red/envío en el mismo flujo del agente."
+              },
+              "properties": {
+                "category": "supplychain",
+                "tags": [
+                  "OWASP-LLM:LLM02:2025",
+                  "ATLAS:AML.T0086"
+                ],
+                "security-severity": "6.1"
+              }
+            },
+            {
+              "id": "supplychain.malicious_patterns",
+              "name": "supplychain.malicious_patterns",
+              "shortDescription": {
+                "text": "Contenido sospechoso en 'format_amount': tool_poisoning"
+              },
+              "fullDescription": {
+                "text": "Categorías de regla que matchearon: ['tool_poisoning']."
+              },
+              "help": {
+                "text": "Revisar manualmente el contenido; si es legítimo, documentar el falso positivo. Si no, tratar como indicador de tool maliciosa/comprometida."
+              },
+              "properties": {
+                "category": "supplychain",
+                "tags": [
+                  "OWASP-MCP:MCP03:2025",
+                  "OWASP-LLM:LLM01:2025",
+                  "ATLAS:AML.T0011.002"
+                ],
+                "security-severity": "7.1"
+              }
+            },
+            {
+              "id": "supplychain.secret_exposure",
+              "name": "supplychain.secret_exposure",
+              "shortDescription": {
+                "text": "Anthropic API key expuesto en 'fetch_docs'"
+              },
+              "fullDescription": {
+                "text": "Se detectó un patrón de Anthropic API key en la definición de 'fetch_docs'. Muestra: sk-ant…WXYZ"
+              },
+              "help": {
+                "text": "Nunca embeber secretos en descripciones/schemas de tools. Usar variables de entorno o un vault, y rotar cualquier credencial expuesta inmediatamente."
+              },
+              "properties": {
+                "category": "supplychain",
+                "tags": [
+                  "OWASP-MCP:MCP01:2025",
+                  "OWASP-LLM:LLM02:2025",
+                  "ATLAS"
+                ],
+                "security-severity": "7.5"
+              }
+            },
+            {
+              "id": "supplychain.source_sast",
+              "name": "supplychain.source_sast",
+              "shortDescription": {
+                "text": "command_injection: rules.ares-py-tool-param-to-shell en Campo-Tiro/ares-range/enterprise_source/server.py:55"
+              },
+              "fullDescription": {
+                "text": "Un parámetro de un tool MCP (@mcp.tool()/@app.tool()) llega a una llamada de shell sin pasar por sanitización -- command injection confirmable (ver dynamic.command_injection_confirmed para la confirmación black-box equivalente)."
+              },
+              "help": {
+                "text": "Revisar la línea señalada: sanitizar/validar antes del sink, o usar una API que no interprete el input como código/comando/ruta sin restricción (ver dynamic.command_injection_confirmed / dynamic.path_traversal_confirmed para la confirmación black-box equivalente, si aplica)."
+              },
+              "properties": {
+                "category": "supplychain",
+                "tags": [
+                  "OWASP-MCP:MCP05:2025",
+                  "OWASP-LLM:LLM05:2025",
+                  "OWASP-API:API8:2023"
+                ],
+                "security-severity": "8.2"
+              }
+            },
+            {
+              "id": "supplychain.tool_squatting",
+              "name": "supplychain.tool_squatting",
+              "shortDescription": {
+                "text": "Nombres de tool casi idénticos: 'notify_webhook' / 'notify_webhok' (similitud 0.986)"
+              },
+              "fullDescription": {
+                "text": "Similitud Jaro-Winkler 0.986 (umbral 0.82). Revisar si ambos nombres son intencionales o uno es un typo-squat."
+              },
+              "help": {
+                "text": "Renombrar para maximizar la distancia léxica entre tools de intención distinta; evitar pares de nombres a una edición de distancia."
+              },
+              "properties": {
+                "category": "supplychain",
+                "tags": [
+                  "OWASP-MCP:MCP03:2025",
+                  "OWASP-LLM:LLM03:2025",
+                  "ATLAS:AML.T0011.002"
+                ],
+                "security-severity": "3.1"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "adv.destructive_no_confirmation",
+          "level": "error",
+          "message": {
+            "text": "No se detectó parámetro de confirmación/dry_run en el schema."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://delete_customer"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "delete_customer",
+            "finding_id": "93464e3f",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:H",
+            "cvss_score": 8.1,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "high",
+              "reputational": "high",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "trivial",
+            "aivss_score": 9.6
+          }
+        },
+        {
+          "ruleId": "adv.injection_passthrough",
+          "level": "error",
+          "message": {
+            "text": "El parámetro 'doc_id' acepta y refleja/almacena contenido con instrucciones dirigidas a un LLM sin ningún tipo de sanitización o escapado -- la llamada fue exitosa (is_error=false), no un rechazo. Si este dato vuelve a ser leído por el agente (ej. vía otro tool de lectura), puede resultar en secuestro del contexto."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://fetch_docs"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "fetch_docs",
+            "finding_id": "f2747a60",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "high",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 8.1
+          }
+        },
+        {
+          "ruleId": "adv.injection_passthrough",
+          "level": "error",
+          "message": {
+            "text": "El parámetro 'doc_id' acepta y refleja/almacena contenido con instrucciones dirigidas a un LLM sin ningún tipo de sanitización o escapado -- la llamada fue exitosa (is_error=false), no un rechazo. Si este dato vuelve a ser leído por el agente (ej. vía otro tool de lectura), puede resultar en secuestro del contexto."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://fetch_docs"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "fetch_docs",
+            "finding_id": "391930f6",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "high",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 8.1
+          }
+        },
+        {
+          "ruleId": "adv.injection_passthrough",
+          "level": "error",
+          "message": {
+            "text": "El parámetro 'doc_id' acepta y refleja/almacena contenido con instrucciones dirigidas a un LLM sin ningún tipo de sanitización o escapado -- la llamada fue exitosa (is_error=false), no un rechazo. Si este dato vuelve a ser leído por el agente (ej. vía otro tool de lectura), puede resultar en secuestro del contexto."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://fetch_docs"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "fetch_docs",
+            "finding_id": "6606c432",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "high",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 8.1
+          }
+        },
+        {
+          "ruleId": "adv.injection_passthrough",
+          "level": "warning",
+          "message": {
+            "text": "El parámetro 'name' fue RECHAZADO (is_error=true), pero el mensaje de validación cita el payload sin sanitizar. Señal débil: no hay evidencia de que se almacene, pero si ese mensaje de error también vuelve al agente, igual podría reconsumirse."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://read_config"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "read_config",
+            "finding_id": "62beccd4",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N",
+            "cvss_score": 4.3,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "low",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 6.9
+          }
+        },
+        {
+          "ruleId": "adv.injection_passthrough",
+          "level": "warning",
+          "message": {
+            "text": "El parámetro 'name' fue RECHAZADO (is_error=true), pero el mensaje de validación cita el payload sin sanitizar. Señal débil: no hay evidencia de que se almacene, pero si ese mensaje de error también vuelve al agente, igual podría reconsumirse."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://read_config"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "read_config",
+            "finding_id": "5e228c82",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N",
+            "cvss_score": 4.3,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "low",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 6.9
+          }
+        },
+        {
+          "ruleId": "adv.injection_passthrough",
+          "level": "warning",
+          "message": {
+            "text": "El parámetro 'name' fue RECHAZADO (is_error=true), pero el mensaje de validación cita el payload sin sanitizar. Señal débil: no hay evidencia de que se almacene, pero si ese mensaje de error también vuelve al agente, igual podría reconsumirse."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://read_config"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "read_config",
+            "finding_id": "f1a0be55",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N",
+            "cvss_score": 4.3,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "low",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 6.9
+          }
+        },
+        {
+          "ruleId": "adv.injection_passthrough",
+          "level": "error",
+          "message": {
+            "text": "El parámetro 'customer_id' acepta y refleja/almacena contenido con instrucciones dirigidas a un LLM sin ningún tipo de sanitización o escapado -- la llamada fue exitosa (is_error=false), no un rechazo. Si este dato vuelve a ser leído por el agente (ej. vía otro tool de lectura), puede resultar en secuestro del contexto."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://delete_customer"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "delete_customer",
+            "finding_id": "178ba87d",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "high",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 8.1
+          }
+        },
+        {
+          "ruleId": "adv.injection_passthrough",
+          "level": "error",
+          "message": {
+            "text": "El parámetro 'customer_id' acepta y refleja/almacena contenido con instrucciones dirigidas a un LLM sin ningún tipo de sanitización o escapado -- la llamada fue exitosa (is_error=false), no un rechazo. Si este dato vuelve a ser leído por el agente (ej. vía otro tool de lectura), puede resultar en secuestro del contexto."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://delete_customer"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "delete_customer",
+            "finding_id": "8a3a7246",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "high",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 8.1
+          }
+        },
+        {
+          "ruleId": "adv.injection_passthrough",
+          "level": "error",
+          "message": {
+            "text": "El parámetro 'customer_id' acepta y refleja/almacena contenido con instrucciones dirigidas a un LLM sin ningún tipo de sanitización o escapado -- la llamada fue exitosa (is_error=false), no un rechazo. Si este dato vuelve a ser leído por el agente (ej. vía otro tool de lectura), puede resultar en secuestro del contexto."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://delete_customer"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "delete_customer",
+            "finding_id": "33193514",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "high",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 8.1
+          }
+        },
+        {
+          "ruleId": "adv.injection_passthrough",
+          "level": "error",
+          "message": {
+            "text": "El parámetro 'url' acepta y refleja/almacena contenido con instrucciones dirigidas a un LLM sin ningún tipo de sanitización o escapado -- la llamada fue exitosa (is_error=false), no un rechazo. Si este dato vuelve a ser leído por el agente (ej. vía otro tool de lectura), puede resultar en secuestro del contexto."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://notify_webhook"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "notify_webhook",
+            "finding_id": "58a720d3",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "high",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 8.1
+          }
+        },
+        {
+          "ruleId": "adv.injection_passthrough",
+          "level": "error",
+          "message": {
+            "text": "El parámetro 'url' acepta y refleja/almacena contenido con instrucciones dirigidas a un LLM sin ningún tipo de sanitización o escapado -- la llamada fue exitosa (is_error=false), no un rechazo. Si este dato vuelve a ser leído por el agente (ej. vía otro tool de lectura), puede resultar en secuestro del contexto."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://notify_webhok"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "notify_webhok",
+            "finding_id": "4306e32a",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "high",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 8.1
+          }
+        },
+        {
+          "ruleId": "dynamic.command_injection_confirmed",
+          "level": "error",
+          "message": {
+            "text": "El canario 'ARES_RT_3cf9dc1991db8948' apareció en la respuesta tras eliminar cualquier eco literal del payload — el comando inyectado se ejecutó realmente en el host, no fue solo reflejado como texto."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://run_diagnostic"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "critical",
+            "target": "run_diagnostic",
+            "finding_id": "1504b8df",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+            "cvss_score": 9.8,
+            "owasp_risk_rating": "Critical",
+            "business_impact": {
+              "financial": "high",
+              "reputational": "high",
+              "compliance": "high",
+              "privacy": "high"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 9.9
+          }
+        },
+        {
+          "ruleId": "dynamic.command_injection_confirmed",
+          "level": "error",
+          "message": {
+            "text": "El canario 'ARES_RT_3e3849dd59456910' apareció en la respuesta tras eliminar cualquier eco literal del payload — el comando inyectado se ejecutó realmente en el host, no fue solo reflejado como texto."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://notify_webhook"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "critical",
+            "target": "notify_webhook",
+            "finding_id": "27c5867e",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+            "cvss_score": 9.8,
+            "owasp_risk_rating": "Critical",
+            "business_impact": {
+              "financial": "high",
+              "reputational": "high",
+              "compliance": "high",
+              "privacy": "high"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 9.9
+          }
+        },
+        {
+          "ruleId": "dynamic.command_injection_confirmed",
+          "level": "error",
+          "message": {
+            "text": "El canario 'ARES_RT_d322fd243d84bffe' apareció en la respuesta tras eliminar cualquier eco literal del payload — el comando inyectado se ejecutó realmente en el host, no fue solo reflejado como texto."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://notify_webhok"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "critical",
+            "target": "notify_webhok",
+            "finding_id": "779a3432",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+            "cvss_score": 9.8,
+            "owasp_risk_rating": "Critical",
+            "business_impact": {
+              "financial": "high",
+              "reputational": "high",
+              "compliance": "high",
+              "privacy": "high"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 9.9
+          }
+        },
+        {
+          "ruleId": "dynamic.command_injection_confirmed",
+          "level": "error",
+          "message": {
+            "text": "El canario 'ARES_RT_a64bc2afc06d7e43' apareció en la respuesta tras eliminar cualquier eco literal del payload — el comando inyectado se ejecutó realmente en el host, no fue solo reflejado como texto."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://eval_expression"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "critical",
+            "target": "eval_expression",
+            "finding_id": "af289d17",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+            "cvss_score": 9.8,
+            "owasp_risk_rating": "Critical",
+            "business_impact": {
+              "financial": "high",
+              "reputational": "high",
+              "compliance": "high",
+              "privacy": "high"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 9.9
+          }
+        },
+        {
+          "ruleId": "dynamic.fuzz_tools",
+          "level": "warning",
+          "message": {
+            "text": "path absoluto del filesystem filtrado. Detectado al enviar payload adversarial."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://notify_webhook"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "notify_webhook",
+            "finding_id": "40cbc10b",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+            "cvss_score": 5.3,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "low",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "trivial",
+            "aivss_score": 6.6
+          }
+        },
+        {
+          "ruleId": "dynamic.fuzz_tools",
+          "level": "warning",
+          "message": {
+            "text": "path absoluto del filesystem filtrado. Detectado al enviar payload adversarial."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://notify_webhook"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "notify_webhook",
+            "finding_id": "d85982a0",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+            "cvss_score": 5.3,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "low",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "trivial",
+            "aivss_score": 6.6
+          }
+        },
+        {
+          "ruleId": "dynamic.fuzz_tools",
+          "level": "warning",
+          "message": {
+            "text": "path absoluto del filesystem filtrado. Detectado al enviar payload adversarial."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://notify_webhok"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "notify_webhok",
+            "finding_id": "38496b08",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+            "cvss_score": 5.3,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "low",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "trivial",
+            "aivss_score": 6.6
+          }
+        },
+        {
+          "ruleId": "dynamic.fuzz_tools",
+          "level": "warning",
+          "message": {
+            "text": "path absoluto del filesystem filtrado. Detectado al enviar payload adversarial."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://notify_webhok"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "notify_webhok",
+            "finding_id": "fd9cd293",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+            "cvss_score": 5.3,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "low",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "trivial",
+            "aivss_score": 6.6
+          }
+        },
+        {
+          "ruleId": "dynamic.path_traversal_confirmed",
+          "level": "error",
+          "message": {
+            "text": "La respuesta contiene contenido real de /etc/passwd tras enviar '/etc/passwd' como 'name'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://read_config"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "critical",
+            "target": "read_config",
+            "finding_id": "1fb52d41",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+            "cvss_score": 7.5,
+            "owasp_risk_rating": "Critical",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "high",
+              "privacy": "high"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.7
+          }
+        },
+        {
+          "ruleId": "dynamic.path_traversal_confirmed",
+          "level": "error",
+          "message": {
+            "text": "La respuesta contiene contenido real de /etc/passwd tras enviar 'file:///etc/passwd' como 'url'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://notify_webhook"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "critical",
+            "target": "notify_webhook",
+            "finding_id": "b170bbea",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+            "cvss_score": 7.5,
+            "owasp_risk_rating": "Critical",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "high",
+              "privacy": "high"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.7
+          }
+        },
+        {
+          "ruleId": "dynamic.path_traversal_confirmed",
+          "level": "error",
+          "message": {
+            "text": "La respuesta contiene contenido real de /etc/passwd tras enviar 'file:///etc/passwd' como 'url'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://notify_webhok"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "critical",
+            "target": "notify_webhok",
+            "finding_id": "26ac76bb",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+            "cvss_score": 7.5,
+            "owasp_risk_rating": "Critical",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "high",
+              "privacy": "high"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.7
+          }
+        },
+        {
+          "ruleId": "recon.audit_logging",
+          "level": "warning",
+          "message": {
+            "text": "El server NO declara el capability 'logging'. Esto no prueba que no loguee nada server-side (puede hacerlo fuera del protocolo MCP), pero sí significa que no hay un canal estándar para que el cliente reciba esos logs, y es una señal de que la telemetría no fue una prioridad de diseño."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://server"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "server",
+            "finding_id": "0e6b472a",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:N",
+            "cvss_score": 0.0,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "low",
+              "reputational": "low",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 1.3
+          }
+        },
+        {
+          "ruleId": "recon.excessive_permissions",
+          "level": "error",
+          "message": {
+            "text": "Palabras clave de alto riesgo detectadas: ['delete']. Validar sandboxing, límites y confirmación humana antes de ejecutar."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://delete_customer"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "delete_customer",
+            "finding_id": "b7212770",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L",
+            "cvss_score": 5.6,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 6.0
+          }
+        },
+        {
+          "ruleId": "recon.excessive_permissions",
+          "level": "error",
+          "message": {
+            "text": "Palabras clave de alto riesgo detectadas: ['eval']. Validar sandboxing, límites y confirmación humana antes de ejecutar."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://eval_expression"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "eval_expression",
+            "finding_id": "963b7b6d",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L",
+            "cvss_score": 5.6,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 6.0
+          }
+        },
+        {
+          "ruleId": "recon.suspicious_descriptions",
+          "level": "error",
+          "message": {
+            "text": "Patrones detectados: instrucción imperativa fuera de contexto normal de uso, ejecución encubierta"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://run_diagnostic"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "run_diagnostic",
+            "finding_id": "cf23f68f",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:H/A:N",
+            "cvss_score": 5.9,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "high",
+              "compliance": "medium",
+              "privacy": "medium"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 6.2
+          }
+        },
+        {
+          "ruleId": "recon.suspicious_descriptions",
+          "level": "error",
+          "message": {
+            "text": "Patrones detectados: ejecución encubierta -- inyectado vía la descripción del PARÁMETRO, no del tool: se carga al contexto del modelo apenas se lista el server, antes de invocar nada."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://format_amount"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "format_amount",
+            "finding_id": "254c9c97",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:H/A:N",
+            "cvss_score": 5.9,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "high",
+              "compliance": "medium",
+              "privacy": "medium"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 6.2
+          }
+        },
+        {
+          "ruleId": "static.schema_permissive",
+          "level": "warning",
+          "message": {
+            "text": "parámetro string 'doc_id' sin enum/pattern/maxLength (riesgo de injection/path traversal)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://fetch_docs"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "fetch_docs",
+            "finding_id": "91a63bb6",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 4.8,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "low",
+              "reputational": "low",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "trivial",
+            "aivss_score": 5.3
+          }
+        },
+        {
+          "ruleId": "static.schema_permissive",
+          "level": "warning",
+          "message": {
+            "text": "parámetro string 'cmd' sin enum/pattern/maxLength (riesgo de injection/path traversal)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://run_diagnostic"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "run_diagnostic",
+            "finding_id": "dc272769",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 4.8,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "low",
+              "reputational": "low",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "trivial",
+            "aivss_score": 5.3
+          }
+        },
+        {
+          "ruleId": "static.schema_permissive",
+          "level": "warning",
+          "message": {
+            "text": "parámetro string 'name' sin enum/pattern/maxLength (riesgo de injection/path traversal)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://read_config"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "read_config",
+            "finding_id": "23af347b",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 4.8,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "low",
+              "reputational": "low",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "trivial",
+            "aivss_score": 5.3
+          }
+        },
+        {
+          "ruleId": "static.schema_permissive",
+          "level": "warning",
+          "message": {
+            "text": "parámetro string 'customer_id' sin enum/pattern/maxLength (riesgo de injection/path traversal)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://delete_customer"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "delete_customer",
+            "finding_id": "979f86ed",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 4.8,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "low",
+              "reputational": "low",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "trivial",
+            "aivss_score": 5.3
+          }
+        },
+        {
+          "ruleId": "static.schema_permissive",
+          "level": "warning",
+          "message": {
+            "text": "parámetro string 'account_id' sin enum/pattern/maxLength (riesgo de injection/path traversal)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://get_account_balance"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "get_account_balance",
+            "finding_id": "777f2c8a",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 4.8,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "low",
+              "reputational": "low",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "trivial",
+            "aivss_score": 5.3
+          }
+        },
+        {
+          "ruleId": "static.schema_permissive",
+          "level": "warning",
+          "message": {
+            "text": "parámetro string 'url' sin enum/pattern/maxLength (riesgo de injection/path traversal); parámetro string 'payload' sin enum/pattern/maxLength (riesgo de injection/path traversal)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://notify_webhook"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "notify_webhook",
+            "finding_id": "5ebb43f5",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 4.8,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "low",
+              "reputational": "low",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "trivial",
+            "aivss_score": 5.3
+          }
+        },
+        {
+          "ruleId": "static.schema_permissive",
+          "level": "warning",
+          "message": {
+            "text": "parámetro string 'url' sin enum/pattern/maxLength (riesgo de injection/path traversal); parámetro string 'payload' sin enum/pattern/maxLength (riesgo de injection/path traversal)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://notify_webhok"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "notify_webhok",
+            "finding_id": "a0ee0c50",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 4.8,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "low",
+              "reputational": "low",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "trivial",
+            "aivss_score": 5.3
+          }
+        },
+        {
+          "ruleId": "static.schema_permissive",
+          "level": "warning",
+          "message": {
+            "text": "parámetro string 'expr' sin enum/pattern/maxLength (riesgo de injection/path traversal)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://eval_expression"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "eval_expression",
+            "finding_id": "d78e979c",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 4.8,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "low",
+              "reputational": "low",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "trivial",
+            "aivss_score": 5.3
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "Deserialization of Untrusted Data in PyYAML"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://pyyaml"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "critical",
+            "target": "pyyaml",
+            "finding_id": "3249e488",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+            "cvss_score": 9.8,
+            "owasp_risk_rating": "Critical",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 9.9
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "Improper Input Validation in PyYAML"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://pyyaml"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "critical",
+            "target": "pyyaml",
+            "finding_id": "3d49e5c9",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+            "cvss_score": 9.8,
+            "owasp_risk_rating": "Critical",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 9.9
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "Improper Input Validation in PyYAML"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://pyyaml"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "critical",
+            "target": "pyyaml",
+            "finding_id": "a047cc91",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+            "cvss_score": 9.8,
+            "owasp_risk_rating": "Critical",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 9.9
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "PyYAML 5.1 through 5.1.2 has insufficient restrictions on the load and load_all functions because of a class deserialization issue, e.g., Popen is a class in the subprocess module. NOTE: this issue exists because of an incomplete fix for CVE-2017-18342."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://pyyaml"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "pyyaml",
+            "finding_id": "322dbd63",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.7
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "A vulnerability was discovered in the PyYAML library in versions before 5.3.1, where it is susceptible to arbitrary code execution when it processes untrusted YAML files through the full_load method or with the FullLoader loader. Applications that use the library to process untrusted input may be vulnerable to this flaw. An attacker could use this flaw to execute arbitrary code on the system by abusing the python/object/new constructor."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://pyyaml"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "pyyaml",
+            "finding_id": "86259187",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.7
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "A vulnerability was discovered in the PyYAML library in versions before 5.4, where it is susceptible to arbitrary code execution when it processes untrusted YAML files through the full_load method or with the FullLoader loader. Applications that use the library to process untrusted input may be vulnerable to this flaw. This flaw allows an attacker to execute arbitrary code on the system by abusing the python/object/new constructor. This flaw is due to an incomplete fix for CVE-2020-1747."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://pyyaml"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "pyyaml",
+            "finding_id": "4300fd4f",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.7
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "Requests vulnerable to .netrc credentials leak via malicious URLs"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://requests"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "requests",
+            "finding_id": "77b43a8a",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N",
+            "cvss_score": 5.3,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.3
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "warning",
+          "message": {
+            "text": "Requests `Session` object does not verify requests after making first request with verify=False"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://requests"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "requests",
+            "finding_id": "869c4f47",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:L/AC:H/PR:H/UI:R/S:U/C:H/I:H/A:N",
+            "cvss_score": 5.6,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.4
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "warning",
+          "message": {
+            "text": "Requests has Insecure Temp File Reuse in its extract_zipped_paths() utility function"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://requests"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "requests",
+            "finding_id": "2fb530d1",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:R/S:U/C:N/I:H/A:N",
+            "cvss_score": 4.4,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 7.9
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "Unintended leak of Proxy-Authorization header in requests"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://requests"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "requests",
+            "finding_id": "bb68bb46",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:C/C:H/I:N/A:N",
+            "cvss_score": 6.1,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.6
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "Insufficiently Protected Credentials in Requests"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://requests"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "critical",
+            "target": "requests",
+            "finding_id": "3f3fee6f",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+            "cvss_score": 7.5,
+            "owasp_risk_rating": "Critical",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 9.1
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "The Requests package before 2.20.0 for Python sends an HTTP Authorization header to an http URI upon receiving a same-hostname https-to-http redirect, which makes it easier for remote attackers to discover credentials by sniffing the network."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://requests"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "requests",
+            "finding_id": "b90336a0",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.7
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "Requests is a HTTP library. Since Requests 2.3.0, Requests has been leaking Proxy-Authorization headers to destination servers when redirected to an HTTPS endpoint. This is a product of how we use `rebuild_proxies` to reattach the `Proxy-Authorization` header to requests. For HTTP connections sent through the tunnel, the proxy will identify the header in the request itself and remove it prior to forwarding to the destination server. However when sent over HTTPS, the `Proxy-Authorization` header "
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://requests"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "requests",
+            "finding_id": "1a06d23e",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.7
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "Requests vulnerable to .netrc credentials leak via malicious URLs"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://requests"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "requests",
+            "finding_id": "7f6f2b1f",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N",
+            "cvss_score": 5.3,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.3
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "warning",
+          "message": {
+            "text": "Requests `Session` object does not verify requests after making first request with verify=False"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://requests"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "requests",
+            "finding_id": "953af349",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:L/AC:H/PR:H/UI:R/S:U/C:H/I:H/A:N",
+            "cvss_score": 5.6,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.4
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "Requests is a HTTP library. Prior to version 2.33.0, the `requests.utils.extract_zipped_paths()` utility function uses a predictable filename when extracting files from zip archives into the system temporary directory. If the target file already exists, it is reused without validation. A local attacker with write access to the temp directory could pre-create a malicious file that would be loaded in place of the legitimate one. Standard usage of the Requests library is not affected by this vulner"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://requests"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "requests",
+            "finding_id": "3a90e2ef",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:N",
+            "cvss_score": 5.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.3
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "Jinja2 sandbox escape via string formatting"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://jinja2"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "jinja2",
+            "finding_id": "be18b2ca",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.7
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "Jinja2 vulnerable to sandbox breakout through attr filter selecting format method"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://jinja2"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "jinja2",
+            "finding_id": "5dcd4cb2",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.7
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "Regular Expression Denial of Service (ReDoS) in Jinja2"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://jinja2"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "jinja2",
+            "finding_id": "48ecf135",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+            "cvss_score": 5.3,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.3
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "warning",
+          "message": {
+            "text": "Jinja vulnerable to HTML attribute injection when passing user input as keys to xmlattr filter"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://jinja2"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "jinja2",
+            "finding_id": "7b9beee4",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N",
+            "cvss_score": 5.4,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.3
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "warning",
+          "message": {
+            "text": "Jinja vulnerable to HTML attribute injection when passing user input as keys to xmlattr filter"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://jinja2"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "jinja2",
+            "finding_id": "4906401f",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N",
+            "cvss_score": 5.4,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.3
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "Jinja has a sandbox breakout through indirect reference to format method"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://jinja2"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "jinja2",
+            "finding_id": "a54a2a6d",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+            "cvss_score": 7.8,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 9.2
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "In Pallets Jinja before 2.10.1, str.format_map allows a sandbox escape."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://jinja2"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "jinja2",
+            "finding_id": "5e3d770e",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.7
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "This affects the package jinja2 from 0.0.0 and before 2.11.3. The ReDoS vulnerability is mainly due to the `_punctuation_re regex` operator and its use of multiple wildcards. The last wildcard is the most exploitable as it searches for trailing punctuation. This issue can be mitigated by Markdown to format user content instead of the urlize filter, or by implementing request timeouts and limiting process memory."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://jinja2"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "jinja2",
+            "finding_id": "2d7da816",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.7
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "Jinja2 vulnerable to sandbox breakout through attr filter selecting format method"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://jinja2"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "jinja2",
+            "finding_id": "f72dde21",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.7
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "warning",
+          "message": {
+            "text": "Jinja vulnerable to HTML attribute injection when passing user input as keys to xmlattr filter"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://jinja2"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "jinja2",
+            "finding_id": "2d21c220",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N",
+            "cvss_score": 5.4,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.3
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "warning",
+          "message": {
+            "text": "Jinja vulnerable to HTML attribute injection when passing user input as keys to xmlattr filter"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://jinja2"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "jinja2",
+            "finding_id": "e7f1da54",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N",
+            "cvss_score": 5.4,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 8.3
+          }
+        },
+        {
+          "ruleId": "supplychain.dependency_vulnerabilities",
+          "level": "error",
+          "message": {
+            "text": "Jinja has a sandbox breakout through indirect reference to format method"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://jinja2"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "jinja2",
+            "finding_id": "cf05cad1",
+            "confidence": "verified",
+            "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+            "cvss_score": 7.8,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 9.2
+          }
+        },
+        {
+          "ruleId": "supplychain.exfiltration_chain",
+          "level": "error",
+          "message": {
+            "text": "Tools lectoras de datos sensibles: ['fetch_docs', 'read_config']. Tools que envían datos afuera: ['notify_webhook', 'notify_webhok']. Un agente comprometido (vía prompt injection indirecta) puede encadenar lector->emisor para exfiltrar datos sin que ninguna tool individual sea 'maliciosa' por sí sola."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://server"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "server",
+            "finding_id": "5c049b64",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:R/S:C/C:H/I:N/A:N",
+            "cvss_score": 6.1,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "high",
+              "reputational": "high",
+              "compliance": "high",
+              "privacy": "high"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 7.6
+          }
+        },
+        {
+          "ruleId": "supplychain.malicious_patterns",
+          "level": "error",
+          "message": {
+            "text": "Categorías de regla que matchearon: ['tool_poisoning']."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://format_amount"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "format_amount",
+            "finding_id": "bdc3f1b5",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:H/A:N",
+            "cvss_score": 7.1,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "high",
+              "compliance": "medium",
+              "privacy": "medium"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 8.2
+          }
+        },
+        {
+          "ruleId": "supplychain.secret_exposure",
+          "level": "error",
+          "message": {
+            "text": "Se detectó un patrón de Anthropic API key en la definición de 'fetch_docs'. Muestra: sk-ant…WXYZ"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://fetch_docs"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "fetch_docs",
+            "finding_id": "3df4594b",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+            "cvss_score": 7.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "high",
+              "reputational": "high",
+              "compliance": "high",
+              "privacy": "medium"
+            },
+            "remediation_effort": "trivial",
+            "aivss_score": 8.4
+          }
+        },
+        {
+          "ruleId": "supplychain.source_sast",
+          "level": "error",
+          "message": {
+            "text": "Un parámetro de un tool MCP (@mcp.tool()/@app.tool()) llega a una llamada de shell sin pasar por sanitización -- command injection confirmable (ver dynamic.command_injection_confirmed para la confirmación black-box equivalente)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://Campo-Tiro/ares-range/enterprise_source/server.py:55"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "critical",
+            "target": "Campo-Tiro/ares-range/enterprise_source/server.py:55",
+            "finding_id": "082eb7c3",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:H/A:N",
+            "cvss_score": 8.2,
+            "owasp_risk_rating": "Critical",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 9.3
+          }
+        },
+        {
+          "ruleId": "supplychain.source_sast",
+          "level": "error",
+          "message": {
+            "text": "Un parámetro de un tool MCP llega a apertura/lectura de archivo sin resolver contra un directorio base -- path traversal confirmable (ver dynamic.path_traversal_confirmed)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://Campo-Tiro/ares-range/enterprise_source/server.py:61"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "Campo-Tiro/ares-range/enterprise_source/server.py:61",
+            "finding_id": "fd1ecb21",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 8.7
+          }
+        },
+        {
+          "ruleId": "supplychain.source_sast",
+          "level": "error",
+          "message": {
+            "text": "eval()/exec() sobre datos potencialmente controlados por el cliente MCP -- ejecución de código arbitraria si algún argumento de tool llega hasta acá."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://Campo-Tiro/ares-range/enterprise_source/server.py:108"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "critical",
+            "target": "Campo-Tiro/ares-range/enterprise_source/server.py:108",
+            "finding_id": "082d869b",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:H/A:N",
+            "cvss_score": 8.2,
+            "owasp_risk_rating": "Critical",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "medium",
+              "privacy": "low"
+            },
+            "remediation_effort": "medium",
+            "aivss_score": 9.3
+          }
+        },
+        {
+          "ruleId": "supplychain.tool_squatting",
+          "level": "warning",
+          "message": {
+            "text": "Similitud Jaro-Winkler 0.986 (umbral 0.82). Revisar si ambos nombres son intencionales o uno es un typo-squat."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://notify_webhook,notify_webhok"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "target": "notify_webhook,notify_webhok",
+            "finding_id": "49782eee",
+            "confidence": "heuristic",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:R/S:U/C:N/I:L/A:N",
+            "cvss_score": 3.1,
+            "owasp_risk_rating": "Medium",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "low",
+              "privacy": "low"
+            },
+            "remediation_effort": "low",
+            "aivss_score": 5.7
+          }
+        }
+      ]
+    }
+  ]
+}

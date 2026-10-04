@@ -1,0 +1,385 @@
+{
+  "scan_id": "e877c91d",
+  "target_name": "http://127.0.0.1:8765/mcp",
+  "started_at": "2026-10-03T07:57:07.318464+00:00",
+  "finished_at": "2026-10-03T07:57:07.372869+00:00",
+  "tools_enumerated": [],
+  "resources_enumerated": [],
+  "prompts_enumerated": [],
+  "findings": [
+    {
+      "id": "4c47c735",
+      "test_id": "recon.audit_logging",
+      "title": "Sin sesión viva para verificar audit logging",
+      "category": "recon",
+      "severity": "info",
+      "target": "server",
+      "description": "La conexión inicial falló (ver el error de conexión reportado aparte); no se pudo consultar si el server declara el capability 'logging' -- no es que no lo declare, es que Ares no pudo ni preguntarle.",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP08:2025",
+          "name": "Lack of Audit and Telemetry",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        }
+      ],
+      "confidence": "verified",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-03T07:57:07.348061+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "0b14c72b",
+      "test_id": "static.known_cve_check",
+      "title": "Sin server_info disponible",
+      "category": "static",
+      "severity": "info",
+      "target": "server",
+      "description": "La sesión no completó 'initialize' con éxito; no hay name/version para comparar.",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP04:2025",
+          "name": "Software Supply Chain Attacks & Dependency Tampering",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-LLM",
+          "id": "LLM03:2025",
+          "name": "Supply Chain",
+          "url": "https://genai.owasp.org/llm-top-10/"
+        }
+      ],
+      "confidence": "heuristic",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-03T07:57:07.350686+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "8505eb0e",
+      "test_id": "adv.rug_pull",
+      "title": "Sin --baseline: nada que comparar",
+      "category": "adversarial",
+      "severity": "info",
+      "target": "server",
+      "description": "Este test necesita un reporte.json de una corrida anterior contra este mismo server (--baseline) para detectar cambios de definición entre corridas.",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP03:2025",
+          "name": "Tool Poisoning",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-LLM",
+          "id": "LLM03:2025",
+          "name": "Supply Chain",
+          "url": "https://genai.owasp.org/llm-top-10/"
+        }
+      ],
+      "confidence": "verified",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-03T07:57:07.357071+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "0429eccc",
+      "test_id": "auth.unauthenticated_access",
+      "title": "Conexión sin credenciales RECHAZADA",
+      "category": "auth",
+      "severity": "info",
+      "target": "server",
+      "description": "Intentar conectar sin Authorization/API-Key fue rechazado por el server (All connection attempts failed). Buena señal: la autenticación parece exigirse antes de aceptar la sesión.",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP07:2025",
+          "name": "Insufficient Authentication & Authorization",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-API",
+          "id": "API2:2023",
+          "name": "Broken Authentication",
+          "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
+        },
+        {
+          "framework": "ATLAS",
+          "id": null,
+          "name": "Initial Access",
+          "url": "https://atlas.mitre.org/matrices/ATLAS"
+        }
+      ],
+      "confidence": "verified",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-03T07:57:07.360320+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "9b460681",
+      "test_id": "auth.oauth_metadata_security",
+      "title": "No se pudo evaluar metadata OAuth",
+      "category": "auth",
+      "severity": "info",
+      "target": "server",
+      "description": "Error de red/parseo durante el chequeo: All connection attempts failed",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP07:2025",
+          "name": "Insufficient Authentication & Authorization",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-API",
+          "id": "API2:2023",
+          "name": "Broken Authentication",
+          "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
+        }
+      ],
+      "confidence": "verified",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-03T07:57:07.365471+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "04457857",
+      "test_id": "exposure.transport_security",
+      "title": "Endpoint MCP servido sin TLS",
+      "category": "exposure",
+      "severity": "high",
+      "target": "server",
+      "description": "'http://127.0.0.1:8765/mcp' usa http:// en vez de https://. Todo el tráfico (incluyendo tokens de auth en headers) viaja en texto plano.",
+      "passed": false,
+      "remediation": "Servir el endpoint MCP exclusivamente sobre TLS (https/wss), incluso en redes internas.",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP07:2025",
+          "name": "Insufficient Authentication & Authorization",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-API",
+          "id": "API8:2023",
+          "name": "Security Misconfiguration",
+          "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
+        }
+      ],
+      "confidence": "verified",
+      "risk": {
+        "cvss_vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:L/A:N",
+        "cvss_score": 6.5,
+        "cvss_severity": "medium",
+        "business_impact": {
+          "financial": "medium",
+          "reputational": "medium",
+          "compliance": "high",
+          "privacy": "high"
+        },
+        "technical_impact": "high",
+        "likelihood": "medium",
+        "impact": "high",
+        "risk_rating": "High",
+        "remediation_effort": "trivial",
+        "remediation_effort_rationale": "Servir exclusivamente sobre TLS -- config de infraestructura, no código.",
+        "aivss": {
+          "score": 7.5,
+          "cvss_base": 6.5,
+          "aars": 1.05,
+          "agentic_factors": {
+            "autonomy": 3,
+            "tool_use": 3,
+            "nondeterminism": 3
+          },
+          "threat_multiplier": 1.0,
+          "mitigation_factor": 1.0,
+          "is_approximation": true,
+          "note": "Aproximación declarada (AARS/mitigation_factor no son observables del target real) -- score complementario, NO reemplaza el CVSS+OWASP Risk Rating oficial de este finding."
+        }
+      },
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-03T07:57:07.365991+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "8845bf83",
+      "test_id": "exposure.cors_misconfig",
+      "title": "No se pudo evaluar CORS",
+      "category": "exposure",
+      "severity": "info",
+      "target": "server",
+      "description": "OPTIONS falló: All connection attempts failed",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP07:2025",
+          "name": "Insufficient Authentication & Authorization",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-API",
+          "id": "API8:2023",
+          "name": "Security Misconfiguration",
+          "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
+        }
+      ],
+      "confidence": "verified",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-03T07:57:07.371144+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "d3cf557d",
+      "test_id": "exposure.network_reachability",
+      "title": "Alcance interno: 127.0.0.1 -> 127.0.0.1",
+      "category": "exposure",
+      "severity": "info",
+      "target": "server",
+      "description": "'127.0.0.1' resuelve a 127.0.0.1, una IP privada/loopback. El blast radius de cualquier hallazgo confirmado se limita a quien tenga acceso a esta red.",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-API",
+          "id": "API8:2023",
+          "name": "Security Misconfiguration",
+          "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
+        }
+      ],
+      "confidence": "verified",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-03T07:57:07.372253+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    }
+  ],
+  "errors": [
+    "conexión inicial rechazada/fallida (no aborta el scan): All connection attempts failed",
+    "test 'recon.enumerate' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/recon/tests.py\", line 34, in enumerate_surface\n    tools = await target.list_tools()\n                  ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n",
+    "test 'recon.suspicious_descriptions' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/recon/tests.py\", line 77, in suspicious_descriptions\n    tools = ctx.get(\"tools\") or await target.list_tools()\n                                      ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n",
+    "test 'recon.excessive_permissions' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/recon/tests.py\", line 182, in excessive_permissions\n    tools = ctx.get(\"tools\") or await target.list_tools()\n                                      ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n",
+    "test 'static.schema_permissive' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/static/tests.py\", line 19, in schema_permissive\n    tools = ctx.get(\"tools\") or await target.list_tools()\n                                      ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n",
+    "test 'static.no_schema' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/static/tests.py\", line 68, in no_schema\n    tools = ctx.get(\"tools\") or await target.list_tools()\n                                      ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n",
+    "test 'dynamic.fuzz_tools' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/dynamic/tests.py\", line 36, in fuzz_tools\n    tools = ctx.get(\"tools\") or await target.list_tools()\n                                      ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n",
+    "test 'dynamic.command_injection_confirmed' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/dynamic/tests.py\", line 171, in command_injection_confirmed\n    tools = ctx.get(\"tools\") or await target.list_tools()\n                                      ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n",
+    "test 'dynamic.path_traversal_confirmed' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/dynamic/tests.py\", line 226, in path_traversal_confirmed\n    tools = ctx.get(\"tools\") or await target.list_tools()\n                                      ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n",
+    "test 'dynamic.credential_harvest_paths' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/dynamic/tests.py\", line 281, in credential_harvest_paths\n    tools = ctx.get(\"tools\") or await target.list_tools()\n                                      ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n",
+    "test 'dynamic.fuzz_resources' falló con excepción: 'NoneType' object has no attribute 'list_resources'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/dynamic/tests.py\", line 355, in fuzz_resources\n    resources = ctx.get(\"resources\") or await target.list_resources()\n                                              ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_resources'\n",
+    "test 'adv.injection_passthrough' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/adversarial/tests.py\", line 44, in injection_passthrough\n    tools = ctx.get(\"tools\") or await target.list_tools()\n                                      ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n",
+    "test 'adv.confused_deputy' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/adversarial/tests.py\", line 216, in confused_deputy\n    tools = ctx.get(\"tools\") or await target.list_tools()\n                                      ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n",
+    "test 'adv.destructive_no_confirmation' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/adversarial/tests.py\", line 269, in destructive_no_confirmation\n    tools = ctx.get(\"tools\") or await target.list_tools()\n                                      ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n",
+    "test 'supplychain.secret_exposure' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/supplychain/tests.py\", line 68, in secret_exposure\n    tools = ctx.get(\"tools\") or await target.list_tools()\n                                      ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n",
+    "test 'supplychain.tool_squatting' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/supplychain/tests.py\", line 117, in tool_squatting\n    tools = ctx.get(\"tools\") or await target.list_tools()\n                                      ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n",
+    "test 'supplychain.exfiltration_chain' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/supplychain/tests.py\", line 181, in exfiltration_chain\n    tools = ctx.get(\"tools\") or await target.list_tools()\n                                      ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n",
+    "test 'supplychain.malicious_patterns' falló con excepción: 'NoneType' object has no attribute 'list_tools'\nTraceback (most recent call last):\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/orchestrator.py\", line 121, in run_scan\n    findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/Tools/RedTeam/MCP/Ares/engine/supplychain/tests.py\", line 229, in malicious_patterns\n    tools = ctx.get(\"tools\") or await target.list_tools()\n                                      ^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'list_tools'\n"
+  ],
+  "summary": {
+    "total_tests_run": 8,
+    "confirmed_findings": 1,
+    "by_severity": {
+      "info": 0,
+      "low": 0,
+      "medium": 0,
+      "high": 1,
+      "critical": 0
+    },
+    "suppressed_findings": 0
+  },
+  "score": {
+    "score": 85,
+    "grade": "B",
+    "penalty": 15,
+    "verdict_text": "RIESGO ALTO — 1 hallazgo(s) de severidad alta confirmado(s)."
+  },
+  "policy_verdict": {
+    "environment": "production",
+    "overall": "CONDITIONAL",
+    "by_finding": [
+      {
+        "finding_id": "04457857",
+        "test_id": "exposure.transport_security",
+        "title": "Endpoint MCP servido sin TLS",
+        "severity": "high",
+        "verdict": "CONDITIONAL"
+      }
+    ]
+  },
+  "auth_impact": null,
+  "baseline_diff": null,
+  "ares_version": "0.3.0"
+}

@@ -1,0 +1,1012 @@
+/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/pydantic_settings/sources/utils.py:47: IncompleteFieldDefinitionWarning: Field 'lifespan' has an incomplete definition: its annotation contains an unresolved forward reference, so settings sources may fail to correctly resolve its value. Call `model_rebuild()` on the model where the field is defined, once all the referenced types are defined.
+  warnings.warn(
+▶ corriendo adv.confused_deputy — Confused deputy / escalación de alcance
+  🟢 1 findings, 0 confirmados
+▶ corriendo adv.destructive_no_confirmation — Ejecución de acciones destructivas
+sin confirmación
+  🔴 1 findings, 1 confirmados
+▶ corriendo adv.injection_passthrough — Passthrough de prompt injection sin 
+sanitizar
+  🔴 11 findings, 11 confirmados
+▶ corriendo adv.rug_pull — Rug pull: la definición de un tool cambió desde el 
+baseline
+  🟢 1 findings, 0 confirmados
+▶ corriendo auth.oauth_metadata_security — Seguridad de metadata OAuth 2.1 (RFC 
+9728 / MCP authorization spec)
+  🟢 0 findings, 0 confirmados
+▶ corriendo auth.unauthenticated_access — Acceso sin autenticación
+  🟢 1 findings, 0 confirmados
+▶ corriendo dynamic.command_injection_confirmed — Command injection confirmado 
+por canario
+  🔴 4 findings, 4 confirmados
+▶ corriendo dynamic.credential_harvest_paths — Path traversal dirigido a 
+credenciales conocidas (SSH, cloud, configs MCP)
+  🟢 1 findings, 0 confirmados
+▶ corriendo dynamic.fuzz_resources — Fuzzing de URIs de resources (estáticos y 
+templates)
+  🟢 1 findings, 0 confirmados
+▶ corriendo dynamic.fuzz_tools — Fuzzing black-box de parámetros por tool
+  🔴 4 findings, 4 confirmados
+▶ corriendo dynamic.path_traversal_confirmed — Path traversal confirmado por 
+contenido de /etc/passwd
+  🔴 3 findings, 3 confirmados
+▶ corriendo exposure.cors_misconfig — Configuración CORS insegura
+  🟢 0 findings, 0 confirmados
+▶ corriendo exposure.network_reachability — Clasificación de alcance de red 
+(interno vs público)
+  🟢 0 findings, 0 confirmados
+▶ corriendo exposure.session_id_entropy — Entropía y longitud del Mcp-Session-Id
+(transporte http)
+  🟢 0 findings, 0 confirmados
+▶ corriendo exposure.transport_security — Transporte sin TLS
+  🟢 0 findings, 0 confirmados
+▶ corriendo recon.audit_logging — Soporte de audit/telemetría (logging 
+capability)
+  🔴 1 findings, 1 confirmados
+▶ corriendo recon.enumerate — Enumeración de tools/resources/prompts
+  🟢 1 findings, 0 confirmados
+▶ corriendo recon.excessive_permissions — Detección de permisos/alcance excesivo
+declarado
+  🔴 2 findings, 2 confirmados
+▶ corriendo recon.suspicious_descriptions — Análisis de descripciones 
+sospechosas (tool poisoning / line jumping)
+  🔴 2 findings, 2 confirmados
+▶ corriendo static.known_cve_check — CVEs conocidos de servers MCP oficiales 
+(feed curado)
+  🟢 1 findings, 0 confirmados
+▶ corriendo static.no_schema — Tools sin input_schema definido
+  🟢 1 findings, 0 confirmados
+▶ corriendo static.schema_permissive — Detección de schemas demasiado permisivos
+  🔴 8 findings, 8 confirmados
+▶ corriendo supplychain.dependency_vulnerabilities — Dependencias vulnerables 
+(OSV.dev)
+  🔴 28 findings, 28 confirmados
+▶ corriendo supplychain.exfiltration_chain — Cadena de exfiltración lector -> 
+emisor
+  🔴 1 findings, 1 confirmados
+▶ corriendo supplychain.malicious_patterns — Patrones de contenido malicioso 
+(heurística tipo YARA)
+  🔴 1 findings, 1 confirmados
+▶ corriendo supplychain.secret_exposure — Secretos expuestos en definiciones
+  🔴 1 findings, 1 confirmados
+▶ corriendo supplychain.source_sast — Análisis estático del código fuente 
+(semgrep, ruleset propio)
+  🔴 3 findings, 3 confirmados
+▶ corriendo supplychain.tool_squatting — Tool squatting / confused deputy
+  🔴 1 findings, 1 confirmados
+
+Resumen: 71 hallazgos confirmados de 79 tests
+  por severidad: {'info': 0, 'low': 0, 'medium': 24, 'high': 34, 'critical': 13}
+  Score: 0/100 (grade F) — EXPUESTO — 13 hallazgo(s) crítico(s) confirmado(s).
+  Policy verdict: BLOCK
+
+Reporte guardado: Campo-Tiro/ares-range/reports/03_acme_internal_tools.html / 
+Campo-Tiro/ares-range/reports/03_acme_internal_tools.json
+SARIF guardado: Campo-Tiro/ares-range/reports/03_acme_internal_tools.sarif
+                      Hallazgos confirmados — python3 (71)                      
+┏━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┓
+┃ Sev      ┃ Conf      ┃ Test ID     ┃ Target      ┃ Título      ┃ Remediación ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━┩
+│ CRITICAL │ verified  │ dynamic.co… │ run_diagno… │ Command     │ Nunca pasar │
+│          │           │             │             │ injection   │ input de    │
+│          │           │             │             │ CONFIRMADO  │ usuario a   │
+│          │           │             │             │ en          │ un shell    │
+│          │           │             │             │ 'run_diagn… │ (subprocess │
+│          │           │             │             │ vía 'cmd'   │ con         │
+│          │           │             │             │             │ shell=True, │
+│          │           │             │             │             │ execSync,   │
+│          │           │             │             │             │ os.system). │
+│          │           │             │             │             │ Usar APIs   │
+│          │           │             │             │             │ que reciban │
+│          │           │             │             │             │ argumentos  │
+│          │           │             │             │             │ como lista, │
+│          │           │             │             │             │ sin         │
+│          │           │             │             │             │ interpretac │
+│          │           │             │             │             │ ión de      │
+│          │           │             │             │             │ shell.      │
+│ CRITICAL │ verified  │ dynamic.co… │ notify_web… │ Command     │ Nunca pasar │
+│          │           │             │             │ injection   │ input de    │
+│          │           │             │             │ CONFIRMADO  │ usuario a   │
+│          │           │             │             │ en          │ un shell    │
+│          │           │             │             │ 'notify_we… │ (subprocess │
+│          │           │             │             │ vía 'url'   │ con         │
+│          │           │             │             │             │ shell=True, │
+│          │           │             │             │             │ execSync,   │
+│          │           │             │             │             │ os.system). │
+│          │           │             │             │             │ Usar APIs   │
+│          │           │             │             │             │ que reciban │
+│          │           │             │             │             │ argumentos  │
+│          │           │             │             │             │ como lista, │
+│          │           │             │             │             │ sin         │
+│          │           │             │             │             │ interpretac │
+│          │           │             │             │             │ ión de      │
+│          │           │             │             │             │ shell.      │
+│ CRITICAL │ verified  │ dynamic.co… │ notify_web… │ Command     │ Nunca pasar │
+│          │           │             │             │ injection   │ input de    │
+│          │           │             │             │ CONFIRMADO  │ usuario a   │
+│          │           │             │             │ en          │ un shell    │
+│          │           │             │             │ 'notify_we… │ (subprocess │
+│          │           │             │             │ vía 'url'   │ con         │
+│          │           │             │             │             │ shell=True, │
+│          │           │             │             │             │ execSync,   │
+│          │           │             │             │             │ os.system). │
+│          │           │             │             │             │ Usar APIs   │
+│          │           │             │             │             │ que reciban │
+│          │           │             │             │             │ argumentos  │
+│          │           │             │             │             │ como lista, │
+│          │           │             │             │             │ sin         │
+│          │           │             │             │             │ interpretac │
+│          │           │             │             │             │ ión de      │
+│          │           │             │             │             │ shell.      │
+│ CRITICAL │ verified  │ dynamic.co… │ eval_expre… │ Command     │ Nunca pasar │
+│          │           │             │             │ injection   │ input de    │
+│          │           │             │             │ CONFIRMADO  │ usuario a   │
+│          │           │             │             │ en          │ un shell    │
+│          │           │             │             │ 'eval_expr… │ (subprocess │
+│          │           │             │             │ vía 'expr'  │ con         │
+│          │           │             │             │             │ shell=True, │
+│          │           │             │             │             │ execSync,   │
+│          │           │             │             │             │ os.system). │
+│          │           │             │             │             │ Usar APIs   │
+│          │           │             │             │             │ que reciban │
+│          │           │             │             │             │ argumentos  │
+│          │           │             │             │             │ como lista, │
+│          │           │             │             │             │ sin         │
+│          │           │             │             │             │ interpretac │
+│          │           │             │             │             │ ión de      │
+│          │           │             │             │             │ shell.      │
+│ CRITICAL │ verified  │ dynamic.pa… │ read_config │ Path        │ Resolver y  │
+│          │           │             │             │ traversal   │ validar la  │
+│          │           │             │             │ CONFIRMADO  │ ruta contra │
+│          │           │             │             │ en          │ un          │
+│          │           │             │             │ 'read_conf… │ directorio  │
+│          │           │             │             │ vía 'name'  │ base        │
+│          │           │             │             │             │ permitido   │
+│          │           │             │             │             │ (allowlist) │
+│          │           │             │             │             │ ,           │
+│          │           │             │             │             │ rechazando  │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ ruta que    │
+│          │           │             │             │             │ escape de   │
+│          │           │             │             │             │ ese         │
+│          │           │             │             │             │ directorio. │
+│ CRITICAL │ verified  │ dynamic.pa… │ notify_web… │ Path        │ Resolver y  │
+│          │           │             │             │ traversal   │ validar la  │
+│          │           │             │             │ CONFIRMADO  │ ruta contra │
+│          │           │             │             │ en          │ un          │
+│          │           │             │             │ 'notify_we… │ directorio  │
+│          │           │             │             │ vía 'url'   │ base        │
+│          │           │             │             │             │ permitido   │
+│          │           │             │             │             │ (allowlist) │
+│          │           │             │             │             │ ,           │
+│          │           │             │             │             │ rechazando  │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ ruta que    │
+│          │           │             │             │             │ escape de   │
+│          │           │             │             │             │ ese         │
+│          │           │             │             │             │ directorio. │
+│ CRITICAL │ verified  │ dynamic.pa… │ notify_web… │ Path        │ Resolver y  │
+│          │           │             │             │ traversal   │ validar la  │
+│          │           │             │             │ CONFIRMADO  │ ruta contra │
+│          │           │             │             │ en          │ un          │
+│          │           │             │             │ 'notify_we… │ directorio  │
+│          │           │             │             │ vía 'url'   │ base        │
+│          │           │             │             │             │ permitido   │
+│          │           │             │             │             │ (allowlist) │
+│          │           │             │             │             │ ,           │
+│          │           │             │             │             │ rechazando  │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ ruta que    │
+│          │           │             │             │             │ escape de   │
+│          │           │             │             │             │ ese         │
+│          │           │             │             │             │ directorio. │
+│ CRITICAL │ verified  │ supplychai… │ pyyaml      │ pyyaml 5.1: │ Actualizar  │
+│          │           │             │             │ GHSA-3pqx-… │ a: ['5.2']  │
+│          │           │             │             │ — CVSS 9.8  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ CRITICAL │ verified  │ supplychai… │ pyyaml      │ pyyaml 5.1: │ Actualizar  │
+│          │           │             │             │ GHSA-6757-… │ a:          │
+│          │           │             │             │ — CVSS 9.8  │ ['5.3.1']   │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ CRITICAL │ verified  │ supplychai… │ pyyaml      │ pyyaml 5.1: │ Actualizar  │
+│          │           │             │             │ GHSA-8q59-… │ a: ['5.4']  │
+│          │           │             │             │ — CVSS 9.8  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ CRITICAL │ verified  │ supplychai… │ requests    │ requests    │ Actualizar  │
+│          │           │             │             │ 2.6.0:      │ a:          │
+│          │           │             │             │ GHSA-x84v-… │ ['2.20.0']  │
+│          │           │             │             │ — CVSS 7.5  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ CRITICAL │ verified  │ supplychai… │ Campo-Tiro… │ command_in… │ Revisar la  │
+│          │           │             │             │ rules.ares… │ línea       │
+│          │           │             │             │ en          │ señalada:   │
+│          │           │             │             │ Campo-Tiro… │ sanitizar/v │
+│          │           │             │             │             │ alidar      │
+│          │           │             │             │             │ antes del   │
+│          │           │             │             │             │ sink, o     │
+│          │           │             │             │             │ usar una    │
+│          │           │             │             │             │ API que no  │
+│          │           │             │             │             │ interprete  │
+│          │           │             │             │             │ el input    │
+│          │           │             │             │             │ como        │
+│          │           │             │             │             │ código/coma │
+│          │           │             │             │             │ ndo/ruta    │
+│          │           │             │             │             │ sin         │
+│          │           │             │             │             │ restricción │
+│          │           │             │             │             │ (ver        │
+│          │           │             │             │             │ dynamic.com │
+│          │           │             │             │             │ mand_inject │
+│          │           │             │             │             │ ion_confirm │
+│          │           │             │             │             │ ed /        │
+│          │           │             │             │             │ dynamic.pat │
+│          │           │             │             │             │ h_traversal │
+│          │           │             │             │             │ _confirmed  │
+│          │           │             │             │             │ para la     │
+│          │           │             │             │             │ confirmació │
+│          │           │             │             │             │ n black-box │
+│          │           │             │             │             │ equivalente │
+│          │           │             │             │             │ , si        │
+│          │           │             │             │             │ aplica).    │
+│ CRITICAL │ verified  │ supplychai… │ Campo-Tiro… │ code_execu… │ Revisar la  │
+│          │           │             │             │ rules.ares… │ línea       │
+│          │           │             │             │ en          │ señalada:   │
+│          │           │             │             │ Campo-Tiro… │ sanitizar/v │
+│          │           │             │             │             │ alidar      │
+│          │           │             │             │             │ antes del   │
+│          │           │             │             │             │ sink, o     │
+│          │           │             │             │             │ usar una    │
+│          │           │             │             │             │ API que no  │
+│          │           │             │             │             │ interprete  │
+│          │           │             │             │             │ el input    │
+│          │           │             │             │             │ como        │
+│          │           │             │             │             │ código/coma │
+│          │           │             │             │             │ ndo/ruta    │
+│          │           │             │             │             │ sin         │
+│          │           │             │             │             │ restricción │
+│          │           │             │             │             │ (ver        │
+│          │           │             │             │             │ dynamic.com │
+│          │           │             │             │             │ mand_inject │
+│          │           │             │             │             │ ion_confirm │
+│          │           │             │             │             │ ed /        │
+│          │           │             │             │             │ dynamic.pat │
+│          │           │             │             │             │ h_traversal │
+│          │           │             │             │             │ _confirmed  │
+│          │           │             │             │             │ para la     │
+│          │           │             │             │             │ confirmació │
+│          │           │             │             │             │ n black-box │
+│          │           │             │             │             │ equivalente │
+│          │           │             │             │             │ , si        │
+│          │           │             │             │             │ aplica).    │
+│ HIGH     │ verified  │ adv.destru… │ delete_cus… │ Tool        │ Requerir un │
+│          │           │             │             │ destructivo │ parámetro   │
+│          │           │             │             │ sin         │ explícito   │
+│          │           │             │             │ parámetro   │ de          │
+│          │           │             │             │ de          │ confirmació │
+│          │           │             │             │ confirmaci… │ n (y        │
+│          │           │             │             │ 'delete_cu… │ hacerlo     │
+│          │           │             │             │             │ cumplir     │
+│          │           │             │             │             │ server-side │
+│          │           │             │             │             │ ), y/o      │
+│          │           │             │             │             │ depender de │
+│          │           │             │             │             │ human-in-th │
+│          │           │             │             │             │ e-loop del  │
+│          │           │             │             │             │ cliente MCP │
+│          │           │             │             │             │ para        │
+│          │           │             │             │             │ acciones    │
+│          │           │             │             │             │ destructiva │
+│          │           │             │             │             │ s.          │
+│ HIGH     │ heuristic │ adv.inject… │ fetch_docs  │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ reflejado   │ explícitame │
+│          │           │             │             │ intacto por │ nte         │
+│          │           │             │             │ 'fetch_doc… │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ HIGH     │ heuristic │ adv.inject… │ fetch_docs  │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ reflejado   │ explícitame │
+│          │           │             │             │ intacto por │ nte         │
+│          │           │             │             │ 'fetch_doc… │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ HIGH     │ heuristic │ adv.inject… │ fetch_docs  │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ reflejado   │ explícitame │
+│          │           │             │             │ intacto por │ nte         │
+│          │           │             │             │ 'fetch_doc… │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ HIGH     │ heuristic │ adv.inject… │ delete_cus… │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ reflejado   │ explícitame │
+│          │           │             │             │ intacto por │ nte         │
+│          │           │             │             │ 'delete_cu… │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ HIGH     │ heuristic │ adv.inject… │ delete_cus… │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ reflejado   │ explícitame │
+│          │           │             │             │ intacto por │ nte         │
+│          │           │             │             │ 'delete_cu… │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ HIGH     │ heuristic │ adv.inject… │ delete_cus… │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ reflejado   │ explícitame │
+│          │           │             │             │ intacto por │ nte         │
+│          │           │             │             │ 'delete_cu… │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ HIGH     │ heuristic │ adv.inject… │ notify_web… │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ reflejado   │ explícitame │
+│          │           │             │             │ intacto por │ nte         │
+│          │           │             │             │ 'notify_we… │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ HIGH     │ heuristic │ adv.inject… │ notify_web… │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ reflejado   │ explícitame │
+│          │           │             │             │ intacto por │ nte         │
+│          │           │             │             │ 'notify_we… │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ HIGH     │ heuristic │ recon.exce… │ delete_cus… │ Tool con    │ Asegurar    │
+│          │           │             │             │ capacidad   │ sandboxing  │
+│          │           │             │             │ potencialm… │ estricto,   │
+│          │           │             │             │ peligrosa:  │ allowlist   │
+│          │           │             │             │ 'delete_cu… │ de          │
+│          │           │             │             │             │ comandos/pa │
+│          │           │             │             │             │ ths, y      │
+│          │           │             │             │             │ human-in-th │
+│          │           │             │             │             │ e-loop para │
+│          │           │             │             │             │ operaciones │
+│          │           │             │             │             │ destructiva │
+│          │           │             │             │             │ s o de      │
+│          │           │             │             │             │ ejecución   │
+│          │           │             │             │             │ arbitraria. │
+│ HIGH     │ heuristic │ recon.exce… │ eval_expre… │ Tool con    │ Asegurar    │
+│          │           │             │             │ capacidad   │ sandboxing  │
+│          │           │             │             │ potencialm… │ estricto,   │
+│          │           │             │             │ peligrosa:  │ allowlist   │
+│          │           │             │             │ 'eval_expr… │ de          │
+│          │           │             │             │             │ comandos/pa │
+│          │           │             │             │             │ ths, y      │
+│          │           │             │             │             │ human-in-th │
+│          │           │             │             │             │ e-loop para │
+│          │           │             │             │             │ operaciones │
+│          │           │             │             │             │ destructiva │
+│          │           │             │             │             │ s o de      │
+│          │           │             │             │             │ ejecución   │
+│          │           │             │             │             │ arbitraria. │
+│ HIGH     │ heuristic │ recon.susp… │ run_diagno… │ Descripción │ Revisar     │
+│          │           │             │             │ sospechosa  │ manualmente │
+│          │           │             │             │ en          │ la          │
+│          │           │             │             │ 'run_diagn… │ descripción │
+│          │           │             │             │ (descripti… │ del tool Y  │
+│          │           │             │             │             │ de cada     │
+│          │           │             │             │             │ parámetro;  │
+│          │           │             │             │             │ eliminar    │
+│          │           │             │             │             │ instruccion │
+│          │           │             │             │             │ es          │
+│          │           │             │             │             │ dirigidas   │
+│          │           │             │             │             │ al modelo   │
+│          │           │             │             │             │ que no sean │
+│          │           │             │             │             │ documentaci │
+│          │           │             │             │             │ ón legítima │
+│          │           │             │             │             │ de uso, y   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ carácter    │
+│          │           │             │             │             │ Unicode     │
+│          │           │             │             │             │ invisible.  │
+│ HIGH     │ heuristic │ recon.susp… │ format_amo… │ Line        │ Revisar     │
+│          │           │             │             │ jumping en  │ manualmente │
+│          │           │             │             │ 'format_am… │ la          │
+│          │           │             │             │ (parámetro  │ descripción │
+│          │           │             │             │ 'value')    │ del tool Y  │
+│          │           │             │             │             │ de cada     │
+│          │           │             │             │             │ parámetro;  │
+│          │           │             │             │             │ eliminar    │
+│          │           │             │             │             │ instruccion │
+│          │           │             │             │             │ es          │
+│          │           │             │             │             │ dirigidas   │
+│          │           │             │             │             │ al modelo   │
+│          │           │             │             │             │ que no sean │
+│          │           │             │             │             │ documentaci │
+│          │           │             │             │             │ ón legítima │
+│          │           │             │             │             │ de uso, y   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ carácter    │
+│          │           │             │             │             │ Unicode     │
+│          │           │             │             │             │ invisible.  │
+│ HIGH     │ verified  │ supplychai… │ pyyaml      │ pyyaml 5.1: │ Actualizar  │
+│          │           │             │             │ PYSEC-2020… │ a:          │
+│          │           │             │             │             │ ['5.2b1']   │
+│ HIGH     │ verified  │ supplychai… │ pyyaml      │ pyyaml 5.1: │ Actualizar  │
+│          │           │             │             │ PYSEC-2020… │ a:          │
+│          │           │             │             │             │ ['5.3.1']   │
+│ HIGH     │ verified  │ supplychai… │ pyyaml      │ pyyaml 5.1: │ Actualizar  │
+│          │           │             │             │ PYSEC-2021… │ a: ['5.4']  │
+│ HIGH     │ verified  │ supplychai… │ requests    │ requests    │ Actualizar  │
+│          │           │             │             │ 2.6.0:      │ a:          │
+│          │           │             │             │ GHSA-9hjg-… │ ['2.32.4']  │
+│          │           │             │             │ — CVSS 5.3  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ HIGH     │ verified  │ supplychai… │ requests    │ requests    │ Actualizar  │
+│          │           │             │             │ 2.6.0:      │ a:          │
+│          │           │             │             │ GHSA-j8r2-… │ ['2.31.0']  │
+│          │           │             │             │ — CVSS 6.1  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ HIGH     │ verified  │ supplychai… │ requests    │ requests    │ Actualizar  │
+│          │           │             │             │ 2.6.0:      │ a:          │
+│          │           │             │             │ PYSEC-2018… │ ['2.20.0',  │
+│          │           │             │             │             │ 'c45d7c49ea │
+│          │           │             │             │             │ 75133e52ab2 │
+│          │           │             │             │             │ 2a8e9e13173 │
+│          │           │             │             │             │ 938e36ff']  │
+│ HIGH     │ verified  │ supplychai… │ requests    │ requests    │ Actualizar  │
+│          │           │             │             │ 2.6.0:      │ a:          │
+│          │           │             │             │ PYSEC-2023… │ ['2.31.0',  │
+│          │           │             │             │             │ '74ea7cf7a6 │
+│          │           │             │             │             │ a27a4eeb2ae │
+│          │           │             │             │             │ 24e162bcc94 │
+│          │           │             │             │             │ 2a6706d5']  │
+│ HIGH     │ verified  │ supplychai… │ requests    │ requests    │ Actualizar  │
+│          │           │             │             │ 2.6.0:      │ a:          │
+│          │           │             │             │ PYSEC-2026… │ ['2.32.4']  │
+│          │           │             │             │ — CVSS 5.3  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ HIGH     │ verified  │ supplychai… │ requests    │ requests    │ Actualizar  │
+│          │           │             │             │ 2.6.0:      │ a:          │
+│          │           │             │             │ PYSEC-2026… │ ['2.33.0']  │
+│          │           │             │             │ — CVSS 5.5  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ HIGH     │ verified  │ supplychai… │ jinja2      │ jinja2      │ Actualizar  │
+│          │           │             │             │ 2.10:       │ a:          │
+│          │           │             │             │ GHSA-462w-… │ ['2.10.1']  │
+│          │           │             │             │ — CVSS      │             │
+│          │           │             │             │ publicado   │             │
+│          │           │             │             │ por OSV     │             │
+│          │           │             │             │ (vector no  │             │
+│          │           │             │             │ v3.1, no    │             │
+│          │           │             │             │ usado para  │             │
+│          │           │             │             │ el score):  │             │
+│          │           │             │             │ CVSS:3.0/A… │             │
+│ HIGH     │ verified  │ supplychai… │ jinja2      │ jinja2      │ Actualizar  │
+│          │           │             │             │ 2.10:       │ a:          │
+│          │           │             │             │ GHSA-cpwx-… │ ['3.1.6']   │
+│          │           │             │             │ — CVSS      │             │
+│          │           │             │             │ publicado   │             │
+│          │           │             │             │ por OSV     │             │
+│          │           │             │             │ (vector no  │             │
+│          │           │             │             │ v3.1, no    │             │
+│          │           │             │             │ usado para  │             │
+│          │           │             │             │ el score):  │             │
+│          │           │             │             │ CVSS:4.0/A… │             │
+│ HIGH     │ verified  │ supplychai… │ jinja2      │ jinja2      │ Actualizar  │
+│          │           │             │             │ 2.10:       │ a:          │
+│          │           │             │             │ GHSA-g3rq-… │ ['2.11.3']  │
+│          │           │             │             │ — CVSS 5.3  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ HIGH     │ verified  │ supplychai… │ jinja2      │ jinja2      │ Actualizar  │
+│          │           │             │             │ 2.10:       │ a:          │
+│          │           │             │             │ GHSA-q2x7-… │ ['3.1.5']   │
+│          │           │             │             │ — CVSS 7.8  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ HIGH     │ verified  │ supplychai… │ jinja2      │ jinja2      │ Actualizar  │
+│          │           │             │             │ 2.10:       │ a:          │
+│          │           │             │             │ PYSEC-2019… │ ['2.10.1']  │
+│ HIGH     │ verified  │ supplychai… │ jinja2      │ jinja2      │ Actualizar  │
+│          │           │             │             │ 2.10:       │ a:          │
+│          │           │             │             │ PYSEC-2021… │ ['2.11.3']  │
+│ HIGH     │ verified  │ supplychai… │ jinja2      │ jinja2      │ Actualizar  │
+│          │           │             │             │ 2.10:       │ a:          │
+│          │           │             │             │ PYSEC-2026… │ ['3.1.6']   │
+│          │           │             │             │ — CVSS      │             │
+│          │           │             │             │ publicado   │             │
+│          │           │             │             │ por OSV     │             │
+│          │           │             │             │ (vector no  │             │
+│          │           │             │             │ v3.1, no    │             │
+│          │           │             │             │ usado para  │             │
+│          │           │             │             │ el score):  │             │
+│          │           │             │             │ CVSS:4.0/A… │             │
+│ HIGH     │ verified  │ supplychai… │ jinja2      │ jinja2      │ Actualizar  │
+│          │           │             │             │ 2.10:       │ a:          │
+│          │           │             │             │ PYSEC-2026… │ ['3.1.5']   │
+│          │           │             │             │ — CVSS 7.8  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ HIGH     │ heuristic │ supplychai… │ server      │ Posible     │ Requerir    │
+│          │           │             │             │ cadena de   │ confirmació │
+│          │           │             │             │ exfiltraci… │ n humana    │
+│          │           │             │             │ tools       │ explícita   │
+│          │           │             │             │ lectoras +  │ antes de    │
+│          │           │             │             │ tools       │ que datos   │
+│          │           │             │             │ emisoras    │ leídos de   │
+│          │           │             │             │             │ fuentes     │
+│          │           │             │             │             │ sensibles   │
+│          │           │             │             │             │ se pasen a  │
+│          │           │             │             │             │ una tool de │
+│          │           │             │             │             │ red/envío   │
+│          │           │             │             │             │ en el mismo │
+│          │           │             │             │             │ flujo del   │
+│          │           │             │             │             │ agente.     │
+│ HIGH     │ heuristic │ supplychai… │ format_amo… │ Contenido   │ Revisar     │
+│          │           │             │             │ sospechoso  │ manualmente │
+│          │           │             │             │ en          │ el          │
+│          │           │             │             │ 'format_am… │ contenido;  │
+│          │           │             │             │ tool_poiso… │ si es       │
+│          │           │             │             │             │ legítimo,   │
+│          │           │             │             │             │ documentar  │
+│          │           │             │             │             │ el falso    │
+│          │           │             │             │             │ positivo.   │
+│          │           │             │             │             │ Si no,      │
+│          │           │             │             │             │ tratar como │
+│          │           │             │             │             │ indicador   │
+│          │           │             │             │             │ de tool     │
+│          │           │             │             │             │ maliciosa/c │
+│          │           │             │             │             │ omprometida │
+│          │           │             │             │             │ .           │
+│ HIGH     │ heuristic │ supplychai… │ fetch_docs  │ Anthropic   │ Nunca       │
+│          │           │             │             │ API key     │ embeber     │
+│          │           │             │             │ expuesto en │ secretos en │
+│          │           │             │             │ 'fetch_doc… │ descripcion │
+│          │           │             │             │             │ es/schemas  │
+│          │           │             │             │             │ de tools.   │
+│          │           │             │             │             │ Usar        │
+│          │           │             │             │             │ variables   │
+│          │           │             │             │             │ de entorno  │
+│          │           │             │             │             │ o un vault, │
+│          │           │             │             │             │ y rotar     │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ credencial  │
+│          │           │             │             │             │ expuesta    │
+│          │           │             │             │             │ inmediatame │
+│          │           │             │             │             │ nte.        │
+│ HIGH     │ verified  │ supplychai… │ Campo-Tiro… │ path_trave… │ Revisar la  │
+│          │           │             │             │ rules.ares… │ línea       │
+│          │           │             │             │ en          │ señalada:   │
+│          │           │             │             │ Campo-Tiro… │ sanitizar/v │
+│          │           │             │             │             │ alidar      │
+│          │           │             │             │             │ antes del   │
+│          │           │             │             │             │ sink, o     │
+│          │           │             │             │             │ usar una    │
+│          │           │             │             │             │ API que no  │
+│          │           │             │             │             │ interprete  │
+│          │           │             │             │             │ el input    │
+│          │           │             │             │             │ como        │
+│          │           │             │             │             │ código/coma │
+│          │           │             │             │             │ ndo/ruta    │
+│          │           │             │             │             │ sin         │
+│          │           │             │             │             │ restricción │
+│          │           │             │             │             │ (ver        │
+│          │           │             │             │             │ dynamic.com │
+│          │           │             │             │             │ mand_inject │
+│          │           │             │             │             │ ion_confirm │
+│          │           │             │             │             │ ed /        │
+│          │           │             │             │             │ dynamic.pat │
+│          │           │             │             │             │ h_traversal │
+│          │           │             │             │             │ _confirmed  │
+│          │           │             │             │             │ para la     │
+│          │           │             │             │             │ confirmació │
+│          │           │             │             │             │ n black-box │
+│          │           │             │             │             │ equivalente │
+│          │           │             │             │             │ , si        │
+│          │           │             │             │             │ aplica).    │
+│ MEDIUM   │ heuristic │ adv.inject… │ read_config │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ citado en   │ explícitame │
+│          │           │             │             │ un error de │ nte         │
+│          │           │             │             │ 'read_conf… │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ MEDIUM   │ heuristic │ adv.inject… │ read_config │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ citado en   │ explícitame │
+│          │           │             │             │ un error de │ nte         │
+│          │           │             │             │ 'read_conf… │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ MEDIUM   │ heuristic │ adv.inject… │ read_config │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ citado en   │ explícitame │
+│          │           │             │             │ un error de │ nte         │
+│          │           │             │             │ 'read_conf… │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ MEDIUM   │ heuristic │ dynamic.fu… │ notify_web… │ Leak de     │ Capturar    │
+│          │           │             │             │ información │ excepciones │
+│          │           │             │             │ interna en  │ y devolver  │
+│          │           │             │             │ 'notify_we… │ mensajes de │
+│          │           │             │             │             │ error       │
+│          │           │             │             │             │ genéricos   │
+│          │           │             │             │             │ al cliente; │
+│          │           │             │             │             │ loguear el  │
+│          │           │             │             │             │ detalle     │
+│          │           │             │             │             │ solo        │
+│          │           │             │             │             │ server-side │
+│          │           │             │             │             │ .           │
+│ MEDIUM   │ heuristic │ dynamic.fu… │ notify_web… │ Leak de     │ Capturar    │
+│          │           │             │             │ información │ excepciones │
+│          │           │             │             │ interna en  │ y devolver  │
+│          │           │             │             │ 'notify_we… │ mensajes de │
+│          │           │             │             │             │ error       │
+│          │           │             │             │             │ genéricos   │
+│          │           │             │             │             │ al cliente; │
+│          │           │             │             │             │ loguear el  │
+│          │           │             │             │             │ detalle     │
+│          │           │             │             │             │ solo        │
+│          │           │             │             │             │ server-side │
+│          │           │             │             │             │ .           │
+│ MEDIUM   │ heuristic │ dynamic.fu… │ notify_web… │ Leak de     │ Capturar    │
+│          │           │             │             │ información │ excepciones │
+│          │           │             │             │ interna en  │ y devolver  │
+│          │           │             │             │ 'notify_we… │ mensajes de │
+│          │           │             │             │             │ error       │
+│          │           │             │             │             │ genéricos   │
+│          │           │             │             │             │ al cliente; │
+│          │           │             │             │             │ loguear el  │
+│          │           │             │             │             │ detalle     │
+│          │           │             │             │             │ solo        │
+│          │           │             │             │             │ server-side │
+│          │           │             │             │             │ .           │
+│ MEDIUM   │ heuristic │ dynamic.fu… │ notify_web… │ Leak de     │ Capturar    │
+│          │           │             │             │ información │ excepciones │
+│          │           │             │             │ interna en  │ y devolver  │
+│          │           │             │             │ 'notify_we… │ mensajes de │
+│          │           │             │             │             │ error       │
+│          │           │             │             │             │ genéricos   │
+│          │           │             │             │             │ al cliente; │
+│          │           │             │             │             │ loguear el  │
+│          │           │             │             │             │ detalle     │
+│          │           │             │             │             │ solo        │
+│          │           │             │             │             │ server-side │
+│          │           │             │             │             │ .           │
+│ MEDIUM   │ verified  │ recon.audi… │ server      │ Sin soporte │ Implementar │
+│          │           │             │             │ de logging  │ el          │
+│          │           │             │             │ declarado   │ capability  │
+│          │           │             │             │             │ 'logging'   │
+│          │           │             │             │             │ del         │
+│          │           │             │             │             │ protocolo   │
+│          │           │             │             │             │ MCP y       │
+│          │           │             │             │             │ loguear     │
+│          │           │             │             │             │ cada tool   │
+│          │           │             │             │             │ call        │
+│          │           │             │             │             │ (nombre,    │
+│          │           │             │             │             │ argumentos, │
+│          │           │             │             │             │ resultado,  │
+│          │           │             │             │             │ identidad   │
+│          │           │             │             │             │ del         │
+│          │           │             │             │             │ cliente)    │
+│          │           │             │             │             │ server-side │
+│          │           │             │             │             │ como        │
+│          │           │             │             │             │ mínimo,     │
+│          │           │             │             │             │ para poder  │
+│          │           │             │             │             │ auditar e   │
+│          │           │             │             │             │ investigar  │
+│          │           │             │             │             │ incidentes  │
+│          │           │             │             │             │ después del │
+│          │           │             │             │             │ hecho.      │
+│ MEDIUM   │ verified  │ static.sch… │ fetch_docs  │ Schema      │ Restringir  │
+│          │           │             │             │ permisivo   │ tipos, usar │
+│          │           │             │             │ en tool     │ enum/patter │
+│          │           │             │             │ 'fetch_doc… │ n/maxLength │
+│          │           │             │             │             │  en         │
+│          │           │             │             │             │ parámetros  │
+│          │           │             │             │             │ string, y   │
+│          │           │             │             │             │ additionalP │
+│          │           │             │             │             │ roperties=f │
+│          │           │             │             │             │ alse salvo  │
+│          │           │             │             │             │ necesidad   │
+│          │           │             │             │             │ explícita.  │
+│ MEDIUM   │ verified  │ static.sch… │ run_diagno… │ Schema      │ Restringir  │
+│          │           │             │             │ permisivo   │ tipos, usar │
+│          │           │             │             │ en tool     │ enum/patter │
+│          │           │             │             │ 'run_diagn… │ n/maxLength │
+│          │           │             │             │             │  en         │
+│          │           │             │             │             │ parámetros  │
+│          │           │             │             │             │ string, y   │
+│          │           │             │             │             │ additionalP │
+│          │           │             │             │             │ roperties=f │
+│          │           │             │             │             │ alse salvo  │
+│          │           │             │             │             │ necesidad   │
+│          │           │             │             │             │ explícita.  │
+│ MEDIUM   │ verified  │ static.sch… │ read_config │ Schema      │ Restringir  │
+│          │           │             │             │ permisivo   │ tipos, usar │
+│          │           │             │             │ en tool     │ enum/patter │
+│          │           │             │             │ 'read_conf… │ n/maxLength │
+│          │           │             │             │             │  en         │
+│          │           │             │             │             │ parámetros  │
+│          │           │             │             │             │ string, y   │
+│          │           │             │             │             │ additionalP │
+│          │           │             │             │             │ roperties=f │
+│          │           │             │             │             │ alse salvo  │
+│          │           │             │             │             │ necesidad   │
+│          │           │             │             │             │ explícita.  │
+│ MEDIUM   │ verified  │ static.sch… │ delete_cus… │ Schema      │ Restringir  │
+│          │           │             │             │ permisivo   │ tipos, usar │
+│          │           │             │             │ en tool     │ enum/patter │
+│          │           │             │             │ 'delete_cu… │ n/maxLength │
+│          │           │             │             │             │  en         │
+│          │           │             │             │             │ parámetros  │
+│          │           │             │             │             │ string, y   │
+│          │           │             │             │             │ additionalP │
+│          │           │             │             │             │ roperties=f │
+│          │           │             │             │             │ alse salvo  │
+│          │           │             │             │             │ necesidad   │
+│          │           │             │             │             │ explícita.  │
+│ MEDIUM   │ verified  │ static.sch… │ get_accoun… │ Schema      │ Restringir  │
+│          │           │             │             │ permisivo   │ tipos, usar │
+│          │           │             │             │ en tool     │ enum/patter │
+│          │           │             │             │ 'get_accou… │ n/maxLength │
+│          │           │             │             │             │  en         │
+│          │           │             │             │             │ parámetros  │
+│          │           │             │             │             │ string, y   │
+│          │           │             │             │             │ additionalP │
+│          │           │             │             │             │ roperties=f │
+│          │           │             │             │             │ alse salvo  │
+│          │           │             │             │             │ necesidad   │
+│          │           │             │             │             │ explícita.  │
+│ MEDIUM   │ verified  │ static.sch… │ notify_web… │ Schema      │ Restringir  │
+│          │           │             │             │ permisivo   │ tipos, usar │
+│          │           │             │             │ en tool     │ enum/patter │
+│          │           │             │             │ 'notify_we… │ n/maxLength │
+│          │           │             │             │             │  en         │
+│          │           │             │             │             │ parámetros  │
+│          │           │             │             │             │ string, y   │
+│          │           │             │             │             │ additionalP │
+│          │           │             │             │             │ roperties=f │
+│          │           │             │             │             │ alse salvo  │
+│          │           │             │             │             │ necesidad   │
+│          │           │             │             │             │ explícita.  │
+│ MEDIUM   │ verified  │ static.sch… │ notify_web… │ Schema      │ Restringir  │
+│          │           │             │             │ permisivo   │ tipos, usar │
+│          │           │             │             │ en tool     │ enum/patter │
+│          │           │             │             │ 'notify_we… │ n/maxLength │
+│          │           │             │             │             │  en         │
+│          │           │             │             │             │ parámetros  │
+│          │           │             │             │             │ string, y   │
+│          │           │             │             │             │ additionalP │
+│          │           │             │             │             │ roperties=f │
+│          │           │             │             │             │ alse salvo  │
+│          │           │             │             │             │ necesidad   │
+│          │           │             │             │             │ explícita.  │
+│ MEDIUM   │ verified  │ static.sch… │ eval_expre… │ Schema      │ Restringir  │
+│          │           │             │             │ permisivo   │ tipos, usar │
+│          │           │             │             │ en tool     │ enum/patter │
+│          │           │             │             │ 'eval_expr… │ n/maxLength │
+│          │           │             │             │             │  en         │
+│          │           │             │             │             │ parámetros  │
+│          │           │             │             │             │ string, y   │
+│          │           │             │             │             │ additionalP │
+│          │           │             │             │             │ roperties=f │
+│          │           │             │             │             │ alse salvo  │
+│          │           │             │             │             │ necesidad   │
+│          │           │             │             │             │ explícita.  │
+│ MEDIUM   │ verified  │ supplychai… │ requests    │ requests    │ Actualizar  │
+│          │           │             │             │ 2.6.0:      │ a:          │
+│          │           │             │             │ GHSA-9wx4-… │ ['2.32.0']  │
+│          │           │             │             │ — CVSS 5.6  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ MEDIUM   │ verified  │ supplychai… │ requests    │ requests    │ Actualizar  │
+│          │           │             │             │ 2.6.0:      │ a:          │
+│          │           │             │             │ GHSA-gc5v-… │ ['2.33.0']  │
+│          │           │             │             │ — CVSS 4.4  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ MEDIUM   │ verified  │ supplychai… │ requests    │ requests    │ Actualizar  │
+│          │           │             │             │ 2.6.0:      │ a:          │
+│          │           │             │             │ PYSEC-2026… │ ['2.32.0']  │
+│          │           │             │             │ — CVSS 5.6  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ MEDIUM   │ verified  │ supplychai… │ jinja2      │ jinja2      │ Actualizar  │
+│          │           │             │             │ 2.10:       │ a:          │
+│          │           │             │             │ GHSA-h5c8-… │ ['3.1.3']   │
+│          │           │             │             │ — CVSS 5.4  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ MEDIUM   │ verified  │ supplychai… │ jinja2      │ jinja2      │ Actualizar  │
+│          │           │             │             │ 2.10:       │ a:          │
+│          │           │             │             │ GHSA-h75v-… │ ['3.1.4']   │
+│          │           │             │             │ — CVSS 5.4  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ MEDIUM   │ verified  │ supplychai… │ jinja2      │ jinja2      │ Actualizar  │
+│          │           │             │             │ 2.10:       │ a:          │
+│          │           │             │             │ PYSEC-2026… │ ['3.1.3']   │
+│          │           │             │             │ — CVSS 5.4  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ MEDIUM   │ verified  │ supplychai… │ jinja2      │ jinja2      │ Actualizar  │
+│          │           │             │             │ 2.10:       │ a:          │
+│          │           │             │             │ PYSEC-2026… │ ['3.1.4']   │
+│          │           │             │             │ — CVSS 5.4  │             │
+│          │           │             │             │ (CVSS:3.1/… │             │
+│ MEDIUM   │ heuristic │ supplychai… │ notify_web… │ Nombres de  │ Renombrar   │
+│          │           │             │             │ tool casi   │ para        │
+│          │           │             │             │ idénticos:  │ maximizar   │
+│          │           │             │             │ 'notify_we… │ la          │
+│          │           │             │             │ /           │ distancia   │
+│          │           │             │             │ 'notify_we… │ léxica      │
+│          │           │             │             │ (similitud  │ entre tools │
+│          │           │             │             │ 0.986)      │ de          │
+│          │           │             │             │             │ intención   │
+│          │           │             │             │             │ distinta;   │
+│          │           │             │             │             │ evitar      │
+│          │           │             │             │             │ pares de    │
+│          │           │             │             │             │ nombres a   │
+│          │           │             │             │             │ una edición │
+│          │           │             │             │             │ de          │
+│          │           │             │             │             │ distancia.  │
+└──────────┴───────────┴─────────────┴─────────────┴─────────────┴─────────────┘

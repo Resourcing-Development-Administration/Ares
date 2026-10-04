@@ -1,0 +1,5 @@
+# deliberadamente fijado a versiones viejas y vulnerables (CVEs reales en OSV.dev)
+# para supplychain.dependency_vulnerabilities -- NUNCA usar estos pines en un proyecto real.
+pyyaml==5.1
+requests==2.6.0
+jinja2==2.10

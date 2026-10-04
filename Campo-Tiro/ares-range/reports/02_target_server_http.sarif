@@ -1,0 +1,72 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Ares",
+          "informationUri": "https://modelcontextprotocol.io",
+          "rules": [
+            {
+              "id": "exposure.transport_security",
+              "name": "exposure.transport_security",
+              "shortDescription": {
+                "text": "Endpoint MCP servido sin TLS"
+              },
+              "fullDescription": {
+                "text": "'http://127.0.0.1:8765/mcp' usa http:// en vez de https://. Todo el tráfico (incluyendo tokens de auth en headers) viaja en texto plano."
+              },
+              "help": {
+                "text": "Servir el endpoint MCP exclusivamente sobre TLS (https/wss), incluso en redes internas."
+              },
+              "properties": {
+                "category": "exposure",
+                "tags": [
+                  "OWASP-MCP:MCP07:2025",
+                  "OWASP-API:API8:2023"
+                ],
+                "security-severity": "6.5"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "exposure.transport_security",
+          "level": "error",
+          "message": {
+            "text": "'http://127.0.0.1:8765/mcp' usa http:// en vez de https://. Todo el tráfico (incluyendo tokens de auth en headers) viaja en texto plano."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "mcp-tool://server"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "target": "server",
+            "finding_id": "04457857",
+            "confidence": "verified",
+            "cvss_vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:L/A:N",
+            "cvss_score": 6.5,
+            "owasp_risk_rating": "High",
+            "business_impact": {
+              "financial": "medium",
+              "reputational": "medium",
+              "compliance": "high",
+              "privacy": "high"
+            },
+            "remediation_effort": "trivial",
+            "aivss_score": 7.5
+          }
+        }
+      ]
+    }
+  ]
+}

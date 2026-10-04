@@ -1,0 +1,564 @@
+/home/user/Tools/RedTeam/MCP/Ares/.venv/lib/python3.13/site-packages/pydantic_settings/sources/utils.py:47: IncompleteFieldDefinitionWarning: Field 'lifespan' has an incomplete definition: its annotation contains an unresolved forward reference, so settings sources may fail to correctly resolve its value. Call `model_rebuild()` on the model where the field is defined, once all the referenced types are defined.
+  warnings.warn(
+▶ corriendo recon.enumerate — Enumeración de tools/resources/prompts
+  🟢 1 findings, 0 confirmados
+▶ corriendo recon.suspicious_descriptions — Análisis de descripciones 
+sospechosas (tool poisoning / line jumping)
+  🔴 2 findings, 2 confirmados
+▶ corriendo recon.audit_logging — Soporte de audit/telemetría (logging 
+capability)
+  🔴 1 findings, 1 confirmados
+▶ corriendo recon.excessive_permissions — Detección de permisos/alcance excesivo
+declarado
+  🔴 1 findings, 1 confirmados
+▶ corriendo static.schema_permissive — Detección de schemas demasiado permisivos
+  🔴 5 findings, 5 confirmados
+▶ corriendo static.no_schema — Tools sin input_schema definido
+  🔴 1 findings, 1 confirmados
+▶ corriendo static.known_cve_check — CVEs conocidos de servers MCP oficiales 
+(feed curado)
+  🟢 1 findings, 0 confirmados
+▶ corriendo dynamic.fuzz_tools — Fuzzing black-box de parámetros por tool
+  🔴 3 findings, 3 confirmados
+▶ corriendo dynamic.command_injection_confirmed — Command injection confirmado 
+por canario
+  🔴 1 findings, 1 confirmados
+▶ corriendo dynamic.path_traversal_confirmed — Path traversal confirmado por 
+contenido de /etc/passwd
+  🔴 2 findings, 2 confirmados
+▶ corriendo dynamic.credential_harvest_paths — Path traversal dirigido a 
+credenciales conocidas (SSH, cloud, configs MCP)
+  🟢 1 findings, 0 confirmados
+▶ corriendo dynamic.fuzz_resources — Fuzzing de URIs de resources (estáticos y 
+templates)
+  🔴 1 findings, 1 confirmados
+▶ corriendo adv.injection_passthrough — Passthrough de prompt injection sin 
+sanitizar
+  🔴 7 findings, 7 confirmados
+▶ corriendo adv.confused_deputy — Confused deputy / escalación de alcance
+  🟢 1 findings, 0 confirmados
+▶ corriendo adv.destructive_no_confirmation — Ejecución de acciones destructivas
+sin confirmación
+  🔴 1 findings, 1 confirmados
+▶ corriendo adv.rug_pull — Rug pull: la definición de un tool cambió desde el 
+baseline
+  🟢 1 findings, 0 confirmados
+▶ corriendo supplychain.secret_exposure — Secretos expuestos en definiciones
+  🟢 1 findings, 0 confirmados
+▶ corriendo supplychain.tool_squatting — Tool squatting / confused deputy
+  🔴 1 findings, 1 confirmados
+▶ corriendo supplychain.exfiltration_chain — Cadena de exfiltración lector -> 
+emisor
+  🔴 1 findings, 1 confirmados
+▶ corriendo supplychain.malicious_patterns — Patrones de contenido malicioso 
+(heurística tipo YARA)
+  🔴 1 findings, 1 confirmados
+▶ corriendo auth.unauthenticated_access — Acceso sin autenticación
+  🟢 1 findings, 0 confirmados
+▶ corriendo auth.oauth_metadata_security — Seguridad de metadata OAuth 2.1 (RFC 
+9728 / MCP authorization spec)
+  🟢 0 findings, 0 confirmados
+▶ corriendo exposure.transport_security — Transporte sin TLS
+  🟢 0 findings, 0 confirmados
+▶ corriendo exposure.cors_misconfig — Configuración CORS insegura
+  🟢 0 findings, 0 confirmados
+▶ corriendo exposure.network_reachability — Clasificación de alcance de red 
+(interno vs público)
+  🟢 0 findings, 0 confirmados
+▶ corriendo exposure.session_id_entropy — Entropía y longitud del Mcp-Session-Id
+(transporte http)
+  🟢 0 findings, 0 confirmados
+
+Resumen: 28 hallazgos confirmados de 35 tests
+  por severidad: {'info': 0, 'low': 0, 'medium': 14, 'high': 11, 'critical': 3}
+  Score: 0/100 (grade F) — EXPUESTO — 3 hallazgo(s) crítico(s) confirmado(s).
+  Policy verdict: BLOCK
+
+Reporte guardado: 
+/home/user/Tools/RedTeam/MCP/Ares/Campo-Tiro/ares-range/reports/01_target_server
+.html / 
+/home/user/Tools/RedTeam/MCP/Ares/Campo-Tiro/ares-range/reports/01_target_server
+.json
+SARIF guardado: 
+/home/user/Tools/RedTeam/MCP/Ares/Campo-Tiro/ares-range/reports/01_target_server
+.sarif
+                      Hallazgos confirmados — python3 (28)                      
+┏━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┓
+┃ Sev      ┃ Conf      ┃ Test ID     ┃ Target      ┃ Título      ┃ Remediación ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━┩
+│ CRITICAL │ verified  │ dynamic.co… │ fetch_webh… │ Command     │ Nunca pasar │
+│          │           │             │             │ injection   │ input de    │
+│          │           │             │             │ CONFIRMADO  │ usuario a   │
+│          │           │             │             │ en          │ un shell    │
+│          │           │             │             │ 'fetch_web… │ (subprocess │
+│          │           │             │             │ vía 'url'   │ con         │
+│          │           │             │             │             │ shell=True, │
+│          │           │             │             │             │ execSync,   │
+│          │           │             │             │             │ os.system). │
+│          │           │             │             │             │ Usar APIs   │
+│          │           │             │             │             │ que reciban │
+│          │           │             │             │             │ argumentos  │
+│          │           │             │             │             │ como lista, │
+│          │           │             │             │             │ sin         │
+│          │           │             │             │             │ interpretac │
+│          │           │             │             │             │ ión de      │
+│          │           │             │             │             │ shell.      │
+│ CRITICAL │ verified  │ dynamic.pa… │ read_file   │ Path        │ Resolver y  │
+│          │           │             │             │ traversal   │ validar la  │
+│          │           │             │             │ CONFIRMADO  │ ruta contra │
+│          │           │             │             │ en          │ un          │
+│          │           │             │             │ 'read_file' │ directorio  │
+│          │           │             │             │ vía 'path'  │ base        │
+│          │           │             │             │             │ permitido   │
+│          │           │             │             │             │ (allowlist) │
+│          │           │             │             │             │ ,           │
+│          │           │             │             │             │ rechazando  │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ ruta que    │
+│          │           │             │             │             │ escape de   │
+│          │           │             │             │             │ ese         │
+│          │           │             │             │             │ directorio. │
+│ CRITICAL │ verified  │ dynamic.pa… │ fetch_webh… │ Path        │ Resolver y  │
+│          │           │             │             │ traversal   │ validar la  │
+│          │           │             │             │ CONFIRMADO  │ ruta contra │
+│          │           │             │             │ en          │ un          │
+│          │           │             │             │ 'fetch_web… │ directorio  │
+│          │           │             │             │ vía 'url'   │ base        │
+│          │           │             │             │             │ permitido   │
+│          │           │             │             │             │ (allowlist) │
+│          │           │             │             │             │ ,           │
+│          │           │             │             │             │ rechazando  │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ ruta que    │
+│          │           │             │             │             │ escape de   │
+│          │           │             │             │             │ ese         │
+│          │           │             │             │             │ directorio. │
+│ HIGH     │ heuristic │ recon.susp… │ read_file   │ Descripción │ Revisar     │
+│          │           │             │             │ sospechosa  │ manualmente │
+│          │           │             │             │ en          │ la          │
+│          │           │             │             │ 'read_file' │ descripción │
+│          │           │             │             │ (descripti… │ del tool Y  │
+│          │           │             │             │             │ de cada     │
+│          │           │             │             │             │ parámetro;  │
+│          │           │             │             │             │ eliminar    │
+│          │           │             │             │             │ instruccion │
+│          │           │             │             │             │ es          │
+│          │           │             │             │             │ dirigidas   │
+│          │           │             │             │             │ al modelo   │
+│          │           │             │             │             │ que no sean │
+│          │           │             │             │             │ documentaci │
+│          │           │             │             │             │ ón legítima │
+│          │           │             │             │             │ de uso, y   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ carácter    │
+│          │           │             │             │             │ Unicode     │
+│          │           │             │             │             │ invisible.  │
+│ HIGH     │ heuristic │ recon.susp… │ format_num… │ Line        │ Revisar     │
+│          │           │             │             │ jumping en  │ manualmente │
+│          │           │             │             │ 'format_nu… │ la          │
+│          │           │             │             │ (parámetro  │ descripción │
+│          │           │             │             │ 'value')    │ del tool Y  │
+│          │           │             │             │             │ de cada     │
+│          │           │             │             │             │ parámetro;  │
+│          │           │             │             │             │ eliminar    │
+│          │           │             │             │             │ instruccion │
+│          │           │             │             │             │ es          │
+│          │           │             │             │             │ dirigidas   │
+│          │           │             │             │             │ al modelo   │
+│          │           │             │             │             │ que no sean │
+│          │           │             │             │             │ documentaci │
+│          │           │             │             │             │ ón legítima │
+│          │           │             │             │             │ de uso, y   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ carácter    │
+│          │           │             │             │             │ Unicode     │
+│          │           │             │             │             │ invisible.  │
+│ HIGH     │ heuristic │ recon.exce… │ delete_all… │ Tool con    │ Asegurar    │
+│          │           │             │             │ capacidad   │ sandboxing  │
+│          │           │             │             │ potencialm… │ estricto,   │
+│          │           │             │             │ peligrosa:  │ allowlist   │
+│          │           │             │             │ 'delete_al… │ de          │
+│          │           │             │             │             │ comandos/pa │
+│          │           │             │             │             │ ths, y      │
+│          │           │             │             │             │ human-in-th │
+│          │           │             │             │             │ e-loop para │
+│          │           │             │             │             │ operaciones │
+│          │           │             │             │             │ destructiva │
+│          │           │             │             │             │ s o de      │
+│          │           │             │             │             │ ejecución   │
+│          │           │             │             │             │ arbitraria. │
+│ HIGH     │ heuristic │ dynamic.fu… │ file:///{p… │ Acceso      │ Validar y   │
+│          │           │             │             │ fuera de    │ normalizar  │
+│          │           │             │             │ alcance o   │ URIs de     │
+│          │           │             │             │ leak en     │ resources   │
+│          │           │             │             │ resource    │ contra un   │
+│          │           │             │             │ 'file:///{… │ allowlist   │
+│          │           │             │             │             │ explícito   │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ resolverlas │
+│          │           │             │             │             │ a un        │
+│          │           │             │             │             │ path/recurs │
+│          │           │             │             │             │ o real;     │
+│          │           │             │             │             │ nunca       │
+│          │           │             │             │             │ concatenar  │
+│          │           │             │             │             │ el URI      │
+│          │           │             │             │             │ recibido    │
+│          │           │             │             │             │ directament │
+│          │           │             │             │             │ e a una     │
+│          │           │             │             │             │ ruta de     │
+│          │           │             │             │             │ filesystem. │
+│ HIGH     │ heuristic │ adv.inject… │ save_note   │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ reflejado   │ explícitame │
+│          │           │             │             │ intacto por │ nte         │
+│          │           │             │             │ 'save_note' │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ HIGH     │ heuristic │ adv.inject… │ save_note   │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ reflejado   │ explícitame │
+│          │           │             │             │ intacto por │ nte         │
+│          │           │             │             │ 'save_note' │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ HIGH     │ heuristic │ adv.inject… │ save_note   │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ reflejado   │ explícitame │
+│          │           │             │             │ intacto por │ nte         │
+│          │           │             │             │ 'save_note' │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ HIGH     │ heuristic │ adv.inject… │ fetch_webh… │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ reflejado   │ explícitame │
+│          │           │             │             │ intacto por │ nte         │
+│          │           │             │             │ 'fetch_web… │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ HIGH     │ verified  │ adv.destru… │ delete_all… │ Tool        │ Requerir un │
+│          │           │             │             │ destructivo │ parámetro   │
+│          │           │             │             │ sin         │ explícito   │
+│          │           │             │             │ parámetro   │ de          │
+│          │           │             │             │ de          │ confirmació │
+│          │           │             │             │ confirmaci… │ n (y        │
+│          │           │             │             │ 'delete_al… │ hacerlo     │
+│          │           │             │             │             │ cumplir     │
+│          │           │             │             │             │ server-side │
+│          │           │             │             │             │ ), y/o      │
+│          │           │             │             │             │ depender de │
+│          │           │             │             │             │ human-in-th │
+│          │           │             │             │             │ e-loop del  │
+│          │           │             │             │             │ cliente MCP │
+│          │           │             │             │             │ para        │
+│          │           │             │             │             │ acciones    │
+│          │           │             │             │             │ destructiva │
+│          │           │             │             │             │ s.          │
+│ HIGH     │ heuristic │ supplychai… │ server      │ Posible     │ Requerir    │
+│          │           │             │             │ cadena de   │ confirmació │
+│          │           │             │             │ exfiltraci… │ n humana    │
+│          │           │             │             │ tools       │ explícita   │
+│          │           │             │             │ lectoras +  │ antes de    │
+│          │           │             │             │ tools       │ que datos   │
+│          │           │             │             │ emisoras    │ leídos de   │
+│          │           │             │             │             │ fuentes     │
+│          │           │             │             │             │ sensibles   │
+│          │           │             │             │             │ se pasen a  │
+│          │           │             │             │             │ una tool de │
+│          │           │             │             │             │ red/envío   │
+│          │           │             │             │             │ en el mismo │
+│          │           │             │             │             │ flujo del   │
+│          │           │             │             │             │ agente.     │
+│ HIGH     │ heuristic │ supplychai… │ format_num… │ Contenido   │ Revisar     │
+│          │           │             │             │ sospechoso  │ manualmente │
+│          │           │             │             │ en          │ el          │
+│          │           │             │             │ 'format_nu… │ contenido;  │
+│          │           │             │             │ tool_poiso… │ si es       │
+│          │           │             │             │             │ legítimo,   │
+│          │           │             │             │             │ documentar  │
+│          │           │             │             │             │ el falso    │
+│          │           │             │             │             │ positivo.   │
+│          │           │             │             │             │ Si no,      │
+│          │           │             │             │             │ tratar como │
+│          │           │             │             │             │ indicador   │
+│          │           │             │             │             │ de tool     │
+│          │           │             │             │             │ maliciosa/c │
+│          │           │             │             │             │ omprometida │
+│          │           │             │             │             │ .           │
+│ MEDIUM   │ verified  │ recon.audi… │ server      │ Sin soporte │ Implementar │
+│          │           │             │             │ de logging  │ el          │
+│          │           │             │             │ declarado   │ capability  │
+│          │           │             │             │             │ 'logging'   │
+│          │           │             │             │             │ del         │
+│          │           │             │             │             │ protocolo   │
+│          │           │             │             │             │ MCP y       │
+│          │           │             │             │             │ loguear     │
+│          │           │             │             │             │ cada tool   │
+│          │           │             │             │             │ call        │
+│          │           │             │             │             │ (nombre,    │
+│          │           │             │             │             │ argumentos, │
+│          │           │             │             │             │ resultado,  │
+│          │           │             │             │             │ identidad   │
+│          │           │             │             │             │ del         │
+│          │           │             │             │             │ cliente)    │
+│          │           │             │             │             │ server-side │
+│          │           │             │             │             │ como        │
+│          │           │             │             │             │ mínimo,     │
+│          │           │             │             │             │ para poder  │
+│          │           │             │             │             │ auditar e   │
+│          │           │             │             │             │ investigar  │
+│          │           │             │             │             │ incidentes  │
+│          │           │             │             │             │ después del │
+│          │           │             │             │             │ hecho.      │
+│ MEDIUM   │ verified  │ static.sch… │ read_file   │ Schema      │ Restringir  │
+│          │           │             │             │ permisivo   │ tipos, usar │
+│          │           │             │             │ en tool     │ enum/patter │
+│          │           │             │             │ 'read_file' │ n/maxLength │
+│          │           │             │             │             │  en         │
+│          │           │             │             │             │ parámetros  │
+│          │           │             │             │             │ string, y   │
+│          │           │             │             │             │ additionalP │
+│          │           │             │             │             │ roperties=f │
+│          │           │             │             │             │ alse salvo  │
+│          │           │             │             │             │ necesidad   │
+│          │           │             │             │             │ explícita.  │
+│ MEDIUM   │ verified  │ static.sch… │ save_note   │ Schema      │ Restringir  │
+│          │           │             │             │ permisivo   │ tipos, usar │
+│          │           │             │             │ en tool     │ enum/patter │
+│          │           │             │             │ 'save_note' │ n/maxLength │
+│          │           │             │             │             │  en         │
+│          │           │             │             │             │ parámetros  │
+│          │           │             │             │             │ string, y   │
+│          │           │             │             │             │ additionalP │
+│          │           │             │             │             │ roperties=f │
+│          │           │             │             │             │ alse salvo  │
+│          │           │             │             │             │ necesidad   │
+│          │           │             │             │             │ explícita.  │
+│ MEDIUM   │ verified  │ static.sch… │ read_note   │ Schema      │ Restringir  │
+│          │           │             │             │ permisivo   │ tipos, usar │
+│          │           │             │             │ en tool     │ enum/patter │
+│          │           │             │             │ 'read_note' │ n/maxLength │
+│          │           │             │             │             │  en         │
+│          │           │             │             │             │ parámetros  │
+│          │           │             │             │             │ string, y   │
+│          │           │             │             │             │ additionalP │
+│          │           │             │             │             │ roperties=f │
+│          │           │             │             │             │ alse salvo  │
+│          │           │             │             │             │ necesidad   │
+│          │           │             │             │             │ explícita.  │
+│ MEDIUM   │ verified  │ static.sch… │ get_accoun… │ Schema      │ Restringir  │
+│          │           │             │             │ permisivo   │ tipos, usar │
+│          │           │             │             │ en tool     │ enum/patter │
+│          │           │             │             │ 'get_accou… │ n/maxLength │
+│          │           │             │             │             │  en         │
+│          │           │             │             │             │ parámetros  │
+│          │           │             │             │             │ string, y   │
+│          │           │             │             │             │ additionalP │
+│          │           │             │             │             │ roperties=f │
+│          │           │             │             │             │ alse salvo  │
+│          │           │             │             │             │ necesidad   │
+│          │           │             │             │             │ explícita.  │
+│ MEDIUM   │ verified  │ static.sch… │ fetch_webh… │ Schema      │ Restringir  │
+│          │           │             │             │ permisivo   │ tipos, usar │
+│          │           │             │             │ en tool     │ enum/patter │
+│          │           │             │             │ 'fetch_web… │ n/maxLength │
+│          │           │             │             │             │  en         │
+│          │           │             │             │             │ parámetros  │
+│          │           │             │             │             │ string, y   │
+│          │           │             │             │             │ additionalP │
+│          │           │             │             │             │ roperties=f │
+│          │           │             │             │             │ alse salvo  │
+│          │           │             │             │             │ necesidad   │
+│          │           │             │             │             │ explícita.  │
+│ MEDIUM   │ verified  │ static.no_… │ delete_all… │ Tool        │ Definir     │
+│          │           │             │             │ 'delete_al… │ JSON Schema │
+│          │           │             │             │ sin schema  │ explícito   │
+│          │           │             │             │ de entrada  │ para todos  │
+│          │           │             │             │ útil        │ los         │
+│          │           │             │             │             │ parámetros  │
+│          │           │             │             │             │ aceptados.  │
+│ MEDIUM   │ heuristic │ dynamic.fu… │ read_note   │ Leak de     │ Capturar    │
+│          │           │             │             │ información │ excepciones │
+│          │           │             │             │ interna en  │ y devolver  │
+│          │           │             │             │ 'read_note' │ mensajes de │
+│          │           │             │             │             │ error       │
+│          │           │             │             │             │ genéricos   │
+│          │           │             │             │             │ al cliente; │
+│          │           │             │             │             │ loguear el  │
+│          │           │             │             │             │ detalle     │
+│          │           │             │             │             │ solo        │
+│          │           │             │             │             │ server-side │
+│          │           │             │             │             │ .           │
+│ MEDIUM   │ heuristic │ dynamic.fu… │ fetch_webh… │ Leak de     │ Capturar    │
+│          │           │             │             │ información │ excepciones │
+│          │           │             │             │ interna en  │ y devolver  │
+│          │           │             │             │ 'fetch_web… │ mensajes de │
+│          │           │             │             │             │ error       │
+│          │           │             │             │             │ genéricos   │
+│          │           │             │             │             │ al cliente; │
+│          │           │             │             │             │ loguear el  │
+│          │           │             │             │             │ detalle     │
+│          │           │             │             │             │ solo        │
+│          │           │             │             │             │ server-side │
+│          │           │             │             │             │ .           │
+│ MEDIUM   │ heuristic │ dynamic.fu… │ fetch_webh… │ Leak de     │ Capturar    │
+│          │           │             │             │ información │ excepciones │
+│          │           │             │             │ interna en  │ y devolver  │
+│          │           │             │             │ 'fetch_web… │ mensajes de │
+│          │           │             │             │             │ error       │
+│          │           │             │             │             │ genéricos   │
+│          │           │             │             │             │ al cliente; │
+│          │           │             │             │             │ loguear el  │
+│          │           │             │             │             │ detalle     │
+│          │           │             │             │             │ solo        │
+│          │           │             │             │             │ server-side │
+│          │           │             │             │             │ .           │
+│ MEDIUM   │ heuristic │ adv.inject… │ read_file   │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ citado en   │ explícitame │
+│          │           │             │             │ un error de │ nte         │
+│          │           │             │             │ 'read_file' │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ MEDIUM   │ heuristic │ adv.inject… │ read_file   │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ citado en   │ explícitame │
+│          │           │             │             │ un error de │ nte         │
+│          │           │             │             │ 'read_file' │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ MEDIUM   │ heuristic │ adv.inject… │ read_file   │ Payload de  │ Sanitizar o │
+│          │           │             │             │ injection   │ marcar      │
+│          │           │             │             │ citado en   │ explícitame │
+│          │           │             │             │ un error de │ nte         │
+│          │           │             │             │ 'read_file' │ (delimitado │
+│          │           │             │             │             │ res,        │
+│          │           │             │             │             │ encoding)   │
+│          │           │             │             │             │ cualquier   │
+│          │           │             │             │             │ contenido   │
+│          │           │             │             │             │ externo     │
+│          │           │             │             │             │ antes de    │
+│          │           │             │             │             │ que pueda   │
+│          │           │             │             │             │ volver a    │
+│          │           │             │             │             │ integrarse  │
+│          │           │             │             │             │ al contexto │
+│          │           │             │             │             │ del modelo. │
+│          │           │             │             │             │ Aplicar el  │
+│          │           │             │             │             │ principio   │
+│          │           │             │             │             │ de 'never   │
+│          │           │             │             │             │ mix         │
+│          │           │             │             │             │ instruction │
+│          │           │             │             │             │ s and       │
+│          │           │             │             │             │ data'.      │
+│ MEDIUM   │ heuristic │ supplychai… │ read_file,… │ Nombres de  │ Renombrar   │
+│          │           │             │             │ tool casi   │ para        │
+│          │           │             │             │ idénticos:  │ maximizar   │
+│          │           │             │             │ 'read_file' │ la          │
+│          │           │             │             │ /           │ distancia   │
+│          │           │             │             │ 'read_note' │ léxica      │
+│          │           │             │             │ (similitud  │ entre tools │
+│          │           │             │             │ 0.867)      │ de          │
+│          │           │             │             │             │ intención   │
+│          │           │             │             │             │ distinta;   │
+│          │           │             │             │             │ evitar      │
+│          │           │             │             │             │ pares de    │
+│          │           │             │             │             │ nombres a   │
+│          │           │             │             │             │ una edición │
+│          │           │             │             │             │ de          │
+│          │           │             │             │             │ distancia.  │
+└──────────┴───────────┴─────────────┴─────────────┴─────────────┴─────────────┘
