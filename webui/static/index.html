@@ -283,72 +283,80 @@
       <legend><span class="legend-ico">🔐</span> Autenticación
         <small>(solo http/sse — se aplica a cada target si es <code>full</code>)</small>
       </legend>
-      <div class="row">
-        <div>
-          <label>Tipo
-            <span class="tip" tabindex="0" data-tip="Cómo se arma el header de auth. bearer (lo más común) → Authorization: Bearer <token>. apikey/custom → el token crudo en el header que pongas al lado.">?</span>
-          </label>
-          <select id="auth_type">
-            <option value="bearer">bearer</option>
-            <option value="apikey">apikey</option>
-            <option value="custom">custom</option>
-          </select>
-        </div>
-        <div>
-          <label>Token / credencial
-            <span class="tip" tabindex="0" data-tip="Tu token/API key real, o dejalo vacío si querés probar sin auth. Vacío = el scan corre SIN ninguna credencial — es intencional, no un error: así respondés «¿qué puede hacer un atacante externo?».">?</span>
-          </label>
-          <input type="text" id="auth_token" placeholder="(vacío = sin auth)">
-        </div>
-        <div>
-          <label>Nombre de header (apikey/custom)
-            <span class="tip" tabindex="0" data-tip="El nombre literal del header HTTP, ej. X-API-Key. Solo se usa si Tipo es apikey o custom; con bearer se ignora (siempre es Authorization).">?</span>
-          </label>
-          <input type="text" id="auth_header_name" placeholder="X-API-Key">
-        </div>
-      </div>
-      <label>Headers extra (uno por línea, "Clave: Valor")
-        <span class="tip" tabindex="0" data-tip="Headers HTTP crudos adicionales, uno por línea, formato Clave: Valor (ej. Cookie: sesion=abc123). Para credenciales que no son ni Bearer ni API key.">?</span>
-      </label>
-      <textarea id="headers_raw" rows="2"></textarea>
-      <div class="checkline" id="compare-auth-line">
-        <input type="checkbox" id="compare_auth">
-        <label for="compare_auth">--compare-auth: correr con y sin credenciales, y diffear qué mitiga la auth (solo scan/vet, no full)</label>
-        <span class="tip" tabindex="0" data-tip="Corre el scan DOS veces: una vez CON el token y otra vez SIN nada, y compara qué hallazgos desaparecen al autenticarse (auth sí protege) vs cuáles quedan igual (auth no protege eso). Sin Token cargado, tildarlo no hace nada.">?</span>
+      <div class="checkline" id="use-auth-line">
+        <input type="checkbox" id="use_auth" onchange="toggleAuthFields()">
+        <label for="use_auth">Autenticar el scan (bearer/apikey/custom)</label>
+        <span class="tip" tabindex="0" data-tip="Destildado (default) = el scan corre SIN ninguna credencial — es intencional, no un error: así respondés «¿qué puede hacer un atacante externo sin nada?». Tildalo solo si vas a probar CON una credencial real; ahí aparecen los campos de token/header.">?</span>
       </div>
 
-      <details class="adv">
-        <summary>Avanzado: segunda identidad <span class="pill">cross_session_context_bleed</span></summary>
-        <p class="hint">Una SEGUNDA credencial/tenant válido contra el MISMO server — habilita
-        <code>auth.cross_session_context_bleed</code> (MCP10:2025 Context Injection &amp; Over-Sharing):
-        planta un canario con la credencial de arriba y confirma si aparece en una sesión nueva
-        abierta con esta, sin que nadie se lo haya dado ahí. Solo aplica a transporte http/sse;
-        sin esto, ese test se saltea solo (necesita las dos para tener sentido).</p>
-        <div class="row" style="margin-top:.4rem">
+      <div id="auth-fields" style="display:none">
+        <div class="row">
           <div>
-            <label>Tipo (segunda identidad)
-              <span class="tip" tabindex="0" data-tip="Misma semántica que el campo 'Tipo' de arriba, aplicado a esta segunda credencial independiente.">?</span>
+            <label>Tipo
+              <span class="tip" tabindex="0" data-tip="Cómo se arma el header de auth. bearer (lo más común) → Authorization: Bearer <token>. apikey/custom → el token crudo en el header que pongas al lado.">?</span>
             </label>
-            <select id="auth_type_b">
+            <select id="auth_type">
               <option value="bearer">bearer</option>
               <option value="apikey">apikey</option>
               <option value="custom">custom</option>
             </select>
           </div>
           <div>
-            <label>Token / credencial (segunda identidad)
-              <span class="tip" tabindex="0" data-tip="Vacío = auth.cross_session_context_bleed se saltea solo. Tiene que ser una credencial DISTINTA a la de arriba -- otro usuario/tenant válido del mismo server.">?</span>
+            <label>Token / credencial
+              <span class="tip" tabindex="0" data-tip="Tu token/API key real para esta corrida autenticada.">?</span>
             </label>
-            <input type="text" id="auth_token_b" placeholder="(vacío = test se saltea)">
+            <input type="text" id="auth_token" placeholder="eyJhbGciOi... / tu token">
           </div>
           <div>
             <label>Nombre de header (apikey/custom)
-              <span class="tip" tabindex="0" data-tip="Igual que el de arriba, para esta segunda credencial. Solo se usa si Tipo (segunda identidad) es apikey o custom.">?</span>
+              <span class="tip" tabindex="0" data-tip="El nombre literal del header HTTP, ej. X-API-Key. Solo se usa si Tipo es apikey o custom; con bearer se ignora (siempre es Authorization).">?</span>
             </label>
-            <input type="text" id="auth_header_name_b" placeholder="X-API-Key">
+            <input type="text" id="auth_header_name" placeholder="X-API-Key">
           </div>
         </div>
-      </details>
+        <label>Headers extra (uno por línea, "Clave: Valor")
+          <span class="tip" tabindex="0" data-tip="Headers HTTP crudos adicionales, uno por línea, formato Clave: Valor (ej. Cookie: sesion=abc123). Para credenciales que no son ni Bearer ni API key.">?</span>
+        </label>
+        <textarea id="headers_raw" rows="2"></textarea>
+        <div class="checkline" id="compare-auth-line">
+          <input type="checkbox" id="compare_auth">
+          <label for="compare_auth">--compare-auth: correr con y sin credenciales, y diffear qué mitiga la auth (solo scan/vet, no full)</label>
+          <span class="tip" tabindex="0" data-tip="Corre el scan DOS veces: una vez CON el token y otra vez SIN nada, y compara qué hallazgos desaparecen al autenticarse (auth sí protege) vs cuáles quedan igual (auth no protege eso).">?</span>
+        </div>
+
+        <details class="adv">
+          <summary>Avanzado: segunda identidad <span class="pill">cross_session_context_bleed</span></summary>
+          <p class="hint">Una SEGUNDA credencial/tenant válido contra el MISMO server — habilita
+          <code>auth.cross_session_context_bleed</code> (MCP10:2025 Context Injection &amp; Over-Sharing):
+          planta un canario con la credencial de arriba y confirma si aparece en una sesión nueva
+          abierta con esta, sin que nadie se lo haya dado ahí. Solo aplica a transporte http/sse;
+          sin esto, ese test se saltea solo (necesita las dos para tener sentido).</p>
+          <div class="row" style="margin-top:.4rem">
+            <div>
+              <label>Tipo (segunda identidad)
+                <span class="tip" tabindex="0" data-tip="Misma semántica que el campo 'Tipo' de arriba, aplicado a esta segunda credencial independiente.">?</span>
+              </label>
+              <select id="auth_type_b">
+                <option value="bearer">bearer</option>
+                <option value="apikey">apikey</option>
+                <option value="custom">custom</option>
+              </select>
+            </div>
+            <div>
+              <label>Token / credencial (segunda identidad)
+                <span class="tip" tabindex="0" data-tip="Vacío = auth.cross_session_context_bleed se saltea solo. Tiene que ser una credencial DISTINTA a la de arriba -- otro usuario/tenant válido del mismo server.">?</span>
+              </label>
+              <input type="text" id="auth_token_b" placeholder="(vacío = test se saltea)">
+            </div>
+            <div>
+              <label>Nombre de header (apikey/custom)
+                <span class="tip" tabindex="0" data-tip="Igual que el de arriba, para esta segunda credencial. Solo se usa si Tipo (segunda identidad) es apikey o custom.">?</span>
+              </label>
+              <input type="text" id="auth_header_name_b" placeholder="X-API-Key">
+            </div>
+          </div>
+        </details>
+      </div>
     </fieldset>
 
     <fieldset>
@@ -587,6 +595,21 @@ function setMode(mode) {
   envHint.textContent = mode === 'vet' ? 'vet fuerza production' : '';
 
   document.getElementById('run-btn').textContent = mode === 'full' ? '▶ Correr full' : (mode === 'vet' ? '▶ Correr vet' : '▶ Correr scan');
+}
+
+function toggleAuthFields() {
+  const on = document.getElementById('use_auth').checked;
+  document.getElementById('auth-fields').style.display = on ? 'block' : 'none';
+  if (!on) {
+    // Destildado = corrida sin auth: limpiamos lo cargado para que no quede
+    // una credencial "fantasma" sin mostrarse si el usuario vuelve a tildar.
+    document.getElementById('auth_token').value = '';
+    document.getElementById('auth_header_name').value = '';
+    document.getElementById('headers_raw').value = '';
+    document.getElementById('compare_auth').checked = false;
+    document.getElementById('auth_token_b').value = '';
+    document.getElementById('auth_header_name_b').value = '';
+  }
 }
 
 function toggleTransport() {
