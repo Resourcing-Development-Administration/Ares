@@ -1,0 +1,826 @@
+[
+  {
+    "scan_id": "3b1d94e5",
+    "target_name": "Sonar",
+    "started_at": "2026-10-05T16:14:27.657460+00:00",
+    "finished_at": "2026-10-05T16:14:30.610140+00:00",
+    "score": {
+      "score": 100,
+      "grade": "A",
+      "penalty": 0,
+      "verdict_text": "ACEPTABLE — sin hallazgos críticos/altos en esta corrida."
+    },
+    "policy_verdict": {
+      "environment": "production",
+      "overall": "ALLOW",
+      "by_finding": []
+    },
+    "compare_auth": false,
+    "mode": "vet",
+    "links": {
+      "html": "/reports/3b1d94e5/report.html",
+      "json": "/reports/3b1d94e5/report.json",
+      "sarif": "/reports/3b1d94e5/report.sarif"
+    },
+    "saved_at": "2026-10-05T16:14:30.682427+00:00"
+  },
+  {
+    "scan_id": "47c3c30c",
+    "target_name": "repro",
+    "started_at": "2026-10-05T16:11:04.661629+00:00",
+    "finished_at": "2026-10-05T16:11:12.193667+00:00",
+    "score": {
+      "score": 0,
+      "grade": "F",
+      "penalty": 500,
+      "verdict_text": "EXPUESTO — 5 hallazgo(s) crítico(s) confirmado(s)."
+    },
+    "policy_verdict": {
+      "environment": "production",
+      "overall": "BLOCK",
+      "by_finding": [
+        {
+          "finding_id": "23dfe09b",
+          "test_id": "recon.suspicious_descriptions",
+          "title": "Descripción sospechosa en 'read_file' (description)",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "ec14365e",
+          "test_id": "recon.audit_logging",
+          "title": "Sin soporte de logging declarado",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "240a74d2",
+          "test_id": "recon.excessive_permissions",
+          "title": "Tool con capacidad potencialmente peligrosa: 'delete_all_notes'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "03bfe9af",
+          "test_id": "recon.excessive_permissions",
+          "title": "Tool con capacidad potencialmente peligrosa: 'delete_note'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "4f74c930",
+          "test_id": "recon.excessive_permissions",
+          "title": "Tool con capacidad potencialmente peligrosa: 'run_command'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "baaf69ea",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'read_file'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "2cb387bf",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'save_note'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "c78e1cc5",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'read_note'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "7b3fef16",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'delete_note'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "30d1799b",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'fetch_webhook'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "2104b7c5",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'run_command'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "35f0f87a",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'get_account_balance'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "f003f030",
+          "test_id": "static.no_schema",
+          "title": "Tool 'delete_all_notes' sin schema de entrada útil",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "fb6c00d2",
+          "test_id": "static.no_schema",
+          "title": "Tool 'get_config' sin schema de entrada útil",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "9e421475",
+          "test_id": "dynamic.fuzz_tools",
+          "title": "Leak de información interna en 'read_note'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "a781ee0f",
+          "test_id": "dynamic.fuzz_tools",
+          "title": "Leak de información interna en 'fetch_webhook'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "92c3bd02",
+          "test_id": "dynamic.fuzz_tools",
+          "title": "Leak de información interna en 'fetch_webhook'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "d5f6f3c5",
+          "test_id": "dynamic.command_injection_confirmed",
+          "title": "Command injection CONFIRMADO en 'fetch_webhook' vía 'url'",
+          "severity": "critical",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "7fcfbe4e",
+          "test_id": "dynamic.command_injection_confirmed",
+          "title": "Command injection CONFIRMADO en 'run_command' vía 'cmd'",
+          "severity": "critical",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "e208da70",
+          "test_id": "dynamic.path_traversal_confirmed",
+          "title": "Path traversal CONFIRMADO en 'read_file' vía 'path'",
+          "severity": "critical",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "d4a7b04a",
+          "test_id": "dynamic.path_traversal_confirmed",
+          "title": "Path traversal CONFIRMADO en 'fetch_webhook' vía 'url'",
+          "severity": "critical",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "40b7af02",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection citado en un error de 'read_file'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "ccf91646",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection citado en un error de 'read_file'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "ec066cb3",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection citado en un error de 'read_file'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "abb32ac6",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection reflejado intacto por 'save_note'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "e2093efd",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection reflejado intacto por 'save_note'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "11d2a758",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection reflejado intacto por 'save_note'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "d11cd5e8",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection reflejado intacto por 'fetch_webhook'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "c90441b7",
+          "test_id": "adv.destructive_no_confirmation",
+          "title": "Tool destructivo sin parámetro de confirmación: 'delete_all_notes'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "ae184646",
+          "test_id": "adv.destructive_no_confirmation",
+          "title": "Tool destructivo sin parámetro de confirmación: 'delete_note'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "d445c2d2",
+          "test_id": "supplychain.secret_exposure",
+          "title": "Anthropic API key expuesto en 'get_config'",
+          "severity": "high",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "17beca18",
+          "test_id": "supplychain.secret_exposure",
+          "title": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations. (gitleaks:generic-api-key) expuesto en 'get_config'",
+          "severity": "high",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "5f767b00",
+          "test_id": "supplychain.tool_squatting",
+          "title": "Nombres de tool casi idénticos: 'read_file' / 'read_note' (similitud 0.867)",
+          "severity": "medium",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "3352f9dd",
+          "test_id": "supplychain.tool_squatting",
+          "title": "Nombres de tool casi idénticos: 'delete_all_notes' / 'delete_note' (similitud 0.938)",
+          "severity": "medium",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "2097e9ed",
+          "test_id": "supplychain.exfiltration_chain",
+          "title": "Posible cadena de exfiltración: tools lectoras + tools emisoras",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "baa2410c",
+          "test_id": "auth.unauthenticated_access",
+          "title": "El servidor responde sin ninguna credencial",
+          "severity": "critical",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "d3236043",
+          "test_id": "exposure.transport_security",
+          "title": "Endpoint MCP servido sin TLS",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        }
+      ]
+    },
+    "compare_auth": false,
+    "mode": "scan",
+    "links": {
+      "html": "/reports/47c3c30c/report.html",
+      "json": "/reports/47c3c30c/report.json",
+      "sarif": "/reports/47c3c30c/report.sarif"
+    },
+    "saved_at": "2026-10-05T16:11:12.318815+00:00"
+  },
+  {
+    "scan_id": "eadb8261",
+    "target_name": "target_http_test",
+    "started_at": "2026-10-05T16:09:57.887489+00:00",
+    "finished_at": "2026-10-05T16:10:02.360943+00:00",
+    "score": {
+      "score": 0,
+      "grade": "F",
+      "penalty": 500,
+      "verdict_text": "EXPUESTO — 5 hallazgo(s) crítico(s) confirmado(s)."
+    },
+    "policy_verdict": {
+      "environment": "production",
+      "overall": "BLOCK",
+      "by_finding": [
+        {
+          "finding_id": "bc2c8a65",
+          "test_id": "recon.suspicious_descriptions",
+          "title": "Descripción sospechosa en 'read_file' (description)",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "9b02fe7a",
+          "test_id": "recon.audit_logging",
+          "title": "Sin soporte de logging declarado",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "e913670e",
+          "test_id": "recon.excessive_permissions",
+          "title": "Tool con capacidad potencialmente peligrosa: 'delete_all_notes'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "7b56d17d",
+          "test_id": "recon.excessive_permissions",
+          "title": "Tool con capacidad potencialmente peligrosa: 'delete_note'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "8b77b6d1",
+          "test_id": "recon.excessive_permissions",
+          "title": "Tool con capacidad potencialmente peligrosa: 'run_command'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "30c83eff",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'read_file'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "b1f38062",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'save_note'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "b3a9e044",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'read_note'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "707ea999",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'delete_note'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "e623184a",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'fetch_webhook'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "21950e0f",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'run_command'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "336e0d66",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'get_account_balance'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "ac75e96d",
+          "test_id": "static.no_schema",
+          "title": "Tool 'delete_all_notes' sin schema de entrada útil",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "5dab0669",
+          "test_id": "static.no_schema",
+          "title": "Tool 'get_config' sin schema de entrada útil",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "ea5921d9",
+          "test_id": "dynamic.fuzz_tools",
+          "title": "Leak de información interna en 'read_note'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "9d284705",
+          "test_id": "dynamic.fuzz_tools",
+          "title": "Leak de información interna en 'fetch_webhook'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "38c9ab82",
+          "test_id": "dynamic.fuzz_tools",
+          "title": "Leak de información interna en 'fetch_webhook'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "69447dd7",
+          "test_id": "dynamic.command_injection_confirmed",
+          "title": "Command injection CONFIRMADO en 'fetch_webhook' vía 'url'",
+          "severity": "critical",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "039c0371",
+          "test_id": "dynamic.command_injection_confirmed",
+          "title": "Command injection CONFIRMADO en 'run_command' vía 'cmd'",
+          "severity": "critical",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "125eedfc",
+          "test_id": "dynamic.path_traversal_confirmed",
+          "title": "Path traversal CONFIRMADO en 'read_file' vía 'path'",
+          "severity": "critical",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "7506a136",
+          "test_id": "dynamic.path_traversal_confirmed",
+          "title": "Path traversal CONFIRMADO en 'fetch_webhook' vía 'url'",
+          "severity": "critical",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "4a9d1096",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection citado en un error de 'read_file'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "16c9f8b9",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection citado en un error de 'read_file'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "97deed3f",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection citado en un error de 'read_file'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "842f7ece",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection reflejado intacto por 'save_note'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "0a565440",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection reflejado intacto por 'save_note'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "1b8d9579",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection reflejado intacto por 'save_note'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "b2569c0c",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection reflejado intacto por 'fetch_webhook'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "3fcd4e52",
+          "test_id": "adv.destructive_no_confirmation",
+          "title": "Tool destructivo sin parámetro de confirmación: 'delete_all_notes'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "fbcc9bdd",
+          "test_id": "adv.destructive_no_confirmation",
+          "title": "Tool destructivo sin parámetro de confirmación: 'delete_note'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "29a891d6",
+          "test_id": "supplychain.secret_exposure",
+          "title": "Anthropic API key expuesto en 'get_config'",
+          "severity": "high",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "967ad609",
+          "test_id": "supplychain.secret_exposure",
+          "title": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations. (gitleaks:generic-api-key) expuesto en 'get_config'",
+          "severity": "high",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "ff549ea7",
+          "test_id": "supplychain.tool_squatting",
+          "title": "Nombres de tool casi idénticos: 'read_file' / 'read_note' (similitud 0.867)",
+          "severity": "medium",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "46133faf",
+          "test_id": "supplychain.tool_squatting",
+          "title": "Nombres de tool casi idénticos: 'delete_all_notes' / 'delete_note' (similitud 0.938)",
+          "severity": "medium",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "d033cb7e",
+          "test_id": "supplychain.exfiltration_chain",
+          "title": "Posible cadena de exfiltración: tools lectoras + tools emisoras",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "3fa249b1",
+          "test_id": "auth.unauthenticated_access",
+          "title": "El servidor responde sin ninguna credencial",
+          "severity": "critical",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "4d28b675",
+          "test_id": "exposure.transport_security",
+          "title": "Endpoint MCP servido sin TLS",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        }
+      ]
+    },
+    "compare_auth": false,
+    "mode": "scan",
+    "links": {
+      "html": "/reports/eadb8261/report.html",
+      "json": "/reports/eadb8261/report.json",
+      "sarif": "/reports/eadb8261/report.sarif"
+    },
+    "saved_at": "2026-10-05T16:10:02.483618+00:00"
+  },
+  {
+    "scan_id": "ab3df583",
+    "target_name": "target_server_test",
+    "started_at": "2026-10-05T15:59:21.520460+00:00",
+    "finished_at": "2026-10-05T15:59:22.921772+00:00",
+    "score": {
+      "score": 0,
+      "grade": "F",
+      "penalty": 370,
+      "verdict_text": "EXPUESTO — 3 hallazgo(s) crítico(s) confirmado(s)."
+    },
+    "policy_verdict": {
+      "environment": "production",
+      "overall": "BLOCK",
+      "by_finding": [
+        {
+          "finding_id": "45929b59",
+          "test_id": "recon.suspicious_descriptions",
+          "title": "Descripción sospechosa en 'read_file' (description)",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "83e1313c",
+          "test_id": "recon.suspicious_descriptions",
+          "title": "Line jumping en 'format_number' (parámetro 'value')",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "6c8aecb3",
+          "test_id": "recon.audit_logging",
+          "title": "Sin soporte de logging declarado",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "8fb3a7ee",
+          "test_id": "recon.excessive_permissions",
+          "title": "Tool con capacidad potencialmente peligrosa: 'delete_all_notes'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "ac5a6ab3",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'read_file'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "afe15a9f",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'save_note'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "935159ae",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'read_note'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "95ee9869",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'get_account_balance'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "60df2669",
+          "test_id": "static.schema_permissive",
+          "title": "Schema permisivo en tool 'fetch_webhook'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "f14e3de9",
+          "test_id": "static.no_schema",
+          "title": "Tool 'delete_all_notes' sin schema de entrada útil",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "e3bcd124",
+          "test_id": "dynamic.fuzz_tools",
+          "title": "Leak de información interna en 'read_note'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "b9972725",
+          "test_id": "dynamic.fuzz_tools",
+          "title": "Leak de información interna en 'fetch_webhook'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "856e0164",
+          "test_id": "dynamic.fuzz_tools",
+          "title": "Leak de información interna en 'fetch_webhook'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "2ea047fd",
+          "test_id": "dynamic.command_injection_confirmed",
+          "title": "Command injection CONFIRMADO en 'fetch_webhook' vía 'url'",
+          "severity": "critical",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "54c97196",
+          "test_id": "dynamic.path_traversal_confirmed",
+          "title": "Path traversal CONFIRMADO en 'read_file' vía 'path'",
+          "severity": "critical",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "783dc3b4",
+          "test_id": "dynamic.path_traversal_confirmed",
+          "title": "Path traversal CONFIRMADO en 'fetch_webhook' vía 'url'",
+          "severity": "critical",
+          "verdict": "BLOCK"
+        },
+        {
+          "finding_id": "020a7a04",
+          "test_id": "dynamic.fuzz_resources",
+          "title": "Acceso fuera de alcance o leak en resource 'file:///{path}'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "6099a480",
+          "test_id": "dynamic.fuzz_resources",
+          "title": "Acceso fuera de alcance o leak en resource 'account://{account_id}/profile'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "6dc8eaa8",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection citado en un error de 'read_file'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "8e4fcb0e",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection citado en un error de 'read_file'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "d281d419",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection citado en un error de 'read_file'",
+          "severity": "medium",
+          "verdict": "ALLOW"
+        },
+        {
+          "finding_id": "63055a04",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection reflejado intacto por 'save_note'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "8fda092f",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection reflejado intacto por 'save_note'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "c6f58d81",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection reflejado intacto por 'save_note'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "f1a8a47a",
+          "test_id": "adv.injection_passthrough",
+          "title": "Payload de injection reflejado intacto por 'fetch_webhook'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "0b99245f",
+          "test_id": "adv.destructive_no_confirmation",
+          "title": "Tool destructivo sin parámetro de confirmación: 'delete_all_notes'",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "9972201c",
+          "test_id": "supplychain.tool_squatting",
+          "title": "Nombres de tool casi idénticos: 'read_file' / 'read_note' (similitud 0.867)",
+          "severity": "medium",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "a73732ea",
+          "test_id": "supplychain.exfiltration_chain",
+          "title": "Posible cadena de exfiltración: tools lectoras + tools emisoras",
+          "severity": "high",
+          "verdict": "CONDITIONAL"
+        },
+        {
+          "finding_id": "f22c4228",
+          "test_id": "supplychain.malicious_patterns",
+          "title": "Contenido sospechoso en 'format_number': tool_poisoning",
+          "severity": "high",
+          "verdict": "BLOCK"
+        }
+      ]
+    },
+    "compare_auth": false,
+    "mode": "scan",
+    "links": {
+      "html": "/reports/ab3df583/report.html",
+      "json": "/reports/ab3df583/report.json",
+      "sarif": "/reports/ab3df583/report.sarif"
+    },
+    "saved_at": "2026-10-05T15:59:23.037104+00:00"
+  }
+]

@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<title>Reporte MCP Red Team — Sonar</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, sans-serif; background:#0b0f14; color:#e5e7eb; margin:0; padding:2rem; }
+  h1 { font-size:1.5rem; }
+  .summary { display:flex; gap:1rem; flex-wrap:wrap; margin:1rem 0 2rem; }
+  .stat { background:#111827; border:1px solid #1f2937; border-radius:8px; padding:.75rem 1.25rem; }
+  .stat b { font-size:1.4rem; display:block; }
+  .filters { margin-bottom:1rem; display:flex; gap:.5rem; flex-wrap:wrap; }
+  .filters button { background:#1f2937; color:#e5e7eb; border:1px solid #374151; border-radius:6px; padding:.4rem .8rem; cursor:pointer; }
+  .filters button.active { background:#374151; }
+  .card { background:#111827; border:1px solid #1f2937; border-radius:10px; padding:1rem 1.25rem; margin-bottom:.75rem; }
+  .card.suppressed { opacity:.55; }
+  .card-head { display:flex; gap:.6rem; align-items:center; margin-bottom:.4rem; font-size:.75rem; }
+  .badge { color:white; padding:.15rem .5rem; border-radius:4px; font-weight:600; }
+  .cat { color:#9ca3af; text-transform:uppercase; letter-spacing:.05em; }
+  .target { color:#9ca3af; margin-left:auto; }
+  .desc { color:#d1d5db; }
+  pre { background:#030712; padding:.75rem; border-radius:6px; overflow-x:auto; font-size:.8rem; white-space:pre-wrap; word-break:break-word; }
+  .remediation { color:#a7f3d0; font-size:.9rem; }
+  .meta { color:#4b5563; font-size:.7rem; margin-top:.5rem; }
+  details summary { cursor:pointer; color:#93c5fd; margin:.5rem 0; }
+  .fw-badges { margin:.3rem 0 .5rem; display:flex; gap:.4rem; flex-wrap:wrap; }
+  .fw-chip { color:white; font-size:.68rem; padding:.15rem .5rem; border-radius:999px; text-decoration:none; }
+  .conf-badge { font-size:.68rem; padding:.1rem .5rem; border-radius:4px; text-transform:uppercase; letter-spacing:.03em; }
+  .conf-verified { background:#064e3b; color:#6ee7b7; }
+  .conf-heuristic { background:#3f2d05; color:#fbbf24; }
+  .risk-panel { margin:.6rem 0; background:#0b0f14; border:1px solid #1f2937; border-radius:8px; padding:.4rem .8rem; }
+  .risk-panel summary { font-size:.8rem; }
+  .risk-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:.8rem; margin-top:.6rem; font-size:.82rem; }
+  .risk-grid code { display:block; background:#030712; padding:.3rem .5rem; border-radius:4px; margin-top:.2rem; word-break:break-all; }
+  .risk-grid ul { margin:.3rem 0 0; padding-left:1.1rem; color:#d1d5db; }
+  .biz-chips { display:flex; gap:.3rem; flex-wrap:wrap; margin-top:.3rem; }
+  .biz-chip { color:white; font-size:.68rem; padding:.1rem .45rem; border-radius:4px; }
+  .policy-chip { color:white; font-size:.68rem; padding:.1rem .5rem; border-radius:4px; margin-left:.5rem; }
+</style></head>
+<body>
+  <h1>🛡️ Reporte MCP Red Team</h1>
+  <p>Target: <b>Sonar</b> · Scan ID: 3b1d94e5 · 2026-10-05T16:14:27.657460+00:00 → 2026-10-05T16:14:30.610140+00:00</p>
+
+  <div class="summary">
+    <div class="stat"><b>12</b>tests ejecutados</div>
+    <div class="stat"><b>0</b>hallazgos confirmados</div>
+    <div class="stat"><b style="color:#7f1d1d">0</b>critical</div>
+    <div class="stat"><b style="color:#b91c1c">0</b>high</div>
+    <div class="stat"><b style="color:#b45309">0</b>medium</div>
+    <div class="stat"><b style="color:#1d4ed8">0</b>low</div>
+    
+    <div class="stat"><b style="color:#065f46">100/100 (A)</b>score de exposición</div>
+  </div>
+
+  <div class="card" style="border-color:#065f46; border-width:2px;"><h3 style="color:#065f46">Veredicto de policy (production): ALLOW</h3><p class="desc">0 hallazgo(s) evaluado(s) contra policy.yaml. "BLOCK" = no apto para production tal como está; "CONDITIONAL" = requiere revisión manual; "ALLOW" = sin objeciones de policy.</p></div>
+  
+  
+
+  <details><summary>Errores/skips durante el scan</summary><ul><li>conexión inicial rechazada/fallida (no aborta el scan): [Errno -2] Name or service not known</li><li>test &#x27;adv.confused_deputy&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;adv.destructive_no_confirmation&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;adv.injection_passthrough&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;adv.ssrf_exfil&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;adv.stateful_chain_exfil&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;auth.authz_object_level&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;auth.resource_object_level&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;dynamic.command_injection_confirmed&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;dynamic.credential_harvest_paths&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;dynamic.fuzz_resources&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;dynamic.fuzz_tools&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;dynamic.path_traversal_confirmed&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;dynamic.rate_limit&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;recon.enumerate&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;recon.excessive_permissions&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;recon.suspicious_descriptions&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;static.no_schema&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;static.schema_permissive&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;supplychain.exfiltration_chain&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;supplychain.malicious_patterns&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;supplychain.secret_exposure&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li><li>test &#x27;supplychain.tool_squatting&#x27; se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).</li></ul></details>
+
+  <div class="filters">
+    <button onclick="filt('all')" class="active">Todos</button>
+    <button onclick="filt('findings')">Solo hallazgos</button>
+    <button onclick="filt('critical')">Critical</button>
+    <button onclick="filt('high')">High</button>
+    <button onclick="filt('medium')">Medium</button>
+    <button onclick="filt('low')">Low</button>
+    <button onclick="filt('suppressed')">Suprimidos</button>
+  </div>
+
+  <div id="cards">
+    
+        <div class="card" data-sev="info" data-cat="adversarial" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-heuristic" title="señal heurística, revisar manualmente">heuristic</span>
+            <span class="cat">adversarial</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>Ningún proveedor de agente disponible</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP06:2025 Intent Flow Subversion</a><a href="https://genai.owasp.org/llm-top-10/" target="_blank" class="fw-chip" style="background:#7c3aed" title="OWASP-LLM">LLM01:2025 Prompt Injection</a><a href="https://atlas.mitre.org/techniques/AML.T0085.001" target="_blank" class="fw-chip" style="background:#b91c1c" title="ATLAS">AML.T0085.001 AI Agent Tools</a><a href="https://atlas.mitre.org/techniques/AML.T0051" target="_blank" class="fw-chip" style="background:#b91c1c" title="ATLAS">AML.T0051 LLM Prompt Injection</a></div>
+          <p class="desc">--live-agent-provider=auto: seteá ANTHROPIC_API_KEY, OPENAI_API_KEY, y/o OLLAMA_HOST para habilitar este test (opt-in, cada uno consume su propia cuota o requiere un daemon local corriendo).</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: adv.live_agent_injection · id: 8edddd5e · 2026-10-05T16:14:27.905259+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="adversarial" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">adversarial</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>Sin --baseline: nada que comparar</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP03:2025 Tool Poisoning</a><a href="https://genai.owasp.org/llm-top-10/" target="_blank" class="fw-chip" style="background:#7c3aed" title="OWASP-LLM">LLM03:2025 Supply Chain</a><a href="https://genai.owasp.org/llm-top-10/" target="_blank" class="fw-chip" style="background:#7c3aed" title="OWASP-LLM">LLM04:2025 Data and Model Poisoning</a><a href="https://atlas.mitre.org/techniques/AML.T0109" target="_blank" class="fw-chip" style="background:#b91c1c" title="ATLAS">AML.T0109 AI Supply Chain Rug Pull</a></div>
+          <p class="desc">Este test necesita un reporte.json de una corrida anterior contra este mismo server (--baseline) para detectar cambios de definición entre corridas.</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: adv.rug_pull · id: 6b035d18 · 2026-10-05T16:14:27.905307+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="auth" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">auth</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>No se pudo evaluar (sin segunda credencial)</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP10:2025 Context Injection &amp; Over-Sharing</a><a href="https://genai.owasp.org/llm-top-10/" target="_blank" class="fw-chip" style="background:#7c3aed" title="OWASP-LLM">LLM02:2025 Sensitive Information Disclosure</a><a href="https://owasp.org/API-Security/editions/2023/en/0x11-t10/" target="_blank" class="fw-chip" style="background:#0891b2" title="OWASP-API">API1:2023 Broken Object Level Authorization</a><a href="https://atlas.mitre.org/matrices/ATLAS" target="_blank" class="fw-chip" style="background:#b91c1c" title="ATLAS">Collection</a></div>
+          <p class="desc">Requiere --auth-token-b (una segunda credencial/tenant válido) para abrir una segunda sesión y buscar fuga de contexto -- no se pasó, test salteado.</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: auth.cross_session_context_bleed · id: 8504d83d · 2026-10-05T16:14:27.905366+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="auth" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">auth</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>No se pudo evaluar metadata OAuth</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP07:2025 Insufficient Authentication &amp; Authorization</a><a href="https://owasp.org/API-Security/editions/2023/en/0x11-t10/" target="_blank" class="fw-chip" style="background:#0891b2" title="OWASP-API">API2:2023 Broken Authentication</a></div>
+          <p class="desc">Error de red/parseo durante el chequeo: [Errno -2] Name or service not known</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: auth.oauth_metadata_security · id: b161550d · 2026-10-05T16:14:28.126498+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="auth" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">auth</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>Conexión sin credenciales RECHAZADA</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP07:2025 Insufficient Authentication &amp; Authorization</a><a href="https://owasp.org/API-Security/editions/2023/en/0x11-t10/" target="_blank" class="fw-chip" style="background:#0891b2" title="OWASP-API">API2:2023 Broken Authentication</a><a href="https://atlas.mitre.org/matrices/ATLAS" target="_blank" class="fw-chip" style="background:#b91c1c" title="ATLAS">Initial Access</a></div>
+          <p class="desc">Intentar conectar sin Authorization/API-Key fue rechazado por el server ([Errno -2] Name or service not known). Buena señal: la autenticación parece exigirse antes de aceptar la sesión.</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: auth.unauthenticated_access · id: b166c54b · 2026-10-05T16:14:28.126612+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="auth" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">auth</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>Sin credenciales débiles aceptadas</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP07:2025 Insufficient Authentication &amp; Authorization</a><a href="https://owasp.org/API-Security/editions/2023/en/0x11-t10/" target="_blank" class="fw-chip" style="background:#0891b2" title="OWASP-API">API2:2023 Broken Authentication</a><a href="https://atlas.mitre.org/matrices/ATLAS" target="_blank" class="fw-chip" style="background:#b91c1c" title="ATLAS">Credential Access</a></div>
+          <p class="desc">Ninguno de los 8 tokens de la wordlist fue aceptado.</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: auth.weak_credentials · id: 12e76ea8 · 2026-10-05T16:14:30.232099+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="exposure" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">exposure</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>No se pudo evaluar CORS</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP07:2025 Insufficient Authentication &amp; Authorization</a><a href="https://owasp.org/API-Security/editions/2023/en/0x11-t10/" target="_blank" class="fw-chip" style="background:#0891b2" title="OWASP-API">API8:2023 Security Misconfiguration</a></div>
+          <p class="desc">OPTIONS falló: [Errno -2] Name or service not known</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: exposure.cors_misconfig · id: f14fb711 · 2026-10-05T16:14:30.466796+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="exposure" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">exposure</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>No se pudo resolver el host</h3>
+          <div class="fw-badges"><a href="https://owasp.org/API-Security/editions/2023/en/0x11-t10/" target="_blank" class="fw-chip" style="background:#0891b2" title="OWASP-API">API8:2023 Security Misconfiguration</a></div>
+          <p class="desc">gethostbyname(&#x27;sonardev.eglobal.com.mx&#x27;) falló: [Errno -2] Name or service not known</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: exposure.network_reachability · id: d3e47f7e · 2026-10-05T16:14:30.609831+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="exposure" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">exposure</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>Transporte con TLS</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP07:2025 Insufficient Authentication &amp; Authorization</a><a href="https://owasp.org/API-Security/editions/2023/en/0x11-t10/" target="_blank" class="fw-chip" style="background:#0891b2" title="OWASP-API">API8:2023 Security Misconfiguration</a></div>
+          <p class="desc">&#x27;https://sonardev.eglobal.com.mx/mcp&#x27; usa https://.</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: exposure.transport_security · id: f5935f56 · 2026-10-05T16:14:30.609963+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="recon" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-verified" title="hecho observado directamente">verified</span>
+            <span class="cat">recon</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>Sin sesión viva para verificar audit logging</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP08:2025 Lack of Audit and Telemetry</a></div>
+          <p class="desc">La conexión inicial falló (ver el error de conexión reportado aparte); no se pudo consultar si el server declara el capability &#x27;logging&#x27; -- no es que no lo declare, es que Ares no pudo ni preguntarle.</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: recon.audit_logging · id: 6af38a28 · 2026-10-05T16:14:30.609985+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="static" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-heuristic" title="señal heurística, revisar manualmente">heuristic</span>
+            <span class="cat">static</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>Sin server_info disponible</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP04:2025 Software Supply Chain Attacks &amp; Dependency Tampering</a><a href="https://genai.owasp.org/llm-top-10/" target="_blank" class="fw-chip" style="background:#7c3aed" title="OWASP-LLM">LLM03:2025 Supply Chain</a></div>
+          <p class="desc">La sesión no completó &#x27;initialize&#x27; con éxito; no hay name/version para comparar.</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: static.known_cve_check · id: 5df75702 · 2026-10-05T16:14:30.610040+00:00</div>
+        </div>
+        
+        <div class="card" data-sev="info" data-cat="static" data-passed="true" data-suppressed="false">
+          <div class="card-head">
+            <span class="badge" style="background:#065f46">PASS · INFO</span>
+            
+            <span class="conf-badge conf-heuristic" title="señal heurística, revisar manualmente">heuristic</span>
+            <span class="cat">static</span>
+            <span class="target">target: server</span>
+          </div>
+          <h3>Sin --package-name dado</h3>
+          <div class="fw-badges"><a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" class="fw-chip" style="background:#0369a1" title="OWASP-MCP">MCP04:2025 Software Supply Chain Attacks &amp; Dependency Tampering</a><a href="https://genai.owasp.org/llm-top-10/" target="_blank" class="fw-chip" style="background:#7c3aed" title="OWASP-LLM">LLM03:2025 Supply Chain</a><a href="https://atlas.mitre.org/techniques/AML.T0011.002" target="_blank" class="fw-chip" style="background:#b91c1c" title="ATLAS">AML.T0011.002 Poisoned AI Agent Tool</a><a href="https://atlas.mitre.org/techniques/AML.T0110" target="_blank" class="fw-chip" style="background:#b91c1c" title="ATLAS">AML.T0110 AI Agent Tool Poisoning</a></div>
+          <p class="desc">Pasá --package-name &#x27;&lt;nombre-del-paquete&gt;&#x27; para habilitar este chequeo.</p>
+          
+          
+          <details>
+            <summary>Evidencia (request / response)</summary>
+            <pre>REQUEST:
+null
+
+RESPONSE:
+null
+
+NOTES: </pre>
+          </details>
+          
+          <div class="meta">test_id: static.typosquatting_check · id: ca991d8a · 2026-10-05T16:14:30.610071+00:00</div>
+        </div>
+        
+  </div>
+
+<script>
+function filt(mode) {
+  document.querySelectorAll('.card').forEach(c => {
+    let show = true;
+    if (mode === 'findings') show = c.dataset.passed === 'false' && c.dataset.suppressed === 'false';
+    else if (mode === 'suppressed') show = c.dataset.suppressed === 'true';
+    else if (mode !== 'all') show = c.dataset.sev === mode && c.dataset.passed === 'false' && c.dataset.suppressed === 'false';
+    c.style.display = show ? 'block' : 'none';
+  });
+  document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+</body></html>

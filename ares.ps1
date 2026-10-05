@@ -72,6 +72,10 @@ if (-not (Test-Path $VenvPython)) {
 # --- (re)instalar dependencias solo si pyproject.toml/requirements.txt cambiaron ---
 # (hash de cada archivo por separado y concatenado -- no necesita coincidir bit a bit
 # con el sha256sum de ares.sh, solo cambiar cuando cambian esos archivos)
+# Por defecto instala también los extras opcionales (dev, live-agent, sast) para que
+# 'pytest', el agente LLM en vivo y el análisis semgrep funcionen sin pasos manuales.
+# Para instalar solo el core, seteá $env:ARES_EXTRAS = "" (o una sublista, p.ej. "dev").
+$AresExtras = if ($null -eq $env:ARES_EXTRAS) { "dev,live-agent,sast" } else { $env:ARES_EXTRAS }
 $ProjectToml = Join-Path $AresDir "pyproject.toml"
 $Requirements = Join-Path $AresDir "requirements.txt"
 $CurrentHash = ""
@@ -80,12 +84,14 @@ foreach ($f in @($ProjectToml, $Requirements)) {
         $CurrentHash += (Get-FileHash -Path $f -Algorithm SHA256).Hash
     }
 }
+$CurrentHash += "-extras:$AresExtras"
 $PreviousHash = if (Test-Path $DepsHashFile) { Get-Content $DepsHashFile -Raw } else { "" }
 
 if ($CurrentHash -ne $PreviousHash) {
-    Log "Instalando/actualizando dependencias (pip install -e .)..."
+    $InstallTarget = if ($AresExtras) { "$AresDir[$AresExtras]" } else { $AresDir }
+    Log "Instalando/actualizando dependencias (pip install -e `"$InstallTarget`")..."
     & $VenvPython -m pip install -q --upgrade pip
-    & $VenvPython -m pip install -q -e $AresDir
+    & $VenvPython -m pip install -q -e $InstallTarget
     Set-Content -Path $DepsHashFile -Value $CurrentHash -NoNewline
 }
 

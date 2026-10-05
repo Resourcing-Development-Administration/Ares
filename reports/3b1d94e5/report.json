@@ -1,0 +1,554 @@
+{
+  "scan_id": "3b1d94e5",
+  "target_name": "Sonar",
+  "started_at": "2026-10-05T16:14:27.657460+00:00",
+  "finished_at": "2026-10-05T16:14:30.610140+00:00",
+  "tools_enumerated": [],
+  "resources_enumerated": [],
+  "prompts_enumerated": [],
+  "findings": [
+    {
+      "id": "8edddd5e",
+      "test_id": "adv.live_agent_injection",
+      "title": "Ningún proveedor de agente disponible",
+      "category": "adversarial",
+      "severity": "info",
+      "target": "server",
+      "description": "--live-agent-provider=auto: seteá ANTHROPIC_API_KEY, OPENAI_API_KEY, y/o OLLAMA_HOST para habilitar este test (opt-in, cada uno consume su propia cuota o requiere un daemon local corriendo).",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP06:2025",
+          "name": "Intent Flow Subversion",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-LLM",
+          "id": "LLM01:2025",
+          "name": "Prompt Injection",
+          "url": "https://genai.owasp.org/llm-top-10/"
+        },
+        {
+          "framework": "ATLAS",
+          "id": "AML.T0085.001",
+          "name": "AI Agent Tools",
+          "url": "https://atlas.mitre.org/techniques/AML.T0085.001"
+        },
+        {
+          "framework": "ATLAS",
+          "id": "AML.T0051",
+          "name": "LLM Prompt Injection",
+          "url": "https://atlas.mitre.org/techniques/AML.T0051"
+        }
+      ],
+      "confidence": "heuristic",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-05T16:14:27.905259+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "6b035d18",
+      "test_id": "adv.rug_pull",
+      "title": "Sin --baseline: nada que comparar",
+      "category": "adversarial",
+      "severity": "info",
+      "target": "server",
+      "description": "Este test necesita un reporte.json de una corrida anterior contra este mismo server (--baseline) para detectar cambios de definición entre corridas.",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP03:2025",
+          "name": "Tool Poisoning",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-LLM",
+          "id": "LLM03:2025",
+          "name": "Supply Chain",
+          "url": "https://genai.owasp.org/llm-top-10/"
+        },
+        {
+          "framework": "OWASP-LLM",
+          "id": "LLM04:2025",
+          "name": "Data and Model Poisoning",
+          "url": "https://genai.owasp.org/llm-top-10/"
+        },
+        {
+          "framework": "ATLAS",
+          "id": "AML.T0109",
+          "name": "AI Supply Chain Rug Pull",
+          "url": "https://atlas.mitre.org/techniques/AML.T0109"
+        }
+      ],
+      "confidence": "verified",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-05T16:14:27.905307+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "8504d83d",
+      "test_id": "auth.cross_session_context_bleed",
+      "title": "No se pudo evaluar (sin segunda credencial)",
+      "category": "auth",
+      "severity": "info",
+      "target": "server",
+      "description": "Requiere --auth-token-b (una segunda credencial/tenant válido) para abrir una segunda sesión y buscar fuga de contexto -- no se pasó, test salteado.",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP10:2025",
+          "name": "Context Injection & Over-Sharing",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-LLM",
+          "id": "LLM02:2025",
+          "name": "Sensitive Information Disclosure",
+          "url": "https://genai.owasp.org/llm-top-10/"
+        },
+        {
+          "framework": "OWASP-API",
+          "id": "API1:2023",
+          "name": "Broken Object Level Authorization",
+          "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
+        },
+        {
+          "framework": "ATLAS",
+          "id": null,
+          "name": "Collection",
+          "url": "https://atlas.mitre.org/matrices/ATLAS"
+        }
+      ],
+      "confidence": "verified",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-05T16:14:27.905366+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "b161550d",
+      "test_id": "auth.oauth_metadata_security",
+      "title": "No se pudo evaluar metadata OAuth",
+      "category": "auth",
+      "severity": "info",
+      "target": "server",
+      "description": "Error de red/parseo durante el chequeo: [Errno -2] Name or service not known",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP07:2025",
+          "name": "Insufficient Authentication & Authorization",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-API",
+          "id": "API2:2023",
+          "name": "Broken Authentication",
+          "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
+        }
+      ],
+      "confidence": "verified",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-05T16:14:28.126498+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "b166c54b",
+      "test_id": "auth.unauthenticated_access",
+      "title": "Conexión sin credenciales RECHAZADA",
+      "category": "auth",
+      "severity": "info",
+      "target": "server",
+      "description": "Intentar conectar sin Authorization/API-Key fue rechazado por el server ([Errno -2] Name or service not known). Buena señal: la autenticación parece exigirse antes de aceptar la sesión.",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP07:2025",
+          "name": "Insufficient Authentication & Authorization",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-API",
+          "id": "API2:2023",
+          "name": "Broken Authentication",
+          "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
+        },
+        {
+          "framework": "ATLAS",
+          "id": null,
+          "name": "Initial Access",
+          "url": "https://atlas.mitre.org/matrices/ATLAS"
+        }
+      ],
+      "confidence": "verified",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-05T16:14:28.126612+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "12e76ea8",
+      "test_id": "auth.weak_credentials",
+      "title": "Sin credenciales débiles aceptadas",
+      "category": "auth",
+      "severity": "info",
+      "target": "server",
+      "description": "Ninguno de los 8 tokens de la wordlist fue aceptado.",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP07:2025",
+          "name": "Insufficient Authentication & Authorization",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-API",
+          "id": "API2:2023",
+          "name": "Broken Authentication",
+          "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
+        },
+        {
+          "framework": "ATLAS",
+          "id": null,
+          "name": "Credential Access",
+          "url": "https://atlas.mitre.org/matrices/ATLAS"
+        }
+      ],
+      "confidence": "verified",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-05T16:14:30.232099+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "f14fb711",
+      "test_id": "exposure.cors_misconfig",
+      "title": "No se pudo evaluar CORS",
+      "category": "exposure",
+      "severity": "info",
+      "target": "server",
+      "description": "OPTIONS falló: [Errno -2] Name or service not known",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP07:2025",
+          "name": "Insufficient Authentication & Authorization",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-API",
+          "id": "API8:2023",
+          "name": "Security Misconfiguration",
+          "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
+        }
+      ],
+      "confidence": "verified",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-05T16:14:30.466796+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "d3e47f7e",
+      "test_id": "exposure.network_reachability",
+      "title": "No se pudo resolver el host",
+      "category": "exposure",
+      "severity": "info",
+      "target": "server",
+      "description": "gethostbyname('sonardev.eglobal.com.mx') falló: [Errno -2] Name or service not known",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-API",
+          "id": "API8:2023",
+          "name": "Security Misconfiguration",
+          "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
+        }
+      ],
+      "confidence": "verified",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-05T16:14:30.609831+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "f5935f56",
+      "test_id": "exposure.transport_security",
+      "title": "Transporte con TLS",
+      "category": "exposure",
+      "severity": "info",
+      "target": "server",
+      "description": "'https://sonardev.eglobal.com.mx/mcp' usa https://.",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP07:2025",
+          "name": "Insufficient Authentication & Authorization",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-API",
+          "id": "API8:2023",
+          "name": "Security Misconfiguration",
+          "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
+        }
+      ],
+      "confidence": "verified",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-05T16:14:30.609963+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "6af38a28",
+      "test_id": "recon.audit_logging",
+      "title": "Sin sesión viva para verificar audit logging",
+      "category": "recon",
+      "severity": "info",
+      "target": "server",
+      "description": "La conexión inicial falló (ver el error de conexión reportado aparte); no se pudo consultar si el server declara el capability 'logging' -- no es que no lo declare, es que Ares no pudo ni preguntarle.",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP08:2025",
+          "name": "Lack of Audit and Telemetry",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        }
+      ],
+      "confidence": "verified",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-05T16:14:30.609985+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "5df75702",
+      "test_id": "static.known_cve_check",
+      "title": "Sin server_info disponible",
+      "category": "static",
+      "severity": "info",
+      "target": "server",
+      "description": "La sesión no completó 'initialize' con éxito; no hay name/version para comparar.",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP04:2025",
+          "name": "Software Supply Chain Attacks & Dependency Tampering",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-LLM",
+          "id": "LLM03:2025",
+          "name": "Supply Chain",
+          "url": "https://genai.owasp.org/llm-top-10/"
+        }
+      ],
+      "confidence": "heuristic",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-05T16:14:30.610040+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    },
+    {
+      "id": "ca991d8a",
+      "test_id": "static.typosquatting_check",
+      "title": "Sin --package-name dado",
+      "category": "static",
+      "severity": "info",
+      "target": "server",
+      "description": "Pasá --package-name '<nombre-del-paquete>' para habilitar este chequeo.",
+      "passed": true,
+      "remediation": "",
+      "references": [],
+      "frameworks": [
+        {
+          "framework": "OWASP-MCP",
+          "id": "MCP04:2025",
+          "name": "Software Supply Chain Attacks & Dependency Tampering",
+          "url": "https://owasp.org/www-project-mcp-top-10/"
+        },
+        {
+          "framework": "OWASP-LLM",
+          "id": "LLM03:2025",
+          "name": "Supply Chain",
+          "url": "https://genai.owasp.org/llm-top-10/"
+        },
+        {
+          "framework": "ATLAS",
+          "id": "AML.T0011.002",
+          "name": "Poisoned AI Agent Tool",
+          "url": "https://atlas.mitre.org/techniques/AML.T0011.002"
+        },
+        {
+          "framework": "ATLAS",
+          "id": "AML.T0110",
+          "name": "AI Agent Tool Poisoning",
+          "url": "https://atlas.mitre.org/techniques/AML.T0110"
+        }
+      ],
+      "confidence": "heuristic",
+      "risk": null,
+      "evidence": {
+        "request": null,
+        "response": null,
+        "notes": "",
+        "raw": null
+      },
+      "timestamp": "2026-10-05T16:14:30.610071+00:00",
+      "suppressed": false,
+      "suppressed_reason": null
+    }
+  ],
+  "errors": [
+    "conexión inicial rechazada/fallida (no aborta el scan): [Errno -2] Name or service not known",
+    "test 'adv.confused_deputy' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'adv.destructive_no_confirmation' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'adv.injection_passthrough' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'adv.ssrf_exfil' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'adv.stateful_chain_exfil' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'auth.authz_object_level' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'auth.resource_object_level' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'dynamic.command_injection_confirmed' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'dynamic.credential_harvest_paths' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'dynamic.fuzz_resources' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'dynamic.fuzz_tools' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'dynamic.path_traversal_confirmed' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'dynamic.rate_limit' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'recon.enumerate' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'recon.excessive_permissions' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'recon.suspicious_descriptions' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'static.no_schema' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'static.schema_permissive' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'supplychain.exfiltration_chain' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'supplychain.malicious_patterns' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'supplychain.secret_exposure' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known).",
+    "test 'supplychain.tool_squatting' se saltó: no hay conexión activa con el target ([Errno -2] Name or service not known)."
+  ],
+  "summary": {
+    "total_tests_run": 12,
+    "confirmed_findings": 0,
+    "by_severity": {
+      "info": 0,
+      "low": 0,
+      "medium": 0,
+      "high": 0,
+      "critical": 0
+    },
+    "suppressed_findings": 0
+  },
+  "score": {
+    "score": 100,
+    "grade": "A",
+    "penalty": 0,
+    "verdict_text": "ACEPTABLE — sin hallazgos críticos/altos en esta corrida."
+  },
+  "policy_verdict": {
+    "environment": "production",
+    "overall": "ALLOW",
+    "by_finding": []
+  },
+  "auth_impact": null,
+  "baseline_diff": null,
+  "ares_version": "0.3.0"
+}

@@ -49,12 +49,21 @@ fi
 source "$VENV_DIR/bin/activate"
 
 # --- (re)instalar dependencias solo si pyproject.toml/requirements.txt cambiaron ---
-CURRENT_HASH="$(cat "$ARES_DIR/pyproject.toml" "$ARES_DIR/requirements.txt" 2>/dev/null | sha256sum | cut -d' ' -f1)"
+# Por defecto instala también los extras opcionales (dev, live-agent, sast) para que
+# 'pytest', el agente LLM en vivo y el análisis semgrep funcionen sin pasos manuales.
+# Para instalar solo el core, seteá ARES_EXTRAS="" (o una sublista, p.ej. "dev").
+ARES_EXTRAS="${ARES_EXTRAS-dev,live-agent,sast}"
+CURRENT_HASH="$(cat "$ARES_DIR/pyproject.toml" "$ARES_DIR/requirements.txt" 2>/dev/null | sha256sum | cut -d' ' -f1)-extras:${ARES_EXTRAS}"
 PREVIOUS_HASH="$(cat "$DEPS_HASH_FILE" 2>/dev/null || echo "")"
 if [ "$CURRENT_HASH" != "$PREVIOUS_HASH" ]; then
-  log "Instalando/actualizando dependencias (pip install -e .)..."
+  if [ -n "$ARES_EXTRAS" ]; then
+    INSTALL_TARGET="$ARES_DIR[$ARES_EXTRAS]"
+  else
+    INSTALL_TARGET="$ARES_DIR"
+  fi
+  log "Instalando/actualizando dependencias (pip install -e \"$INSTALL_TARGET\")..."
   pip install -q --upgrade pip >&2
-  pip install -q -e "$ARES_DIR" >&2
+  pip install -q -e "$INSTALL_TARGET" >&2
   echo "$CURRENT_HASH" > "$DEPS_HASH_FILE"
 fi
 

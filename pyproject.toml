@@ -18,6 +18,8 @@ dependencies = [
     "pyyaml",
     "fastapi",
     "uvicorn",
+    "websockets",  # uvicorn sin esto no soporta el handshake de WebSocket (/ws/scan, /ws/full
+                   # del dashboard fallan con "Unsupported upgrade request" / 404 silencioso)
 ]
 
 [project.optional-dependencies]

@@ -6,6 +6,7 @@ pydantic
 pyyaml
 fastapi
 uvicorn
+websockets
 
 [dev]
 pytest

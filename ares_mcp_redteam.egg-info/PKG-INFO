@@ -13,6 +13,7 @@ Requires-Dist: pydantic
 Requires-Dist: pyyaml
 Requires-Dist: fastapi
 Requires-Dist: uvicorn
+Requires-Dist: websockets
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
@@ -27,35 +28,54 @@ Motor de pruebas de seguridad para servidores MCP: recon, análisis estático,
 fuzzing black-box dinámico, pruebas adversariales (prompt injection, SSRF,
 confused deputy, tool poisoning, **line jumping**, **rug pull**, acciones
 destructivas sin confirmación), autenticación tanto **sin credenciales**
-(acceso anónimo, credenciales débiles) como **con una sesión autenticada
-real** (`auth.authz_object_level` — BOLA: ¿un token válido de bajo privilegio
-puede ver objetos de otro usuario?, y `auth.oauth_metadata_security` — RFC
-9728/PKCE, el mecanismo de auth real que adoptó el spec de MCP), exposición
-de red (TLS, CORS, alcance interno/público, entropía de session ID),
-auditoría (soporte de logging), y supply-chain (secretos expuestos, tool
-squatting, cadenas de exfiltración, patrones maliciosos, dependencias
-vulnerables). 30 tests en total. Cada scan produce un score 0-100, un
+(acceso anónimo, credenciales débiles) como **con una o DOS sesiones
+autenticadas reales** (`auth.authz_object_level` — BOLA en tools;
+`auth.resource_object_level` — lo mismo en resources; `auth.cross_session_context_bleed`
+— planta un canario con una credencial y confirma si se filtra a una
+**segunda** credencial/tenant independiente, sin heurística, por ejecución
+real; `auth.oauth_metadata_security` — RFC 9728/PKCE), exposición de red
+(TLS, CORS, alcance interno/público, entropía de session ID), auditoría
+(soporte de logging), supply-chain (secretos expuestos, tool squatting,
+cadenas de exfiltración, patrones maliciosos, dependencias vulnerables,
+SAST) y correlación **cross-server** (tool shadowing + cadenas de
+exfiltración entre servers distintos conectados en la misma sesión, modo
+`full`). **37 tests** en total, incluyendo ataques multi-step confirmados
+por ejecución real (no solo heurística). Cada scan produce un score 0-100, un
 veredicto de policy (BLOCK/CONDITIONAL/ALLOW) y opcionalmente un diff de qué
 hallazgos mitiga realmente la autenticación (`--compare-auth`).
+
+El motor también se defiende de un target activamente hostil, no solo de uno
+vulnerable-pero-pasivo: el subprocess stdio corre con límites de recursos
+reales (`prlimit`: memoria/CPU/procesos/FDs) y namespaces aislados
+(`bwrap`: el target no puede ver, señalizar ni atacar por red al proceso de
+Ares ni al host — la red se corta por completo salvo `--allow-network`),
+un circuit breaker corta la batería si el target deja de responder de forma
+sostenida, y un timeout nunca termina en un ALLOW silencioso — queda como
+hallazgo real. Ver "Resiliencia del motor" más abajo.
 
 Cada categoría es un módulo de "plugins" (`engine/<categoria>/tests.py`) que se
 autoregistra vía `@register_test`. Sumar una prueba nueva = escribir una función
 async más, sin tocar el orquestador ni el reporte.
 
 Cada hallazgo trae tags de a qué framework de seguridad reconocido aplica —
-revisado y actualizado contra las versiones vigentes (2026): **OWASP MCP Top
-10 (2025)** (el Top 10 oficial numerado específico de Model Context
-Protocol, MCP01:2025..MCP10:2025), OWASP LLM Top 10 2025, OWASP API Security
-Top 10 2023, y técnicas puntuales de MITRE ATLAS con ID confirmado
-(`AML.T0011.002`, `AML.T0061`, `AML.T0062`) — ver `engine/core/frameworks.py`
-y la sección 6 del manual.
+revisado y actualizado (2026-10) leyendo el texto oficial de cada categoría/
+técnica, no un resumen de terceros: **OWASP MCP Top 10 (2025)**, los 10
+ítems con al menos un test (`MCP01:2025`..`MCP10:2025`); **OWASP LLM Top 10
+(2025)**, los 10 con al menos un test; **OWASP API Security Top 10 (2023)**;
+y **MITRE ATLAS** (v5.6.0, verificado contra el dataset primario), incluida
+`AML.T0110` — la única técnica de ATLAS que nombra "Model Context Protocol"
+explícitamente en su propia descripción oficial. Un test de CI
+(`test_every_registered_test_has_framework_coverage`) falla si algún test
+nuevo queda sin tag — ver `engine/core/frameworks.py` y la sección 6 del
+manual. `ares check-frameworks` avisa (nunca actualiza solo) si alguno de
+estos 4 frameworks cambió de versión públicamente desde el último check.
 
 La severidad ya no se elige a mano: se calcula con **CVSS v3.1** (fórmula
 oficial, verificada contra vectores de referencia públicos) + **OWASP Risk
 Rating Methodology** (Likelihood × Impact, impacto al negocio, esfuerzo de
 remediación) — ver `engine/core/risk.py` y la sección 7 del manual.
 
-**Manual completo (CLI + dashboard web) en [MANUAL.md](MANUAL.md).**
+**Manual completo (CLI + dashboard web) en [MANUAL.md](MANUAL.md); guía del dashboard campo por campo en [DASHBOARD.md](DASHBOARD.md).**
 **Estructura interna del proyecto y cómo funciona por dentro en [ARCHITECTURE.md](ARCHITECTURE.md).**
 
 ## Instalación y uso
@@ -69,6 +89,19 @@ dependencias solo cuando hace falta (detecta cambios en
 `pyproject.toml`/`requirements.txt`), y delega a la CLI real. No hace falta
 activar nada a mano — `./ares.sh scan ...`, `./ares.sh vet ...`,
 `./ares.sh serve` funcionan directo, desde cualquier directorio.
+
+**Windows**: `ares.sh` es bash puro — usá `ares.ps1` (PowerShell) o
+`ares.bat` (forwarder para `cmd.exe`), mismo comportamiento:
+
+```powershell
+.\ares.ps1 list-tests
+```
+
+Ver sección 2.0b del [manual](MANUAL.md) si PowerShell bloquea el script
+por política de ejecución. El aislamiento de proceso (`prlimit`/`bwrap`,
+ver "Resiliencia del motor" abajo) es Linux-only — en Windows el scan corre
+igual, pero sin esa capa específica; Ares lo avisa en el reporte, nunca en
+silencio.
 
 Instalación manual equivalente (o como paquete con `pip install -e ".[dev]"`
 para tener el comando `ares` en el PATH) — ver sección 2 del [manual](MANUAL.md).
@@ -135,7 +168,7 @@ Correr **todos los modos en batch**: descubre los servers locales (o usa
 ```
 
 También hay un dashboard web mínimo (mismo motor, progreso en vivo por
-WebSocket, histórico de reportes):
+WebSocket, histórico de reportes) — guía campo por campo en [DASHBOARD.md](DASHBOARD.md):
 
 ```bash
 ./ares.sh serve   # http://127.0.0.1:8000
@@ -215,6 +248,38 @@ Se registra sola: aparece en `list-tests` y corre en el próximo scan.
 Corré `pytest` después — el test suite (`tests/`) valida que los detectores
 sigan sin falsos positivos/negativos contra los fixtures existentes.
 
+## Resiliencia del motor contra un target hostil
+
+No es lo mismo auditar un MCP vulnerable-pero-pasivo que uno que activamente
+intenta colgar, mentirle o atacar al escáner. Confirmado empíricamente
+(no solo documentado) en la ronda de hardening de 2026-10:
+
+- **Aislamiento de proceso real** (`engine/core/sandbox.py`): `prlimit`
+  (RLIMIT de memoria/CPU/procesos/FDs, verificado con `/proc/<pid>/limits`
+  que los límites realmente aplican) + `bwrap` (namespaces de PID/IPC/UTS —
+  el target no ve ni puede señalizar/`ptrace` al proceso de Ares ni a nada
+  del host — y de red, cortada por completo salvo `--allow-network`,
+  incluido loopback hacia el propio host). `--no-sandbox` para desactivarlo,
+  `--sandbox-mem-mb`/`--sandbox-cpu-s`/`--sandbox-nproc`/`--sandbox-nofile`
+  para ajustarlo.
+- **Caps de tamaño** (`engine/core/limits.py`): una descripción de tool o una
+  respuesta de varios MB no puede inflar el tiempo de análisis de forma
+  desproporcionada (confirmado: sin esto, una descripción de 10MB hacía que
+  un solo test tardara ~57s contra ~0.2s de baseline).
+- **Circuit breaker**: tras N timeouts consecutivos (`--max-consecutive-timeouts`,
+  default 3), el resto de la batería se saltea de una en vez de pagar el
+  timeout completo test por test contra un target que dejó de responder.
+- **Nunca un ALLOW silencioso**: un test que se cuelga genera un `Finding`
+  real (`orchestrator.test_unresponsive`), no solo una línea en un log que
+  nadie gatea — un target que logra resistir el análisis es, en sí mismo,
+  una señal de riesgo.
+- **Reset de sesión tras timeout**: la sesión (y el subprocess, si es stdio)
+  que acaba de colgar un test se cierra y se reabre antes del siguiente test,
+  para no arrastrar estado envenenado ni dejar un proceso hostil vivo.
+- Deliberadamente **sin aislar todavía**: el filesystem. El subprocess sigue
+  con lectura/escritura real del disco con el mismo usuario que Ares —
+  ver Roadmap.
+
 ## Confiabilidad
 
 - Cada finding trae un `confidence` (`verified`/`heuristic`) y un `risk`
@@ -228,12 +293,51 @@ sigan sin falsos positivos/negativos contra los fixtures existentes.
   servicios de terceros) en vez de solo inferirse por patrón de respuesta.
 - `--baseline reporte_anterior.json` para diffear contra un scan previo.
 
-## Roadmap (queda afuera de esta versión — ver sección 12 del manual)
+## Roadmap
 
-- Análisis estático de código fuente (SAST/taint) cuando das `--source-path`
-  — hoy solo se audita la superficie del protocolo, no el código del server.
-- Ataques multi-step/stateful (encadenar el output de un tool como input de otro).
-- Fuzzing a nivel protocolo (frames JSON-RPC malformados, session ID replay).
-- Grafo de exfiltración cross-server al escanear varios servers en batch.
-- `engine/proxy/`: proxy MITM stdio/SSE para logging y bloqueo en runtime.
+Ordenado por impacto real, no por lo vistoso — ver la sección 12 del manual
+para el detalle completo de qué se evaluó y por qué.
+
+**Lo más importante, pendiente a propósito (no por descuido):**
+- **Jail de filesystem para el subprocess stdio** — la pieza que falta de la
+  trilogía proceso/red/filesystem (las otras dos ya están, ver arriba). No
+  se improvisó porque un jail mal calibrado (qué rutas exponer depende del
+  `command`/runtime específico) genera falsos negativos silenciosos, peor
+  que no tenerlo. Necesita un diseño propio, no un parche.
+- **`prlimit`/`bwrap` son Linux-only** — en macOS/Windows el aislamiento de
+  proceso se degrada a avisar y seguir sin nada de eso. Cerrarlo de verdad
+  en otras plataformas implica un backend alternativo (Docker/Podman), no
+  un fix chico.
+
+**Nivel "ya cerrado, pulido menor pendiente":**
+- SAST/taint — `supplychain.source_sast` (semgrep, ruleset propio) ya cubre
+  command injection/path traversal/eval-exec/deserialización insegura sobre
+  el código fuente real, pero es un ruleset chico y curado a mano, no un
+  motor SAST exhaustivo.
+- Ataques multi-step genéricos — `adv.stateful_chain_exfil` ya confirma por
+  ejecución real (no heurística) el patrón lector→emisor de dos llamadas;
+  encadenar N tools arbitrarios en secuencias más largas sigue sin cubrirse.
+- Fuzzing a nivel protocolo (frames JSON-RPC malformados, replay de
+  `Mcp-Session-Id`).
+- `ares check-frameworks --fail-if-stale` existe y funciona, pero no hay un
+  cron/GitHub Action que lo dispare solo — hoy depende de que alguien se
+  acuerde de correrlo.
+- Listas curadas (`static.known_cve_check`, `static.typosquatting_check`,
+  patrones de secretos propios) siguen siendo mantenimiento manual —
+  `check-frameworks` avisa sobre los 4 frameworks externos, no sobre estas
+  listas internas.
+
+**Ya cubierto (dejado acá para no reabrirlo sin releer esto primero):**
+- Tool Shadowing cross-server (MCP09:2025) y Context Injection/Over-Sharing
+  (MCP10:2025) — `crossserver.*`, `auth.resource_object_level`,
+  `auth.cross_session_context_bleed`. Los 10 ítems de OWASP MCP Top 10
+  tienen cobertura.
+- Dashboard con gate de token opcional (`ARES_DASHBOARD_TOKEN`/`--token`) —
+  no es RBAC multi-usuario, es el mínimo para no quedar abierto por
+  accidente si se expone más allá de localhost.
+
+**Fuera de alcance por diseño, no por falta de tiempo:**
+- `engine/proxy/`: proxy MITM stdio/SSE para logging y bloqueo en runtime —
+  es un producto distinto (gateway en línea), no un escáner.
 - Empaquetado Docker (ya hay `pyproject.toml`, falta imagen de contenedor).
+- RBAC/multi-usuario real para el dashboard.
