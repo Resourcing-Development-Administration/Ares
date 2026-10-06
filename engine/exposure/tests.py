@@ -19,7 +19,7 @@ import httpx
 from engine.core.models import Finding, Evidence, Category
 from engine.core.risk import build_vector, base_vector_for
 from engine.core.registry import register_test
-from engine.core.tls import inspect_certificate, httpx_verify
+from engine.core.tls import inspect_certificate, verify_source
 
 HOSTILE_ORIGIN = "https://evil.example.com"
 
@@ -76,7 +76,7 @@ async def cors_misconfig(target, ctx) -> list[Finding]:
         return []
 
     try:
-        async with httpx.AsyncClient(timeout=5.0, verify=httpx_verify(_ca_bundle_from_ctx(ctx))) as client:
+        async with httpx.AsyncClient(timeout=5.0, verify=verify_source(ctx.get("connection") or {})) as client:
             resp = await client.options(url, headers={
                 "Origin": HOSTILE_ORIGIN,
                 "Access-Control-Request-Method": "POST",
@@ -241,6 +241,12 @@ async def certificate_type(target, ctx) -> list[Finding]:
     _MARK = {"ok": "[OK]", "caution": "[~]", "bad": "[X]", "info": "[i]"}
     for fac in verdict.get("factors", []):
         parts.append(f"{_MARK.get(fac['status'], '-')} {fac['text']}")
+
+    # Si la conexión se completó fijando este mismo cert (--trust-presented-cert), dejarlo
+    # explícito: el scan pudo correr, pero la confianza fue TOFU, no una CA real.
+    if (ctx.get("connection") or {}).get("pinned_cert_file"):
+        parts.append("[~] La conexión se completó FIJANDO este certificado (--trust-presented-cert, pinning TOFU): "
+                     "el scan pudo ejecutarse, pero eso NO valida la identidad del server contra una CA de confianza.")
 
     references: list[str] = []
     if is_problem:

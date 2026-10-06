@@ -401,9 +401,9 @@ async def oauth_metadata_security(target, ctx) -> list[Finding]:
         return []
 
     try:
-        from engine.core.tls import httpx_verify
+        from engine.core.tls import verify_source
         async with httpx.AsyncClient(timeout=6.0, follow_redirects=False,
-                                     verify=httpx_verify(connection.get("ca_bundle"))) as client:
+                                     verify=verify_source(connection)) as client:
             resp = await client.post(
                 url, json={"jsonrpc": "2.0", "id": 1, "method": "initialize",
                            "params": {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "ares", "version": "0"}}},

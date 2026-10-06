@@ -315,6 +315,7 @@ def _build_config(args, target_name: str, transport: str, connection: dict) -> S
         environment=args.environment,
         source_path=args.source_path,
         ca_bundle=_resolve_ca_bundle_arg(args),
+        trust_presented_cert=getattr(args, "trust_presented_cert", False),
         request_delay_ms=args.request_delay_ms,
         oob_callback_host=args.oob_callback_host,
         baseline_path=getattr(args, "baseline", None),
@@ -517,7 +518,8 @@ def cmd_vet(args):
         baseline=args.baseline, max_fuzz_cases=args.max_fuzz_cases,
         allow_network=True, request_delay_ms=args.request_delay_ms,
         oob_callback_host=args.oob_callback_host, environment="production",
-        source_path=args.source_path, ca_bundle=getattr(args, "ca_bundle", None), header=args.header,
+        source_path=args.source_path, ca_bundle=getattr(args, "ca_bundle", None),
+        trust_presented_cert=getattr(args, "trust_presented_cert", False), header=args.header,
         auth_token=args.auth_token, auth_type=args.auth_type, auth_header_name=args.auth_header_name,
         compare_auth=bool(args.auth_token),
         print_findings=args.print_findings, no_file=args.no_file,
@@ -586,6 +588,7 @@ async def _full_one(sem: asyncio.Semaphore, args, server: dict, mode: str, out_d
             # ya validado una sola vez en cmd_full() antes del gather -- acá solo se resuelve
             # (misma ruta/env var) sin reimprimir ni re-chequear por cada target concurrente.
             ca_bundle=resolve_ca_bundle(getattr(args, "ca_bundle", None)),
+            trust_presented_cert=getattr(args, "trust_presented_cert", False),
             request_delay_ms=args.request_delay_ms,
             oob_callback_host=args.oob_callback_host,
             allowlist_path=_resolve_allowlist(args),
@@ -865,6 +868,7 @@ def main():
     p_scan.add_argument("--environment", choices=["production", "development"], default="production", help="ambiente usado por el policy engine para el veredicto BLOCK/CONDITIONAL/ALLOW")
     p_scan.add_argument("--source-path", dest="source_path", default=None, help="ruta local al código fuente del server, para supplychain.dependency_vulnerabilities")
     p_scan.add_argument("--ca-bundle", dest="ca_bundle", default=None, help="ruta a un bundle de CA (PEM) para validar el certificado TLS del server (http/sse) contra una CA interna/corporativa, sin desactivar la verificación. Fallback: variable de entorno SSL_CERT_FILE")
+    p_scan.add_argument("--trust-presented-cert", dest="trust_presented_cert", action="store_true", help="http/sse: si la conexión falla por TLS no confiable (self-signed/CA desconocida) y no diste --ca-bundle, trae el certificado que presenta el server y lo FIJA (pinning TOFU) para conectarse y correr las pruebas igual. NO valida identidad (el cert se sigue reportando self-signed/riesgo) -- es para auditar un target interno sin frenar")
     p_scan.add_argument("--header", action="append", default=[], help='header HTTP extra "Clave: Valor" (repetible, transporte sse/http)')
     p_scan.add_argument("--auth-token", dest="auth_token", default=None, help="credencial a inyectar (transporte sse/http)")
     p_scan.add_argument("--auth-type", dest="auth_type", choices=["bearer", "apikey", "custom"], default="bearer")
@@ -907,6 +911,7 @@ def main():
     p_vet.add_argument("--oob-callback-host", dest="oob_callback_host", default=None)
     p_vet.add_argument("--source-path", dest="source_path", default=None, help="ruta al código fuente, para incluir el chequeo de dependencias vulnerables (OSV.dev)")
     p_vet.add_argument("--ca-bundle", dest="ca_bundle", default=None, help="ruta a un bundle de CA (PEM) para validar el TLS del server contra una CA interna (ver 'scan --help'); fallback SSL_CERT_FILE")
+    p_vet.add_argument("--trust-presented-cert", dest="trust_presented_cert", action="store_true", help="fija el cert presentado (pinning TOFU) para conectarse a un target con cert interno y auditarlo igual (ver 'scan --help')")
     p_vet.add_argument("--header", action="append", default=[])
     p_vet.add_argument("--auth-token", dest="auth_token", default=None, help="si lo das, corre compare-auth automáticamente")
     p_vet.add_argument("--auth-type", dest="auth_type", choices=["bearer", "apikey", "custom"], default="bearer")
@@ -943,6 +948,7 @@ def main():
     p_full.add_argument("--environment", choices=["production", "development"], default="production")
     p_full.add_argument("--source-path", dest="source_path", default=None)
     p_full.add_argument("--ca-bundle", dest="ca_bundle", default=None, help="ruta a un bundle de CA (PEM) para validar el TLS de TODOS los targets http/sse contra una CA interna; fallback SSL_CERT_FILE")
+    p_full.add_argument("--trust-presented-cert", dest="trust_presented_cert", action="store_true", help="fija el cert presentado (pinning TOFU) de cada target http/sse para conectarse y auditar igual (ver 'scan --help')")
     p_full.add_argument("--header", action="append", default=[])
     p_full.add_argument("--auth-token", dest="auth_token", default=None)
     p_full.add_argument("--auth-type", dest="auth_type", choices=["bearer", "apikey", "custom"], default="bearer")

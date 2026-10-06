@@ -207,6 +207,12 @@ class ScanConfig:
                                                 # interna/corporativa sin desactivar la verificación. None = trust
                                                 # store por defecto (certifi), con fallback a la env var SSL_CERT_FILE
                                                 # resuelto en la CLI (ver engine/core/tls.py::resolve_ca_bundle).
+    trust_presented_cert: bool = False         # http/sse: si la conexión falla por TLS no confiable (self-signed /
+                                                # CA desconocida) y NO se dio --ca-bundle, traer el certificado que
+                                                # el server presenta y FIJARLO (pinning TOFU) para completar el
+                                                # handshake y poder correr las pruebas. NO valida identidad (el
+                                                # dictamen del cert sigue marcándolo self-signed/riesgo) -- solo
+                                                # permite auditar un target con cert interno sin frenar. Opt-in.
     request_delay_ms: int = 0                 # pausa entre llamadas a tools, para no saturar targets sensibles
     oob_callback_host: Optional[str] = None   # "host:puerto" reachable por el target, para confirmar SSRF por callback real
     baseline_path: Optional[str] = None       # reporte.json anterior; habilita el diff de findings Y adv.rug_pull

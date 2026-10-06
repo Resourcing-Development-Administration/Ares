@@ -16,6 +16,7 @@ from engine.policy.engine import PolicyEngine
 from engine.baseline import load_baseline_tools
 from engine.core.sandbox import sandbox_status
 from engine.core.conn_errors import classify_connection_error, is_expected_auth_rejection
+from engine.core.tls import fetch_presented_cert_pem
 
 # importar módulos para que se autoregistren en el registry
 import engine.recon.tests        # noqa: F401
@@ -63,6 +64,28 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
         # (engine/core/client.py) como las sondas httpx crudas y la inspección de certificado
         # (engine/exposure/tests.py, engine/auth/tests.py), todos vía ctx["connection"]["ca_bundle"].
         connection["ca_bundle"] = config.ca_bundle
+
+    # --trust-presented-cert: si NO hay CA real provista y el target es http/sse, traer el
+    # certificado que el server presenta y FIJARLO para poder completar el handshake contra un
+    # cert self-signed / CA interna y correr las pruebas. Pinning TOFU: NO valida identidad
+    # (se guarda en 'pinned_cert_file', NO en 'ca_bundle', así el dictamen del cert sigue
+    # marcándolo self-signed/riesgo -- ver engine/core/tls.py::verify_source/assess_certificate).
+    pinned_cert_file = None
+    if (config.trust_presented_cert and config.transport in ("http", "sse")
+            and not connection.get("ca_bundle") and connection.get("url")):
+        pinned_cert_file = fetch_presented_cert_pem(connection["url"])
+        if pinned_cert_file:
+            connection["pinned_cert_file"] = pinned_cert_file
+            report.errors.append(
+                "--trust-presented-cert: se fijó (pinning TOFU) el certificado que presentó el server "
+                "para poder conectarse y auditar. Esto NO valida su identidad contra una CA de confianza "
+                "-- si ya había un MITM, se fijó el cert del atacante. El dictamen del certificado "
+                "(exposure.certificate_type) sigue reportándolo según su tipo real."
+            )
+            emit({"type": "cert_pinned", "file": pinned_cert_file})
+        else:
+            report.errors.append("--trust-presented-cert: no se pudo obtener el certificado presentado por el server.")
+
     if config.request_delay_ms:
         connection["request_delay_ms"] = config.request_delay_ms
     connection["sandbox"] = {
@@ -324,6 +347,14 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
         report.tools_enumerated = ctx.get("tools", [])
         report.resources_enumerated = ctx.get("resources", [])
         report.prompts_enumerated = ctx.get("prompts", [])
+
+    # limpiar el PEM temporal del cert fijado (--trust-presented-cert), si se usó.
+    if pinned_cert_file:
+        try:
+            import os
+            os.unlink(pinned_cert_file)
+        except OSError:
+            pass
 
     noise_stats = apply_noise_reduction(report, config.allowlist_path, config.min_confidence)
     if noise_stats["allowlisted"] or noise_stats["below_confidence_floor"]:

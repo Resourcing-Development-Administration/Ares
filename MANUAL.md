@@ -763,6 +763,26 @@ configurado, en vez de ignorar la verificación— pasá la CA en la que querés
   ni `NODE_EXTRA_CA_CERTS` (es de Node; Ares es Python). La única env var de CA que
   Ares respeta es `SSL_CERT_FILE`.
 
+**`--trust-presented-cert` (traer y fijar el cert para seguir auditando).** Si no tenés a mano
+la CA interna y aun así querés que el scan **se conecte y corra las pruebas** contra un server
+con cert self-signed / CA desconocida, pasá este flag: ante un TLS que no valida (y sin
+`--ca-bundle`), Ares **trae el certificado que el server presenta y lo fija** (*pinning* TOFU —
+trust-on-first-use) para completar el handshake, y sigue con toda la batería.
+
+```bash
+./ares.sh scan --transport http --url https://sonardev.interno/mcp --trust-presented-cert
+```
+
+Es **opt-in a propósito** y no reemplaza a `--ca-bundle`:
+- **No valida la identidad** del server. Fija lo que el server presentó *en ese momento*: si ya
+  había un MITM, se fija el cert del atacante. Por eso Ares lo deja asentado como error informativo
+  en el reporte, y **el dictamen del certificado sigue marcándolo self-signed/riesgo** (el cert
+  fijado se usa solo para conectar, nunca cuenta como raíz de confianza en `assess_certificate`).
+- Úsalo solo contra targets **internos que controlás**. Para una validación real —que además deje
+  el cert como *no-riesgo*— usá `--ca-bundle` con la CA que lo emite.
+- Si el hostname no coincide con el cert, el *pinning* igual no conecta (la verificación de hostname
+  se mantiene): ahí necesitás la CA real.
+
 **Tipo de certificado anotado en el reporte.** Corra con `--ca-bundle` o no, el test
 `exposure.certificate_type` (default-on) inspecciona el certificado que el server
 realmente presenta y lo deja asentado en el reporte (HTML/JSON), con:

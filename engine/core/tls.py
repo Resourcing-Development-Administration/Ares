@@ -68,6 +68,47 @@ def httpx_verify(ca_bundle: Optional[str]) -> Union[str, bool]:
     return ca_bundle if ca_bundle else True
 
 
+def verify_source(connection: dict) -> Union[str, bool]:
+    """Valor `verify=` para httpx / cliente MCP a partir del dict de conexión: la CA real
+    provista por el operador (`ca_bundle`, de --ca-bundle/SSL_CERT_FILE) tiene prioridad;
+    si no, el certificado FIJADO automáticamente (`pinned_cert_file`, de --trust-presented-cert,
+    pinning TOFU) para poder conectarse; si ninguno, el trust store por defecto (True).
+
+    OJO: `pinned_cert_file` solo sirve para COMPLETAR la conexión y poder auditar -- NO es una
+    raíz de confianza real y el dictamen del certificado (assess_certificate) nunca lo cuenta
+    como tal (a inspect_certificate se le pasa únicamente el `ca_bundle` real)."""
+    conn = connection or {}
+    return conn.get("ca_bundle") or conn.get("pinned_cert_file") or True
+
+
+def fetch_presented_cert_pem(url: str, timeout: float = 8.0) -> Optional[str]:
+    """Trae el certificado que el server presenta (sin validarlo) y lo escribe a un archivo
+    PEM temporal, para FIJARLO (pinning) y poder completar el handshake contra un server con
+    cert self-signed / CA interna, y así correr las pruebas. Devuelve la ruta del PEM, o None
+    si no se pudo obtener. El llamador es responsable de borrar el archivo al terminar."""
+    hp = _host_port(url)
+    if hp is None:
+        return None
+    host, port = hp
+    raw_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    raw_ctx.check_hostname = False
+    raw_ctx.verify_mode = ssl.CERT_NONE
+    try:
+        with socket.create_connection((host, port), timeout=timeout) as sock:
+            with raw_ctx.wrap_socket(sock, server_hostname=host) as ssock:
+                der = ssock.getpeercert(binary_form=True)
+        if not der:
+            return None
+        pem = ssl.DER_cert_to_PEM_cert(der)
+        import tempfile
+        f = tempfile.NamedTemporaryFile("w", suffix=".pem", prefix="ares_pinned_", delete=False)
+        f.write(pem)
+        f.close()
+        return f.name
+    except Exception:
+        return None
+
+
 def _host_port(url: str) -> Optional[tuple[str, int]]:
     parsed = urlparse(url)
     if parsed.scheme not in ("https", "wss"):

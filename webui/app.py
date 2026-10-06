@@ -174,6 +174,7 @@ def _build_config(params: dict, target_name: str, transport: str, connection: di
         environment="production" if is_vet else (params.get("environment") or "production"),
         source_path=params.get("source_path") or None,
         ca_bundle=_resolve_ca_bundle(params.get("ca_bundle")),  # CA (PEM) para validar TLS del server contra CA interna
+        trust_presented_cert=bool(params.get("trust_presented_cert")),  # pinning TOFU del cert presentado (opt-in)
         request_delay_ms=int(params.get("request_delay_ms") or 0),
         oob_callback_host=params.get("oob_callback_host") or None,
         allowlist_path=allowlist_path,

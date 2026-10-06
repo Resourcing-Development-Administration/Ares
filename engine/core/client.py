@@ -149,8 +149,9 @@ class MCPTarget:
         `httpx_client_factory`, se omite (y el scan sigue, con el trust store por
         defecto -- queda registrado por los tests de exposición si el TLS no valida).
         """
-        ca_bundle = self.connection.get("ca_bundle")
-        if not ca_bundle:
+        from engine.core.tls import verify_source
+        verify = verify_source(self.connection)
+        if verify is True:  # trust store por defecto -> el SDK ya lo usa, no hace falta factory
             return {}
         try:
             import inspect
@@ -162,7 +163,7 @@ class MCPTarget:
         import httpx
 
         def _factory(headers=None, timeout=None, auth=None):
-            kwargs: dict = {"follow_redirects": True, "verify": ca_bundle}
+            kwargs: dict = {"follow_redirects": True, "verify": verify}
             if headers is not None:
                 kwargs["headers"] = headers
             kwargs["timeout"] = timeout if timeout is not None else httpx.Timeout(30.0)

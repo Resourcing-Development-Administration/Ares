@@ -765,3 +765,55 @@ def test_certificate_assessment_grading_meticulous():
                                 signature_algorithm="sha256", key_type="RSA 2048 bits"))
     assert len(a["factors"]) >= 4
     assert a["passed"] is False  # manejable sigue siendo un hallazgo visible
+
+
+def test_verify_source_prefers_real_ca_then_pinned_then_default():
+    from engine.core.tls import verify_source
+    assert verify_source({"ca_bundle": "/real/ca.pem", "pinned_cert_file": "/x.pem"}) == "/real/ca.pem"
+    assert verify_source({"pinned_cert_file": "/pinned.pem"}) == "/pinned.pem"
+    assert verify_source({}) is True
+    assert verify_source(None) is True
+
+
+def test_fetch_presented_cert_pem_pins_self_signed(tmp_path):
+    """--trust-presented-cert: trae el cert que el server presenta y lo escribe a PEM,
+    y ese PEM sirve para validar/conectar (pinning)."""
+    import pytest
+    x509 = pytest.importorskip("cryptography.x509")
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import NameOID
+    import datetime as _dt, ssl, socketserver, threading, time, os, socket
+    from engine.core.tls import fetch_presented_cert_pem
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
+    cert = (x509.CertificateBuilder().subject_name(name).issuer_name(name)
+            .public_key(key.public_key()).serial_number(x509.random_serial_number())
+            .not_valid_before(_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=1))
+            .not_valid_after(_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(days=365))
+            .add_extension(x509.SubjectAlternativeName([x509.DNSName("localhost")]), critical=False)
+            .sign(key, hashes.SHA256()))
+    cp = tmp_path / "c.pem"; kp = tmp_path / "k.pem"
+    cp.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    kp.write_bytes(key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.TraditionalOpenSSL, serialization.NoEncryption()))
+
+    class H(socketserver.BaseRequestHandler):
+        def handle(self):
+            try: self.request.recv(16)
+            except Exception: pass
+    srv = socketserver.ThreadingTCPServer(("127.0.0.1", 0), H)
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); ctx.load_cert_chain(str(cp), str(kp))
+    srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start(); time.sleep(0.2)
+    try:
+        pem = fetch_presented_cert_pem(f"https://localhost:{port}/mcp")
+        assert pem and os.path.isfile(pem)
+        # el PEM fijado valida el propio cert del server (pinning funciona)
+        vctx = ssl.create_default_context(cafile=pem)
+        with socket.create_connection(("localhost", port)) as s, vctx.wrap_socket(s, server_hostname="localhost"):
+            pass  # handshake OK => el cert fijado sirve para conectar
+        os.unlink(pem)
+    finally:
+        srv.shutdown()

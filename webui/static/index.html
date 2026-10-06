@@ -438,6 +438,11 @@
         </div>
       </div>
       <div class="checkline">
+        <input type="checkbox" id="trust_presented_cert">
+        <label for="trust_presented_cert">--trust-presented-cert: si el TLS del server no valida (self-signed / CA desconocida) y no diste --ca-bundle, <b>traer y fijar</b> el cert presentado para conectarse y correr las pruebas igual</label>
+        <span class="tip" tabindex="0" data-tip="Pinning TOFU: Ares trae el certificado que el server presenta y lo fija para completar el handshake y poder auditar un target con cert interno sin frenar. NO valida la identidad del server (si ya había un MITM, se fija el cert del atacante); el certificado se sigue reportando como self-signed/riesgo en exposure.certificate_type. Usalo solo contra targets internos que controlás.">?</span>
+      </div>
+      <div class="checkline">
         <input type="checkbox" id="allow_network">
         <label for="allow_network">--allow-network: habilitar tests que hacen conexiones externas reales (en <code>vet</code>/<code>full vet</code> ya va forzado)</label>
         <span class="tip" tabindex="0" data-tip="Gate explícito para tests marcados requires_network (ej. adv.ssrf_exfil, dependency_vulnerabilities). Sin esto, esos tests se saltean aunque los tildes en «Tests» — es un gate separado a propósito, para que un efecto de red real nunca sea «sin querer».">?</span>
@@ -724,6 +729,7 @@ function collectBaseParams() {
     request_delay_ms: document.getElementById('request_delay_ms').value,
     source_path: document.getElementById('source_path').value,
     ca_bundle: document.getElementById('ca_bundle').value,
+    trust_presented_cert: document.getElementById('trust_presented_cert').checked,
     package_name: document.getElementById('package_name').value,
     oob_callback_host: document.getElementById('oob_callback_host').value,
     allow_network: document.getElementById('allow_network').checked,
