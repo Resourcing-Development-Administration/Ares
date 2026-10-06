@@ -202,6 +202,7 @@ FRAMEWORK_MAP: dict[str, list[dict]] = {
     "dynamic.rate_limit": [_api("API4:2023"), _llm("LLM10:2025"), _agentic("resource-exhaustion"), _atlas_t("agentic-resource-consumption")],
     "orchestrator.test_unresponsive": [_api("API4:2023"), _llm("LLM10:2025"), _agentic("resource-exhaustion"), _atlas_t("agentic-resource-consumption")],
     "orchestrator.target_unresponsive_sustained": [_api("API4:2023"), _llm("LLM10:2025"), _agentic("resource-exhaustion"), _atlas_t("agentic-resource-consumption")],
+    "orchestrator.connection_failed": [_mcp("MCP07:2025"), _api("API8:2023")],
 
     # prompt-injection-indirect (AML.T0051.001) reemplaza la táctica genérica "ml-attack-staging":
     # match preciso -- "indirect injection via data channels ingested by the LLM", exactamente
@@ -231,6 +232,7 @@ FRAMEWORK_MAP: dict[str, list[dict]] = {
     "auth.cross_session_context_bleed": [_mcp("MCP10:2025"), _llm("LLM02:2025"), _api("API1:2023"), _atlas("collection")],
     "auth.oauth_metadata_security": [_mcp("MCP07:2025"), _api("API2:2023")],
 
+    "exposure.certificate_type": [_mcp("MCP07:2025"), _api("API8:2023")],
     "exposure.transport_security": [_mcp("MCP07:2025"), _api("API8:2023")],
     "exposure.cors_misconfig": [_mcp("MCP07:2025"), _api("API8:2023")],
     # API8:2023 (Security Misconfiguration), no API9:2023 (Improper Inventory

@@ -555,3 +555,213 @@ def test_all_framework_map_tags_resolve_without_keyerror():
             assert tag.get("id") or tag["framework"] == "ATLAS"  # tácticas ATLAS sin ID puntual son válidas
             assert tag.get("name")
             assert tag.get("url", "").startswith("http")
+
+
+# --- TLS / CA custom (engine/core/tls.py) ---------------------------------------
+
+def test_resolve_ca_bundle_flag_env_and_none(tmp_path, monkeypatch):
+    """--ca-bundle gana sobre SSL_CERT_FILE; con ninguno -> None; ruta inexistente -> ValueError."""
+    import pytest
+    from engine.core.tls import resolve_ca_bundle, ca_bundle_source
+    ca = tmp_path / "ca.pem"
+    ca.write_text("-----BEGIN CERTIFICATE-----\n")
+    env_ca = tmp_path / "env.pem"
+    env_ca.write_text("-----BEGIN CERTIFICATE-----\n")
+
+    monkeypatch.delenv("SSL_CERT_FILE", raising=False)
+    assert resolve_ca_bundle(None) is None
+    assert ca_bundle_source(None) is None
+    assert resolve_ca_bundle(str(ca)) == str(ca)
+    assert ca_bundle_source(str(ca)) == "flag"
+
+    monkeypatch.setenv("SSL_CERT_FILE", str(env_ca))
+    assert resolve_ca_bundle(None) == str(env_ca)           # fallback a la env var
+    assert ca_bundle_source(None) == "SSL_CERT_FILE"
+    assert resolve_ca_bundle(str(ca)) == str(ca)            # el flag sigue ganando
+    assert ca_bundle_source(str(ca)) == "flag"
+
+    with pytest.raises(ValueError):
+        resolve_ca_bundle(str(tmp_path / "no-existe.pem"))
+
+
+def test_httpx_verify_never_disables_verification(tmp_path):
+    """httpx_verify devuelve la ruta de la CA, o True -- nunca False (Ares no desactiva TLS)."""
+    from engine.core.tls import httpx_verify
+    assert httpx_verify(None) is True
+    assert httpx_verify("/x/ca.pem") == "/x/ca.pem"
+
+
+def test_certificate_classification_and_expiry():
+    from engine.core import tls
+    assert tls._classify({"trusted_by_default": True}) == "ca-signed (publicly trusted)"
+    assert tls._classify({"trusted_by_custom_ca": True}) == "ca-signed (internal/private CA)"
+    assert tls._classify({"self_signed": True}) == "self-signed"
+    assert tls._classify({}) == "untrusted / unknown chain"
+    # trust público gana a self-signed si ambas señales aparecen
+    assert tls._classify({"trusted_by_default": True, "self_signed": True}) == "ca-signed (publicly trusted)"
+
+    assert tls._is_expired("2000-01-01T00:00:00+00:00") is True
+    assert tls._is_expired("2999-01-01T00:00:00+00:00") is False
+    assert tls._is_expired("Jan  1 00:00:00 2000 GMT") is True   # formato OpenSSL (stdlib)
+    assert tls._is_expired(None) is None
+    assert tls._host_port("http://x/mcp") is None                 # no-TLS -> None
+    assert tls._host_port("https://a.b:9000/x") == ("a.b", 9000)
+
+
+def test_inspect_certificate_self_signed_vs_internal_ca(tmp_path):
+    """E2E: contra un server TLS self-signed local, el certificado se clasifica como
+    self-signed sin CA, y como 'CA interna' cuando se pasa esa misma CA como bundle."""
+    import pytest
+    x509 = pytest.importorskip("cryptography.x509")
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import NameOID
+    import datetime as _dt
+    import ssl, socketserver, threading, time
+    from engine.core.tls import inspect_certificate
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name).issuer_name(name).public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=1))
+        .not_valid_after(_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(days=365))
+        .add_extension(x509.SubjectAlternativeName([x509.DNSName("localhost")]), critical=False)
+        .sign(key, hashes.SHA256())
+    )
+    cert_pem = tmp_path / "cert.pem"
+    key_pem = tmp_path / "key.pem"
+    cert_pem.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    key_pem.write_bytes(key.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.TraditionalOpenSSL,
+        serialization.NoEncryption()))
+
+    class _H(socketserver.BaseRequestHandler):
+        def handle(self):
+            try: self.request.recv(16)
+            except Exception: pass
+
+    srv = socketserver.ThreadingTCPServer(("127.0.0.1", 0), _H)
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.load_cert_chain(str(cert_pem), str(key_pem))
+    srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    time.sleep(0.2)
+    try:
+        url = f"https://localhost:{port}/mcp"
+        no_ca = inspect_certificate(url)
+        assert no_ca["type"] == "self-signed"
+        assert no_ca["self_signed"] is True
+        assert no_ca["trusted_by_default"] is False
+        assert no_ca["expired"] is False
+        assert len(no_ca["fingerprint_sha256"]) == 64
+
+        with_ca = inspect_certificate(url, ca_bundle=str(cert_pem))
+        assert with_ca["type"] == "ca-signed (internal/private CA)"
+        assert with_ca["trusted_by_custom_ca"] is True
+        assert with_ca["trusted_by_default"] is False
+    finally:
+        srv.shutdown()
+
+
+# --- Conexión fallida: no fingir un pase limpio (engine/core/conn_errors.py) -------
+
+def test_classify_connection_error_buckets():
+    from engine.core.conn_errors import classify_connection_error as C
+    assert C("[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate") == "tls"
+    assert C("unable to get local issuer certificate") == "tls"
+    assert C("hostname 'a' doesn't match 'b'") == "tls"
+    assert C("Server returned 401 Unauthorized") == "auth"
+    assert C("403 Forbidden") == "auth"
+    assert C("[Errno 111] Connection refused") == "network"
+    assert C("getaddrinfo failed: Name or service not known") == "network"
+    assert C("ReadTimeout: timed out") == "network"
+    assert C("algo raro") == "other"
+    assert C(None) == "other"
+
+
+def test_is_expected_auth_rejection_only_for_401_without_creds():
+    """Un TLS rechazado NUNCA debe pasar por 'el server exige auth' -- ese era el bug que
+    dejaba un scan sin conectar en un falso '100/100 ALLOW'."""
+    from engine.core.conn_errors import is_expected_auth_rejection as EXP
+    assert EXP("401 Unauthorized", auth_configured=False) is True      # único caso legítimo
+    assert EXP("401 Unauthorized", auth_configured=True) is False       # dimos token y lo rechazó: incompleto
+    assert EXP("certificate verify failed", auth_configured=False) is False  # TLS, no auth
+    assert EXP("Connection refused", auth_configured=False) is False
+
+
+def test_connection_failed_finding_blocks_and_tanks_score():
+    """Un scan que no se conectó: Critical, policy BLOCK en production, score < 100."""
+    from engine.core.models import ScanReport, Finding, Evidence, Category
+    from engine.policy.engine import PolicyEngine
+    from engine.reporting.scoring import calculate_score
+    f = Finding(test_id="orchestrator.connection_failed", title="incompleto", category=Category.EXPOSURE,
+                target="server", description="tls rechazado", passed=False, evidence=Evidence(notes="x"))
+    rep = ScanReport(scan_id="t", target_name="t", started_at="", findings=[f])
+    assert f.severity.value in ("high", "critical")
+    assert PolicyEngine().evaluate(rep, environment="production")["overall"] == "BLOCK"
+    assert PolicyEngine().evaluate(rep, environment="development")["overall"] in ("CONDITIONAL", "BLOCK")
+    assert calculate_score(rep)["score"] < 100
+
+
+def test_self_signed_cert_is_classified_as_risk_with_frameworks():
+    """Un certificado autofirmado/no confiable se reporta como riesgo High (MITM) y mapea a
+    los frameworks reconocidos; uno de confianza queda INFO sin riesgo."""
+    from engine.core.frameworks import get_frameworks_for
+    from engine.core.risk import build_vector, base_vector_for
+    from engine.core.models import Finding, Category
+
+    fw = {f"{t['framework']}:{t.get('id')}" for t in get_frameworks_for("exposure.certificate_type")}
+    assert "OWASP-MCP:MCP07:2025" in fw  # Transport Security
+    assert "OWASP-API:API8:2023" in fw   # Security Misconfiguration
+
+    # self-signed: override MITM (C:H/I:H) -> High
+    ov = build_vector(base_vector_for("exposure.certificate_type"), C="H", I="H")
+    bad = Finding(test_id="exposure.certificate_type", title="self-signed", category=Category.EXPOSURE,
+                  target="server", description="x", passed=False, cvss_vector_override=ov,
+                  references=["https://cwe.mitre.org/data/definitions/295.html"])
+    assert bad.severity.value == "high"
+    assert bad.risk["risk_rating"] == "High"
+    assert any("cwe" in r.lower() and "295" in r for r in bad.references)
+
+    # trusted (passed=True) -> INFO, sin riesgo
+    good = Finding(test_id="exposure.certificate_type", title="ca-signed", category=Category.EXPOSURE,
+                   target="server", description="x", passed=True)
+    assert good.severity.value == "info"
+
+
+def test_certificate_assessment_grading_meticulous():
+    """El dictamen gradúa de verdad: no-riesgo / manejable / riesgo, según cadena de
+    confianza, vigencia, hostname, firma, clave y alcance de red."""
+    from engine.core.tls import assess_certificate
+    def v(**kw):
+        base = dict(trusted_by_default=False, trusted_by_custom_ca=None, self_signed=False,
+                    expired=False, days_to_expiry=200, is_internal=None, hostname_match=True,
+                    weak_signature=False, weak_key=False, signature_algorithm="sha256", key_type="RSA 2048 bits")
+        base.update(kw)
+        return assess_certificate(base)["verdict"]
+
+    # NO es riesgo
+    assert v(trusted_by_default=True) == "sin-riesgo"
+    assert v(trusted_by_custom_ca=True, self_signed=True) == "sin-riesgo"   # autofirmado pero validado por CA interna
+    # Posible pero MANEJABLE: autofirmado interno, por lo demás sano
+    assert v(self_signed=True, is_internal=True) == "riesgo-manejable"
+    # RIESGO real
+    assert v(self_signed=True, is_internal=False) == "riesgo"               # autofirmado público
+    assert v(self_signed=True, is_internal=None) == "riesgo"                # alcance desconocido -> conservador
+    assert v(self_signed=True, is_internal=True, weak_signature=True) == "riesgo"   # interno pero SHA-1 roto
+    assert v(self_signed=True, is_internal=True, expired=True) == "riesgo"          # interno pero expirado
+    assert v(trusted_by_default=True, expired=True) == "riesgo"             # CA válida pero expirado
+    assert v(trusted_by_default=True, hostname_match=False) == "riesgo"     # CA válida pero hostname no matchea
+    assert v(trusted_by_default=True, weak_key=True) == "riesgo"            # CA válida pero clave débil
+    assert v(self_signed=False, trusted_by_default=False, is_internal=False) == "riesgo"  # cadena desconocida
+
+    # el dictamen enumera factores (minucioso)
+    a = assess_certificate(dict(trusted_by_default=False, self_signed=True, expired=False, days_to_expiry=200,
+                                is_internal=True, hostname_match=True, weak_signature=False, weak_key=False,
+                                signature_algorithm="sha256", key_type="RSA 2048 bits"))
+    assert len(a["factors"]) >= 4
+    assert a["passed"] is False  # manejable sigue siendo un hallazgo visible

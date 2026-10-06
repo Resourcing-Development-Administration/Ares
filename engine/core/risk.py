@@ -181,6 +181,17 @@ _TABLE: dict[str, dict] = {
         "remediation_effort": ("medium", "Investigar por qué el server dejó de responder de forma sostenida "
                                            "antes de confiar en el score de esta corrida (incompleta)."),
     },
+    # emitido por el orquestador cuando NO hubo sesión y el fallo no fue un 401 legítimo (TLS
+    # rechazado, DNS/conexión/timeout). No es una vuln del server en sí: es que la corrida quedó
+    # INCOMPLETA y su score/veredicto no son válidos como postura. Se califica alto a propósito
+    # para que un scan que no se conectó nunca pase como "limpio"; el veredicto además lo fuerza
+    # policy.yaml (BLOCK en production). I:H = la integridad del resultado del scan está comprometida.
+    "orchestrator.connection_failed": {
+        "vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+        "business_impact": {"financial": "low", "reputational": "high", "compliance": "high", "privacy": "low"},
+        "remediation_effort": ("low", "Conectarse de verdad (p.ej. --ca-bundle para una CA interna) y "
+                                       "re-ejecutar; no confiar en el score hasta que la corrida sea completa."),
+    },
     "adv.confused_deputy": {
         "vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N",
         "business_impact": {"financial": "medium", "reputational": "medium", "compliance": "medium", "privacy": "medium"},
@@ -264,6 +275,15 @@ _TABLE: dict[str, dict] = {
         "vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:L/A:N",
         "business_impact": {"financial": "medium", "reputational": "medium", "compliance": "high", "privacy": "high"},
         "remediation_effort": ("trivial", "Servir exclusivamente sobre TLS -- config de infraestructura, no código."),
+    },
+    "exposure.certificate_type": {
+        # Un cert self-signed / de cadena desconocida / expirado habilita MITM activo: un atacante
+        # en la ruta puede presentar su propio cert y el cliente que "igual confía" no lo distingue.
+        # AC:H porque requiere posición de red (on-path); C:H/I:L por el mismo motivo que transport sin TLS.
+        "vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:L/A:N",
+        "business_impact": {"financial": "medium", "reputational": "medium", "compliance": "high", "privacy": "high"},
+        "remediation_effort": ("low", "Emitir el certificado desde una CA en la que los clientes confíen (pública "
+                                       "o interna), o -- si la CA es interna -- auditar pasando --ca-bundle con ella."),
     },
     "exposure.cors_misconfig": {
         # baseline = wildcard; el test pisa C:H/I:H cuando además refleja el origin con credentials=true.

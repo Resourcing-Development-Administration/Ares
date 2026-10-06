@@ -9,6 +9,7 @@ Ideas portadas de:
 - mcpscan/exposure/{proxy-internal,proxy-public} (clasificación interno/público)
 """
 from __future__ import annotations
+import asyncio
 import ipaddress
 import socket
 from urllib.parse import urlparse
@@ -18,6 +19,7 @@ import httpx
 from engine.core.models import Finding, Evidence, Category
 from engine.core.risk import build_vector, base_vector_for
 from engine.core.registry import register_test
+from engine.core.tls import inspect_certificate, httpx_verify
 
 HOSTILE_ORIGIN = "https://evil.example.com"
 
@@ -25,6 +27,11 @@ HOSTILE_ORIGIN = "https://evil.example.com"
 def _url_from_ctx(ctx) -> str | None:
     connection = ctx.get("connection") or {}
     return connection.get("url")
+
+
+def _ca_bundle_from_ctx(ctx) -> str | None:
+    connection = ctx.get("connection") or {}
+    return connection.get("ca_bundle")
 
 
 @register_test(
@@ -69,7 +76,7 @@ async def cors_misconfig(target, ctx) -> list[Finding]:
         return []
 
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=5.0, verify=httpx_verify(_ca_bundle_from_ctx(ctx))) as client:
             resp = await client.options(url, headers={
                 "Origin": HOSTILE_ORIGIN,
                 "Access-Control-Request-Method": "POST",
@@ -161,6 +168,138 @@ async def network_reachability(target, ctx) -> list[Finding]:
         passed=is_internal,
         remediation="" if is_internal else "Evaluar si este servidor necesita estar expuesto públicamente; "
                                              "si no, moverlo detrás de VPN/allowlist de IPs.",
+    )]
+
+
+@register_test(
+    id="exposure.certificate_type",
+    name="Tipo de certificado TLS del server",
+    category=Category.EXPOSURE,
+    description="Inspecciona el certificado TLS que presenta el endpoint https/wss y lo clasifica "
+                 "(CA pública, CA interna/privada, self-signed, expirado), anotando emisor, sujeto, "
+                 "validez y fingerprint SHA-256 en el reporte. Valida la cadena contra el trust store "
+                 "por defecto y, si se pasó --ca-bundle (o SSL_CERT_FILE), también contra esa CA.",
+)
+async def certificate_type(target, ctx) -> list[Finding]:
+    url = _url_from_ctx(ctx)
+    if not url or urlparse(url).scheme not in ("https", "wss"):
+        # endpoint sin TLS (o stdio): exposure.transport_security ya cubre ese caso.
+        return []
+
+    ca_bundle = _ca_bundle_from_ctx(ctx)
+    info = await asyncio.to_thread(inspect_certificate, url, ca_bundle)
+
+    if info is None:
+        return []
+    if "error" in info:
+        return [Finding(
+            test_id="exposure.certificate_type", title="No se pudo inspeccionar el certificado TLS",
+            category=Category.EXPOSURE, target="server",
+            description=info["error"], passed=True,
+            evidence=Evidence(notes=info["error"]),
+        )]
+
+    cert_type = info.get("type", "desconocido")
+    expired = info.get("expired")
+    trusted_default = info.get("trusted_by_default")
+    trusted_custom = info.get("trusted_by_custom_ca")  # None si no se pasó CA custom
+
+    # Dictamen minucioso y graduado (ver engine/core/tls.py::assess_certificate): no es
+    # pass/fail binario -- pondera cadena de confianza, vigencia, hostname, firma/clave y
+    # alcance de red para separar riesgo REAL vs NO-riesgo vs autofirmado-interno manejable.
+    verdict = info.get("assessment") or {}
+    is_problem = not verdict.get("passed", True)
+
+    # Línea sobre la validación contra la CA custom, solo si se pasó una.
+    if trusted_custom is None:
+        ca_line = ""
+    elif trusted_custom:
+        ca_line = f" Valida contra la CA provista ('{ca_bundle}')."
+    else:
+        ca_line = f" NO valida ni siquiera contra la CA provista ('{ca_bundle}')."
+
+    parts = [
+        f"DICTAMEN: {verdict.get('headline', '')}",
+        f"Clasificación: {cert_type}.",
+        f"Emisor: {info.get('issuer') or 'desconocido'}.",
+        f"Sujeto: {info.get('subject') or 'desconocido'}.",
+        f"Validez: {info.get('not_before') or '?'} → {info.get('not_after') or '?'}"
+        + (" (EXPIRADO)" if expired else "") + ".",
+        f"Host conectado: {info.get('host')}"
+        + (f" ({info.get('peer_ip')}, {'interno' if info.get('is_internal') else 'público'})"
+           if info.get("is_internal") is not None else "") + ".",
+        f"TLS: {info.get('tls_version') or '?'}.",
+        f"Fingerprint SHA-256: {info.get('fingerprint_sha256')}.",
+        f"Valida contra el trust store público: {'sí' if trusted_default else 'no'}." + ca_line,
+    ]
+    if info.get("signature_algorithm"):
+        parts.append(f"Algoritmo de firma: {info['signature_algorithm']}.")
+    if info.get("key_type"):
+        parts.append(f"Clave: {info['key_type']}.")
+
+    # Enumerar cada factor evaluado con su signo, para que el reporte explique el PORQUÉ.
+    _MARK = {"ok": "[OK]", "caution": "[~]", "bad": "[X]", "info": "[i]"}
+    for fac in verdict.get("factors", []):
+        parts.append(f"{_MARK.get(fac['status'], '-')} {fac['text']}")
+
+    references: list[str] = []
+    if is_problem:
+        # Por qué un certificado no confiable ES un riesgo, según frameworks reconocidos:
+        # OWASP MCP Top 10 MCP07:2025 (Transport Security), OWASP API Security Top 10
+        # API8:2023 (Security Misconfiguration) y CWE-295 (Improper Certificate Validation).
+        references = [
+            "https://cwe.mitre.org/data/definitions/295.html",
+            "https://owasp.org/API-Security/editions/2023/en/0xa8-security-misconfiguration/",
+            "https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html",
+        ]
+        parts.append(
+            "Marco de riesgo: OWASP MCP Top 10 MCP07:2025 (Transport Security), OWASP API Security "
+            "Top 10 API8:2023 (Security Misconfiguration), CWE-295 (Improper Certificate Validation). "
+            "TLS cifra pero no autentica la identidad del server cuando el certificado no se puede "
+            "verificar contra una raíz de confianza -- esa es la condición que habilita el MITM."
+        )
+        if verdict.get("verdict") == "riesgo-manejable":
+            remediation = ("Riesgo acotado por ser interno, pero no lo dejes como confianza implícita: "
+                           "formalizalo con una CA interna (y audita con --ca-bundle) o con pinning del "
+                           "fingerprint SHA-256. Si el endpoint pasara a ser alcanzable desde fuera, sube "
+                           "a riesgo real de inmediato.")
+        elif expired:
+            remediation = "El certificado está fuera de vigencia -- renovarlo ya; los clientes que validan lo rechazan."
+        elif cert_type == "self-signed":
+            remediation = ("Reemplazar el self-signed por uno emitido por una CA (pública o interna). Si es un "
+                           "entorno interno con CA propia, auditar pasando --ca-bundle con esa CA para validar "
+                           "la cadena en vez de ignorar la verificación.")
+        else:
+            remediation = ("La cadena no valida contra ningún trust store conocido. Si el server usa una CA "
+                           "interna, pasá --ca-bundle con esa CA; si no, emitir el certificado desde una CA de confianza.")
+    else:
+        remediation = ""
+
+    title_map = {
+        "sin-riesgo": f"Certificado TLS OK ({cert_type}) -- no es un riesgo",
+        "riesgo-manejable": f"Certificado TLS {cert_type} -- riesgo posible pero MANEJABLE (interno)",
+        "riesgo": f"Certificado TLS {cert_type} -- RIESGO (man-in-the-middle)",
+    }
+    return [Finding(
+        test_id="exposure.certificate_type",
+        title=title_map.get(verdict.get("verdict"), f"Certificado TLS: {cert_type}"),
+        category=Category.EXPOSURE,
+        target="server",
+        description="  ".join(parts),
+        passed=not is_problem,
+        remediation=remediation,
+        references=references,
+        cvss_vector_override=verdict.get("cvss_override"),
+        business_impact_override=verdict.get("business_override"),
+        evidence=Evidence(response={
+            **{k: v for k, v in info.items() if k not in ("ca_bundle", "assessment")},
+            # dictamen recortado (sin los overrides internos de CVSS) para el JSON y el dashboard
+            "assessment": {
+                "verdict": verdict.get("verdict"),
+                "headline": verdict.get("headline"),
+                "factors": verdict.get("factors", []),
+            },
+        }),
     )]
 
 

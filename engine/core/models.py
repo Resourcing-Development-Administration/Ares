@@ -202,6 +202,11 @@ class ScanConfig:
                                                    # (MCP10:2025), no solo que el server "funciona".
     environment: str = "production"           # "production" | "development", usado por el policy engine
     source_path: Optional[str] = None         # ruta local del código fuente del server, para supplychain.dependency_vulnerabilities
+    ca_bundle: Optional[str] = None           # ruta a un bundle de CA (PEM) para validar el certificado TLS del
+                                                # server en transporte http/sse -- para auditar un server con CA
+                                                # interna/corporativa sin desactivar la verificación. None = trust
+                                                # store por defecto (certifi), con fallback a la env var SSL_CERT_FILE
+                                                # resuelto en la CLI (ver engine/core/tls.py::resolve_ca_bundle).
     request_delay_ms: int = 0                 # pausa entre llamadas a tools, para no saturar targets sensibles
     oob_callback_host: Optional[str] = None   # "host:puerto" reachable por el target, para confirmar SSRF por callback real
     baseline_path: Optional[str] = None       # reporte.json anterior; habilita el diff de findings Y adv.rug_pull

@@ -234,6 +234,7 @@ server, independiente de la de arriba.
 | **`--source-path`** | Ruta **local** (en la máquina donde corre `ares.sh serve`, no en tu navegador) al código fuente del server que auditás | Ej. `./mi_servidor` o una ruta absoluta | Habilita `supplychain.dependency_vulnerabilities` (busca manifiestos y consulta CVEs reales en OSV.dev) y `supplychain.source_sast` (semgrep, si está instalado) — sin esta ruta, esos dos tests no tienen nada que mirar |
 | **`--package-name`** | Nombre de paquete npm/pypi declarado | Ej. `mcp-server-fetch` | Habilita `static.typosquatting_check` — compara contra una lista curada de paquetes MCP oficiales conocidos, por similitud Jaro-Winkler |
 | **`--oob-callback-host`** | `host:puerto` alcanzable por el target, que vos mismo levantás (sin servicios de terceros) | Ej. `192.168.1.50:8899` | Para que `adv.ssrf_exfil` confirme SSRF por un callback real en vez de solo inferirlo — el finding sale como `confidence: verified` |
+| **`--ca-bundle`** (solo `http`/`sse`) | Ruta **local** (en la máquina donde corre `ares.sh serve`) a un bundle de CA en PEM | Ej. `/etc/ssl/certs/ca-corporativa.pem`; vacío = trust store por defecto (certifi), con fallback a la variable de entorno `SSL_CERT_FILE` | Valida el certificado TLS del server contra una CA **interna/corporativa** sin desactivar la verificación — para auditar un server interno cuyo cert no está firmado por una CA pública. El tipo de certificado detectado se muestra en el resultado (ver [§10.1](#101-resultado-de-scanvet)) y en el reporte (`exposure.certificate_type`) |
 | **`--allow-network`** (checkbox) | Gate explícito para tests marcados `requires_network` | Tildalo solo si sabés lo que hacés | Sin esto, tests como `adv.ssrf_exfil` o `supplychain.dependency_vulnerabilities` se saltean aunque los tildes en Tests (§9) — es un gate separado a propósito, para que un efecto de red real nunca sea "sin querer". En `vet`/`full vet` ya viene forzado |
 | **`--verbose`** (checkbox) | Ver cada llamada real, no solo el resumen por test | Tildalo cuando algo no anda como esperás y necesitás ver exactamente qué se mandó y qué respondió el target | Agrega al log en vivo una línea `→` (request) y `←` (response) por cada `list_tools`/`call_tool`/`read_resource` real que hace cada test — en `full`, cada línea sale con el prefijo `[nombre-del-target]`. Útil para diagnosticar un error de conexión o por qué un test no encuentra lo que esperás |
 
@@ -317,6 +318,38 @@ de una vez, y desde ahí:
   y links directos a los tres formatos de reporte: **HTML** (navegable),
   **JSON** (estructurado) y **SARIF** (para CI). Si corriste
   `--compare-auth`, aparece además el link al reporte de la corrida SIN auth.
+- Para un target `http`/`sse` con TLS, aparece también una **tarjeta de
+  certificado** que identifica el tipo de certificado que presenta el server,
+  sin tener que abrir el HTML:
+  - **Normal — firmado por CA pública** (borde verde): valida contra el trust
+    store estándar.
+  - **Normal — firmado por CA interna/privada** (borde verde): valida contra
+    la CA que pasaste en `--ca-bundle` (§7).
+  - **Autofirmado (self-signed)** (borde ámbar): emisor == sujeto, no lo
+    respalda ninguna CA.
+  - **Cadena desconocida / no confiable** o **EXPIRADO** (borde ámbar).
+
+  La tarjeta muestra además emisor, sujeto, validez, versión de TLS,
+  algoritmo de firma y tipo de clave (si `cryptography` está instalada), y el
+  fingerprint SHA-256. Es el mismo dato que el test `exposure.certificate_type`
+  deja en el reporte.
+
+  La tarjeta trae además un **Dictamen** minucioso y graduado en tres niveles,
+  con el color del borde según el veredicto:
+  - **NO es un riesgo** (verde): cadena de confianza (CA pública, o autofirmado
+    validado con tu `--ca-bundle`), vigente y con criptografía sana.
+  - **Riesgo posible pero MANEJABLE** (ámbar): autofirmado en un endpoint
+    **interno** (IP privada/loopback), por lo demás sano — el MITM requiere estar
+    en esa red; se recomienda formalizar la confianza (CA interna o pinning).
+  - **RIESGO** (rojo): autofirmado público, cadena desconocida, o confiable pero
+    defectuoso (expirado, firma SHA-1/MD5, clave <2048, hostname que no coincide).
+
+  Debajo del dictamen, una fila **Factores** enumera cada señal evaluada con su
+  signo (✓/⚠/✗/ℹ): cadena de confianza, vigencia, hostname, firma, clave y
+  alcance de red. Cuando hay riesgo, la fila **Riesgo** muestra la severidad
+  (Medium para manejable, High para riesgo real; con CVSS) y los frameworks que
+  lo marcan — **MCP07:2025** (Transport Security), **API8:2023** (Security
+  Misconfiguration) y **CWE-295** (Improper Certificate Validation).
 - Los reportes se guardan solos en `reports/<scan_id>/` — no hay opción de
   "no guardar" desde el dashboard (para eso, la CLI con `--no-file`).
 

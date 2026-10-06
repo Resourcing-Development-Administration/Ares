@@ -35,6 +35,7 @@ from engine.reporting.sarif import save_sarif_report
 from engine.reporting.redact import redact_report
 from engine.reporting.suppress import default_allowlist_path
 from engine.baseline import diff_against_baseline
+from engine.core.tls import resolve_ca_bundle, ca_bundle_source
 from engine.discovery.local_configs import discover_mcp_servers
 from engine.crossserver import analyze_cross_server, cross_server_findings
 from engine import __version__ as ARES_VERSION
@@ -275,6 +276,22 @@ def _resolve_allowlist(args) -> str | None:
     return auto
 
 
+def _resolve_ca_bundle_arg(args):
+    """Resuelve --ca-bundle (con fallback a SSL_CERT_FILE) y avisa de qué fuente salió.
+    Sale con error claro si la ruta dada no existe, en vez de caer en silencio al trust
+    store por defecto y reportar un falso 'TLS roto'."""
+    try:
+        ca = resolve_ca_bundle(getattr(args, "ca_bundle", None))
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        sys.exit(1)
+    if ca:
+        src = ca_bundle_source(getattr(args, "ca_bundle", None))
+        console.print(f"[green]CA custom para validar TLS:[/green] {ca} "
+                      f"[dim](de {'--ca-bundle' if src == 'flag' else 'SSL_CERT_FILE'})[/dim]")
+    return ca
+
+
 def _build_config(args, target_name: str, transport: str, connection: dict) -> ScanConfig:
     selected = args.tests.split(",") if args.tests else []
     connection = dict(connection)
@@ -297,6 +314,7 @@ def _build_config(args, target_name: str, transport: str, connection: dict) -> S
         auth=auth,
         environment=args.environment,
         source_path=args.source_path,
+        ca_bundle=_resolve_ca_bundle_arg(args),
         request_delay_ms=args.request_delay_ms,
         oob_callback_host=args.oob_callback_host,
         baseline_path=getattr(args, "baseline", None),
@@ -499,7 +517,7 @@ def cmd_vet(args):
         baseline=args.baseline, max_fuzz_cases=args.max_fuzz_cases,
         allow_network=True, request_delay_ms=args.request_delay_ms,
         oob_callback_host=args.oob_callback_host, environment="production",
-        source_path=args.source_path, header=args.header,
+        source_path=args.source_path, ca_bundle=getattr(args, "ca_bundle", None), header=args.header,
         auth_token=args.auth_token, auth_type=args.auth_type, auth_header_name=args.auth_header_name,
         compare_auth=bool(args.auth_token),
         print_findings=args.print_findings, no_file=args.no_file,
@@ -565,6 +583,9 @@ async def _full_one(sem: asyncio.Semaphore, args, server: dict, mode: str, out_d
             auth=auth,
             environment=args.environment,
             source_path=args.source_path,
+            # ya validado una sola vez en cmd_full() antes del gather -- acá solo se resuelve
+            # (misma ruta/env var) sin reimprimir ni re-chequear por cada target concurrente.
+            ca_bundle=resolve_ca_bundle(getattr(args, "ca_bundle", None)),
             request_delay_ms=args.request_delay_ms,
             oob_callback_host=args.oob_callback_host,
             allowlist_path=_resolve_allowlist(args),
@@ -620,6 +641,8 @@ def cmd_full(args):
     """
     console.print("[bold]Modo full[/bold] — 1) discover  2) "
                   f"{args.mode} de cada server encontrado, en paralelo (máx {args.concurrency} a la vez)\n")
+
+    _resolve_ca_bundle_arg(args)  # valida/avisa una sola vez; _full_one lo re-resuelve silencioso por target
 
     if args.config:
         servers = discover_mcp_servers_from_file(args.config)
@@ -841,6 +864,7 @@ def main():
     p_scan.add_argument("--oob-callback-host", dest="oob_callback_host", default=None, help='host:puerto alcanzable por el target, para confirmar adv.ssrf_exfil por callback real (ej. "192.168.1.50:8899")')
     p_scan.add_argument("--environment", choices=["production", "development"], default="production", help="ambiente usado por el policy engine para el veredicto BLOCK/CONDITIONAL/ALLOW")
     p_scan.add_argument("--source-path", dest="source_path", default=None, help="ruta local al código fuente del server, para supplychain.dependency_vulnerabilities")
+    p_scan.add_argument("--ca-bundle", dest="ca_bundle", default=None, help="ruta a un bundle de CA (PEM) para validar el certificado TLS del server (http/sse) contra una CA interna/corporativa, sin desactivar la verificación. Fallback: variable de entorno SSL_CERT_FILE")
     p_scan.add_argument("--header", action="append", default=[], help='header HTTP extra "Clave: Valor" (repetible, transporte sse/http)')
     p_scan.add_argument("--auth-token", dest="auth_token", default=None, help="credencial a inyectar (transporte sse/http)")
     p_scan.add_argument("--auth-type", dest="auth_type", choices=["bearer", "apikey", "custom"], default="bearer")
@@ -882,6 +906,7 @@ def main():
     p_vet.add_argument("--request-delay-ms", dest="request_delay_ms", type=int, default=0)
     p_vet.add_argument("--oob-callback-host", dest="oob_callback_host", default=None)
     p_vet.add_argument("--source-path", dest="source_path", default=None, help="ruta al código fuente, para incluir el chequeo de dependencias vulnerables (OSV.dev)")
+    p_vet.add_argument("--ca-bundle", dest="ca_bundle", default=None, help="ruta a un bundle de CA (PEM) para validar el TLS del server contra una CA interna (ver 'scan --help'); fallback SSL_CERT_FILE")
     p_vet.add_argument("--header", action="append", default=[])
     p_vet.add_argument("--auth-token", dest="auth_token", default=None, help="si lo das, corre compare-auth automáticamente")
     p_vet.add_argument("--auth-type", dest="auth_type", choices=["bearer", "apikey", "custom"], default="bearer")
@@ -917,6 +942,7 @@ def main():
     p_full.add_argument("--oob-callback-host", dest="oob_callback_host", default=None)
     p_full.add_argument("--environment", choices=["production", "development"], default="production")
     p_full.add_argument("--source-path", dest="source_path", default=None)
+    p_full.add_argument("--ca-bundle", dest="ca_bundle", default=None, help="ruta a un bundle de CA (PEM) para validar el TLS de TODOS los targets http/sse contra una CA interna; fallback SSL_CERT_FILE")
     p_full.add_argument("--header", action="append", default=[])
     p_full.add_argument("--auth-token", dest="auth_token", default=None)
     p_full.add_argument("--auth-type", dest="auth_type", choices=["bearer", "apikey", "custom"], default="bearer")

@@ -37,6 +37,7 @@ CONFIDENCE_MAP: dict[str, str] = {
     "dynamic.rate_limit": VERIFIED,
     "orchestrator.test_unresponsive": VERIFIED,  # el timeout es un hecho observado, no una heurística
     "orchestrator.target_unresponsive_sustained": VERIFIED,
+    "orchestrator.connection_failed": VERIFIED,  # el rechazo de conexión es un hecho observado (TLS/red/transport)
 
     "adv.injection_passthrough": HEURISTIC,
     "adv.ssrf_exfil": HEURISTIC,
@@ -53,6 +54,7 @@ CONFIDENCE_MAP: dict[str, str] = {
     "auth.cross_session_context_bleed": VERIFIED,  # canario plantado con una sesión y leído con otra -- ejecución real, no inferencia
     "auth.oauth_metadata_security": VERIFIED,  # observación directa de headers/metadata reales
 
+    "exposure.certificate_type": VERIFIED,  # observación directa del certificado servido + validación real de cadena
     "exposure.transport_security": VERIFIED,
     "exposure.cors_misconfig": VERIFIED,
     "exposure.network_reachability": VERIFIED,

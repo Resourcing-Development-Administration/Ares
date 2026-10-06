@@ -42,17 +42,35 @@ async def unauthenticated_access(target, ctx) -> list[Finding]:
 
     auth_configured = bool(connection.get("auth") and getattr(connection["auth"], "type", "none") != "none")
 
-    if not auth_configured and ctx.get("connection_error"):
-        # la conexión SIN credenciales fue rechazada -- esto es exactamente lo que se espera
-        # de un server bien asegurado. Antes, esto tumbaba el scan entero antes de llegar acá;
-        # ahora el orchestrator deja correr los tests igual y esta es la señal positiva real.
+    connection_error = ctx.get("connection_error")
+    if not auth_configured and connection_error:
+        from engine.core.conn_errors import classify_connection_error
+        kind = classify_connection_error(connection_error)
+        if kind == "auth":
+            # la conexión SIN credenciales fue rechazada A NIVEL HTTP (401/403) -- esto es
+            # exactamente lo que se espera de un server bien asegurado. Antes, esto tumbaba el
+            # scan entero antes de llegar acá; ahora el orchestrator deja correr los tests igual
+            # y esta es la señal positiva real.
+            return [Finding(
+                test_id="auth.unauthenticated_access",
+                title="Conexión sin credenciales RECHAZADA",
+                category=Category.AUTH, target="server",
+                description=f"Intentar conectar sin Authorization/API-Key fue rechazado por el server "
+                             f"({connection_error[:200]}). Buena señal: la autenticación parece "
+                             f"exigirse antes de aceptar la sesión.",
+                passed=True,
+            )]
+        # OJO: la conexión falló, pero NO por un 401 -- fue un fallo de TLS/red. Eso NO prueba
+        # que el server exija auth; prueba que ni siquiera llegamos a hablar MCP con él. No lo
+        # reportamos como señal positiva (sería un falso "auth exigida"). El orquestador ya
+        # emite orchestrator.connection_failed marcando la corrida como incompleta.
         return [Finding(
             test_id="auth.unauthenticated_access",
-            title="Conexión sin credenciales RECHAZADA",
+            title="No se pudo evaluar acceso sin credenciales (la conexión falló antes)",
             category=Category.AUTH, target="server",
-            description=f"Intentar conectar sin Authorization/API-Key fue rechazado por el server "
-                         f"({ctx['connection_error'][:200]}). Buena señal: la autenticación parece "
-                         f"exigirse antes de aceptar la sesión.",
+            description=f"La conexión no llegó a establecerse por un motivo de tipo '{kind}' "
+                         f"({connection_error[:200]}), no por un rechazo de autenticación. No se puede "
+                         f"concluir si el server exige credenciales -- ver orchestrator.connection_failed.",
             passed=True,
         )]
 
@@ -383,7 +401,9 @@ async def oauth_metadata_security(target, ctx) -> list[Finding]:
         return []
 
     try:
-        async with httpx.AsyncClient(timeout=6.0, follow_redirects=False) as client:
+        from engine.core.tls import httpx_verify
+        async with httpx.AsyncClient(timeout=6.0, follow_redirects=False,
+                                     verify=httpx_verify(connection.get("ca_bundle"))) as client:
             resp = await client.post(
                 url, json={"jsonrpc": "2.0", "id": 1, "method": "initialize",
                            "params": {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "ares", "version": "0"}}},

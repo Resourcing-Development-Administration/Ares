@@ -103,13 +103,15 @@ class MCPTarget:
                 if not HAS_SSE:
                     raise RuntimeError("mcp sse client no disponible en esta versión del SDK")
                 read, write = await self._stack.enter_async_context(
-                    sse_client(self.connection["url"], headers=self._resolved_headers() or None)
+                    sse_client(self.connection["url"], headers=self._resolved_headers() or None,
+                               **self._tls_kwargs(sse_client))
                 )
             elif self.transport == "http":
                 if not HAS_HTTP:
                     raise RuntimeError("mcp streamable http client no disponible en esta versión del SDK")
                 read, write, get_session_id = await self._stack.enter_async_context(
-                    streamablehttp_client(self.connection["url"], headers=self._resolved_headers() or None)
+                    streamablehttp_client(self.connection["url"], headers=self._resolved_headers() or None,
+                                          **self._tls_kwargs(streamablehttp_client))
                 )
                 self._get_session_id = get_session_id
             else:
@@ -136,6 +138,39 @@ class MCPTarget:
 
     async def __aexit__(self, *exc):
         await self._stack.aclose()
+
+    def _tls_kwargs(self, client_fn) -> dict:
+        """kwargs TLS para el cliente http/sse del SDK MCP cuando hay una CA custom
+        (connection['ca_bundle']). Se inyecta vía `httpx_client_factory`: un callable
+        que arma el httpx.AsyncClient con `verify=<ruta CA>`, de modo que la cadena del
+        server se valide contra esa CA interna SIN desactivar la verificación.
+
+        Guardado por compatibilidad: si esta versión del SDK no acepta
+        `httpx_client_factory`, se omite (y el scan sigue, con el trust store por
+        defecto -- queda registrado por los tests de exposición si el TLS no valida).
+        """
+        ca_bundle = self.connection.get("ca_bundle")
+        if not ca_bundle:
+            return {}
+        try:
+            import inspect
+            if "httpx_client_factory" not in inspect.signature(client_fn).parameters:
+                return {}
+        except (ValueError, TypeError):
+            return {}
+
+        import httpx
+
+        def _factory(headers=None, timeout=None, auth=None):
+            kwargs: dict = {"follow_redirects": True, "verify": ca_bundle}
+            if headers is not None:
+                kwargs["headers"] = headers
+            kwargs["timeout"] = timeout if timeout is not None else httpx.Timeout(30.0)
+            if auth is not None:
+                kwargs["auth"] = auth
+            return httpx.AsyncClient(**kwargs)
+
+        return {"httpx_client_factory": _factory}
 
     def _resolved_headers(self) -> dict:
         """Combina connection['headers'] explícitos con connection['auth'] (AuthConfig o dict

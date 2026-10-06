@@ -8,6 +8,12 @@
 # Inspirado en mcpscan/guard/mcp_guard/policy.py (mcp-guard), adaptado a Python/YAML propio.
 
 rules:
+  # Una corrida que no logró conectarse (TLS rechazado, DNS/red, transporte) NO es una
+  # postura de seguridad válida -- la mayoría de los tests no corrieron. Nunca ALLOW:
+  # se exige conectarse de verdad (p.ej. --ca-bundle para una CA interna) y re-ejecutar.
+  - pattern: "orchestrator.connection_failed"
+    production: BLOCK
+    development: CONDITIONAL
   - pattern: "auth.unauthenticated_access"
     production: BLOCK
     development: CONDITIONAL

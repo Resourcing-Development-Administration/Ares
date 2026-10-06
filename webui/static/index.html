@@ -127,6 +127,32 @@
   .sev-HIGH, .sev-high { color:#fca5a5; }
   .sev-MEDIUM, .sev-medium { color:#fbbf24; }
 
+  .cert-card { background:var(--bg-sunken); border:1px solid var(--border); border-left:4px solid var(--border-strong);
+    border-radius:10px; padding:.8rem 1rem; margin:.9rem 0; }
+  .cert-card.ok { border-left-color:#10b981; }
+  .cert-card.warn { border-left-color:#f59e0b; }
+  .cert-card.unknown { border-left-color:var(--border-strong); }
+  .cert-title { color:var(--accent-light); font-weight:600; font-size:.9rem; margin-bottom:.5rem; }
+  .cert-table { border-collapse:collapse; font-size:.86rem; width:100%; }
+  .cert-table td { padding:.18rem .5rem .18rem 0; vertical-align:top; }
+  .cert-table td:first-child { color:var(--text-dim); white-space:nowrap; width:1%; }
+  .cert-table code { font-size:.78rem; word-break:break-all; color:var(--text-dim); }
+  .cert-badge { display:inline-block; padding:.12rem .5rem; border-radius:6px; font-weight:600; font-size:.82rem; }
+  .cert-badge.ok { background:var(--ok); color:#d1fae5; }
+  .cert-badge.warn { background:var(--warn); color:#fef3c7; }
+  .cert-badge.unknown { background:var(--border-strong); color:var(--text); }
+  .cert-fw { color:var(--text-dim); font-size:.78rem; }
+  .cert-factors { list-style:none; margin:.25rem 0 0; padding:0; font-size:.82rem; }
+  .cert-factors li { padding:.1rem 0; line-height:1.35; }
+  .cert-factors li.cf-ok { color:#6ee7b7; }
+  .cert-factors li.cf-caution { color:#fcd34d; }
+  .cert-factors li.cf-bad { color:#fca5a5; }
+  .cert-factors li.cf-info { color:var(--text-dim); }
+
+  .incomplete-banner { background:linear-gradient(0deg, rgba(127,29,29,.5), rgba(127,29,29,.5)), var(--bg-raised);
+    border:1px solid var(--bad); border-left:4px solid #f87171; border-radius:10px;
+    padding:.75rem 1rem; margin:0 0 .9rem; font-weight:600; font-size:.9rem; line-height:1.4; }
+
   a { color:var(--accent-light); }
 
   table { width:100%; border-collapse:collapse; margin-top:.9rem; font-size:.85rem; }
@@ -403,6 +429,12 @@
             <span class="tip" tabindex="0" data-tip="host:puerto alcanzable por el target, que vos mismo levantás (sin servicios de terceros). Para que adv.ssrf_exfil confirme SSRF por un callback real en vez de solo inferirlo — el finding sale como confidence: verified.">?</span>
           </label>
           <input type="text" id="oob_callback_host" placeholder="192.168.1.50:8899">
+        </div>
+        <div>
+          <label>--ca-bundle <span class="pill">TLS / CA interna</span>
+            <span class="tip" tabindex="0" data-tip="Ruta LOCAL (en la máquina donde corre ares.sh serve) a un bundle de CA en PEM, para validar el certificado TLS del server (http/sse) contra una CA interna/corporativa SIN desactivar la verificación. Si se omite, usa el trust store por defecto (certifi) con fallback a la variable de entorno SSL_CERT_FILE. El tipo de certificado detectado queda anotado en el reporte (exposure.certificate_type).">?</span>
+          </label>
+          <input type="text" id="ca_bundle" placeholder="/ruta/a/ca-interna.pem">
         </div>
       </div>
       <div class="checkline">
@@ -691,6 +723,7 @@ function collectBaseParams() {
     max_fuzz_cases: document.getElementById('max_fuzz_cases').value,
     request_delay_ms: document.getElementById('request_delay_ms').value,
     source_path: document.getElementById('source_path').value,
+    ca_bundle: document.getElementById('ca_bundle').value,
     package_name: document.getElementById('package_name').value,
     oob_callback_host: document.getElementById('oob_callback_host').value,
     allow_network: document.getElementById('allow_network').checked,
@@ -766,7 +799,12 @@ function runScan() {
 
 function renderResult(data) {
   const s = data.summary, sc = data.score, pv = data.policy_verdict;
-  let html = `<div class="stat"><b>${s.confirmed_findings}</b>hallazgos confirmados</div>`;
+  let html = '';
+  if (data.incomplete_reason) {
+    html += `<div class="incomplete-banner">⚠ Corrida INCOMPLETA — el score y el veredicto
+      no son válidos como postura de seguridad: ${esc(data.incomplete_reason)}</div>`;
+  }
+  html += `<div class="stat"><b>${s.confirmed_findings}</b>hallazgos confirmados</div>`;
   if (s.suppressed_findings) html += `<div class="stat"><b>${s.suppressed_findings}</b>suprimidos (no gatean score/policy)</div>`;
   if (sc) html += `<div class="stat"><b>${sc.score}/100 (${sc.grade})</b>score</div>`;
   html += `<div class="verdict ${pv.overall}">Policy (${pv.environment}): ${pv.overall}</div>`;
@@ -776,6 +814,7 @@ function renderResult(data) {
   if (data.baseline_diff) {
     html += `<p><b>Baseline:</b> ${data.baseline_diff.summary}</p>`;
   }
+  html += certCardHtml(data.tls_certificate);
   html += `<p><a href="${data.links.html}" target="_blank">reporte HTML</a> ·
     <a href="${data.links.json}" target="_blank">JSON</a> ·
     <a href="${data.links.sarif}" target="_blank">SARIF</a></p>`;
@@ -783,6 +822,70 @@ function renderResult(data) {
     html += `<p>Corrida sin auth: <a href="${data.links_without_auth.html}" target="_blank">reporte HTML</a></p>`;
   }
   document.getElementById('result').innerHTML = html;
+}
+
+// Identifica el tipo de certificado TLS del server (autofirmado vs normal/CA)
+// directo en el dashboard, con el detalle que trae exposure.certificate_type.
+function certCardHtml(cert) {
+  if (!cert) return '';  // no corrió (stdio, o endpoint sin TLS)
+  if (cert.available === false) {
+    return `<div class="cert-card unknown"><b>Certificado TLS:</b> no se pudo inspeccionar —
+      ${esc(cert.error || 'handshake fallido')}</div>`;
+  }
+  // tipo crudo -> etiqueta humana + clase de color
+  const MAP = {
+    'ca-signed (publicly trusted)': { label: 'Normal — firmado por CA pública (de confianza)', cls: 'ok' },
+    'ca-signed (internal/private CA)': { label: 'Normal — firmado por CA interna/privada (validado con tu --ca-bundle)', cls: 'ok' },
+    'self-signed': { label: 'Autofirmado (self-signed)', cls: 'warn' },
+    'untrusted / unknown chain': { label: 'Cadena desconocida / no confiable', cls: 'warn' },
+  };
+  const info = MAP[cert.type] || { label: esc(cert.type || 'desconocido'), cls: 'unknown' };
+  // el veredicto del dictamen manda el color de la tarjeta: sin-riesgo=verde, manejable=ámbar, riesgo=rojo
+  const a = cert.assessment || {};
+  const VCLS = { 'sin-riesgo': 'ok', 'riesgo-manejable': 'warn', 'riesgo': 'bad' };
+  const VLABEL = { 'sin-riesgo': 'NO es un riesgo', 'riesgo-manejable': 'Riesgo posible pero MANEJABLE', 'riesgo': 'RIESGO' };
+  const cls = VCLS[a.verdict] || (cert.expired ? 'warn' : info.cls);
+
+  const rows = [];
+  rows.push(['Tipo', `<span class="cert-badge ${info.cls}">${esc(info.label)}</span>` +
+    (cert.expired ? ` <span class="cert-badge warn">EXPIRADO</span>` : '')]);
+  if (a.verdict) {
+    rows.push(['Dictamen', `<span class="cert-badge ${VCLS[a.verdict] || 'unknown'}">${esc(VLABEL[a.verdict] || a.verdict)}</span>` +
+      (a.headline ? `<br><span class="cert-fw">${esc(a.headline)}</span>` : '')]);
+  }
+  if (cert.risk) {
+    const r = cert.risk;
+    let riskHtml = `<span class="sev-${esc(r.severity)}"><b>${esc(r.risk_rating || r.severity)}</b></span>` +
+      (r.cvss_score != null ? ` (CVSS ${esc(r.cvss_score)})` : '') +
+      ` — MITM: TLS no autentica la identidad del server`;
+    if (r.frameworks && r.frameworks.length)
+      riskHtml += `<br><span class="cert-fw">${r.frameworks.map(esc).join(' · ')} · CWE-295</span>`;
+    rows.push(['Riesgo', riskHtml]);
+  }
+  // factores evaluados (el "minucioso" del dictamen)
+  if (a.factors && a.factors.length) {
+    const FM = { ok: '✓', caution: '⚠', bad: '✗', info: 'ℹ' };
+    const items = a.factors.map(fac =>
+      `<li class="cf-${esc(fac.status)}">${esc(FM[fac.status] || '·')} ${esc(fac.text)}</li>`).join('');
+    rows.push(['Factores', `<ul class="cert-factors">${items}</ul>`]);
+  }
+  if (cert.issuer) rows.push(['Emisor', esc(cert.issuer)]);
+  if (cert.subject) rows.push(['Sujeto', esc(cert.subject)]);
+  if (cert.not_after) rows.push(['Válido hasta', esc(cert.not_after)]);
+  if (cert.tls_version) rows.push(['TLS', esc(cert.tls_version)]);
+  if (cert.signature_algorithm) rows.push(['Firma', esc(cert.signature_algorithm)]);
+  if (cert.key_type) rows.push(['Clave', esc(cert.key_type)]);
+  const trustDefault = cert.trusted_by_default ? 'sí' : 'no';
+  let trust = `trust público: <b>${trustDefault}</b>`;
+  if (cert.trusted_by_custom_ca === true) trust += ` · CA provista: <b>sí</b>`;
+  else if (cert.trusted_by_custom_ca === false) trust += ` · CA provista: <b>no</b>`;
+  rows.push(['Validación', trust]);
+  if (cert.fingerprint_sha256) rows.push(['SHA-256', `<code>${esc(cert.fingerprint_sha256)}</code>`]);
+
+  return `<div class="cert-card ${cls}">
+    <div class="cert-title">Certificado TLS del server</div>
+    <table class="cert-table">${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>
+  </div>`;
 }
 
 function runFull() {

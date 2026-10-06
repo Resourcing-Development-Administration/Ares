@@ -34,6 +34,7 @@ from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from engine.core.models import ScanConfig, AuthConfig, ScanReport
+from engine.core.tls import resolve_ca_bundle
 from engine.core.registry import list_meta, all_tests
 from engine.orchestrator import run_scan
 from engine.compare import run_auth_comparison
@@ -120,6 +121,18 @@ def _connection_from_params(params: dict) -> tuple[str, dict]:
     return transport, {"url": params.get("url")}
 
 
+def _resolve_ca_bundle(raw: str | None) -> str | None:
+    """Igual que la CLI: --ca-bundle con fallback a SSL_CERT_FILE. Si la ruta dada no
+    existe, no reventamos el request con un 500 -- devolvemos la ruta tal cual para que
+    el intento de conexión TLS falle de forma visible y quede como error de conexión en
+    el reporte (mismo camino que cualquier otro target TLS inaccesible)."""
+    raw = (raw or "").strip() or None
+    try:
+        return resolve_ca_bundle(raw)
+    except ValueError:
+        return raw
+
+
 def _build_config(params: dict, target_name: str, transport: str, connection: dict, mode: str = "scan") -> ScanConfig:
     connection = dict(connection)
     headers = {}
@@ -160,6 +173,7 @@ def _build_config(params: dict, target_name: str, transport: str, connection: di
         auth=auth,
         environment="production" if is_vet else (params.get("environment") or "production"),
         source_path=params.get("source_path") or None,
+        ca_bundle=_resolve_ca_bundle(params.get("ca_bundle")),  # CA (PEM) para validar TLS del server contra CA interna
         request_delay_ms=int(params.get("request_delay_ms") or 0),
         oob_callback_host=params.get("oob_callback_host") or None,
         allowlist_path=allowlist_path,
@@ -184,6 +198,61 @@ def _build_config(params: dict, target_name: str, transport: str, connection: di
         reset_session_on_timeout=not bool(params.get("no_session_reset")),
         secondary_auth=secondary_auth,
     )
+
+
+def _incomplete_reason(report) -> str | None:
+    """Si la corrida quedó incompleta porque no se pudo conectar (o el target dejó de
+    responder), devuelve la descripción del finding -- para que el dashboard muestre un
+    banner de 'resultado NO válido como postura' en vez de un score engañoso."""
+    for f in report.findings:
+        if f.test_id in ("orchestrator.connection_failed", "orchestrator.target_unresponsive_sustained") and not f.passed:
+            return f.description
+    return None
+
+
+def _cert_summary(report) -> dict | None:
+    """Extrae del reporte el hallazgo de exposure.certificate_type y lo devuelve en
+    forma compacta, para que el dashboard muestre el TIPO de certificado (autofirmado
+    vs normal/CA) directo en los resultados, sin tener que abrir el HTML. Devuelve None
+    si el test no corrió (p.ej. target stdio o endpoint sin TLS)."""
+    for f in report.findings:
+        if f.test_id != "exposure.certificate_type":
+            continue
+        resp = (f.evidence.response if f.evidence else None) or {}
+        if "error" in resp:
+            return {"available": False, "error": resp.get("error")}
+        # Si el cert es un hallazgo (self-signed / cadena desconocida / expirado), incluir la
+        # clasificación de riesgo y los frameworks para mostrarlos en la tarjeta del dashboard.
+        risk = None
+        if not f.passed:
+            r = f.risk or {}
+            risk = {
+                "severity": f.severity.value,
+                "risk_rating": r.get("risk_rating"),
+                "cvss_score": r.get("cvss_score"),
+                "frameworks": [f"{t['framework']} {t.get('id') or ''}".strip() for t in f.frameworks],
+                "references": f.references,
+            }
+        return {
+            "available": True,
+            "passed": f.passed,
+            "risk": risk,
+            "assessment": resp.get("assessment"),  # {verdict, headline, factors[]} -- dictamen minucioso
+            "type": resp.get("type"),
+            "self_signed": resp.get("self_signed"),
+            "issuer": resp.get("issuer"),
+            "subject": resp.get("subject"),
+            "not_before": resp.get("not_before"),
+            "not_after": resp.get("not_after"),
+            "expired": resp.get("expired"),
+            "tls_version": resp.get("tls_version"),
+            "fingerprint_sha256": resp.get("fingerprint_sha256"),
+            "signature_algorithm": resp.get("signature_algorithm"),
+            "key_type": resp.get("key_type"),
+            "trusted_by_default": resp.get("trusted_by_default"),
+            "trusted_by_custom_ca": resp.get("trusted_by_custom_ca"),
+        }
+    return None
 
 
 def _regression_summary(new_findings: list[dict]) -> list[dict]:
@@ -368,6 +437,8 @@ async def ws_scan(websocket: WebSocket):
         "policy_verdict": report_with.policy_verdict,
         "auth_impact": report_with.auth_impact,
         "baseline_diff": report_with.baseline_diff,
+        "tls_certificate": _cert_summary(report_with),
+        "incomplete_reason": _incomplete_reason(report_with),
         "links": links,
         "links_without_auth": links_without,
     })

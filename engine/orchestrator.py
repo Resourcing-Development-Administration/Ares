@@ -15,6 +15,7 @@ from engine.reporting.suppress import apply_noise_reduction
 from engine.policy.engine import PolicyEngine
 from engine.baseline import load_baseline_tools
 from engine.core.sandbox import sandbox_status
+from engine.core.conn_errors import classify_connection_error, is_expected_auth_rejection
 
 # importar módulos para que se autoregistren en el registry
 import engine.recon.tests        # noqa: F401
@@ -57,6 +58,11 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
     connection = dict(config.connection)
     if config.auth is not None:
         connection["auth"] = config.auth
+    if config.ca_bundle:
+        # CA custom para validar el TLS del server (http/sse): la lee tanto el cliente MCP
+        # (engine/core/client.py) como las sondas httpx crudas y la inspección de certificado
+        # (engine/exposure/tests.py, engine/auth/tests.py), todos vía ctx["connection"]["ca_bundle"].
+        connection["ca_bundle"] = config.ca_bundle
     if config.request_delay_ms:
         connection["request_delay_ms"] = config.request_delay_ms
     connection["sandbox"] = {
@@ -134,6 +140,48 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
             "package_name": config.package_name,
             "secondary_auth": config.secondary_auth,
         }
+
+        # Si NO hubo sesión viva y la conexión falló por una razón que no sea el 401
+        # legítimo de "se exige auth sin credenciales", la corrida quedó INCOMPLETA:
+        # la gran mayoría de los tests necesitan `target` y no van a correr. Sin este
+        # finding, el scan terminaría en un falso "100/100 ALLOW" sobre pruebas que
+        # nunca se conectaron. Lo emitimos como finding bloqueante (ver policy.yaml),
+        # no como un simple error de log. Un TLS rechazado se resuelve con --ca-bundle.
+        auth_configured = bool(config.auth and getattr(config.auth, "type", "none") != "none")
+        if target is None and connect_error and not is_expected_auth_rejection(connect_error, auth_configured):
+            kind = classify_connection_error(connect_error)
+            if kind == "tls":
+                why = ("el cliente RECHAZÓ el certificado TLS del server (self-signed, CA desconocida, "
+                       "hostname que no matchea o expirado), así que no se completó el handshake")
+                fix = ("Si el server usa una CA interna/corporativa, volvé a correr con --ca-bundle "
+                       "apuntando a esa CA (o seteando SSL_CERT_FILE) para validar la cadena y conectarte. "
+                       "Nunca desactives la verificación: un cert que no valida también es lo que vería un "
+                       "MITM. Ver exposure.certificate_type para el detalle del certificado presentado.")
+            elif kind == "network":
+                why = "no se pudo alcanzar el endpoint (DNS, conexión rechazada o timeout)"
+                fix = ("Verificá URL/host/puerto y que el server esté levantado y accesible desde donde "
+                       "corre Ares, y re-ejecutá.")
+            else:
+                why = "la conexión inicial con el target falló antes de establecer una sesión"
+                fix = ("Revisá el error de conexión reportado y re-ejecutá una vez que el target sea "
+                       "alcanzable; el score de esta corrida no refleja una postura probada.")
+            report.findings.append(Finding(
+                test_id="orchestrator.connection_failed",
+                title="No se pudo conectar al target -- scan INCOMPLETO (score/veredicto no válidos)",
+                category=Category.EXPOSURE,
+                target="server",
+                description=(
+                    f"La corrida no pudo establecer una sesión con el target: {why}. "
+                    f"La mayoría de los tests requieren una conexión viva y NO se ejecutaron, así que "
+                    f"el score y el veredicto de policy de esta corrida NO representan una postura de "
+                    f"seguridad probada -- reflejan que casi no hubo pruebas efectivas, no que no haya "
+                    f"problemas. Error de conexión: {connect_error[:300]}"
+                ),
+                evidence=Evidence(notes=f"connection_error_kind={kind}; connect_error={connect_error[:500]}"),
+                passed=False,
+                remediation=fix,
+            ))
+            emit({"type": "connection_failed_finding", "kind": kind})
 
         consecutive_timeouts = 0
         for test_id in selected:

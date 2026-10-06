@@ -1,7 +1,7 @@
 # Manual de Ares
 
 **Motor de pruebas de seguridad red-team para servidores MCP (Model Context
-Protocol)** — 37 tests, terminal (CLI) y dashboard web, reportes HTML/JSON/SARIF.
+Protocol)** — 38 tests, terminal (CLI) y dashboard web, reportes HTML/JSON/SARIF.
 
 Este documento es la referencia completa de uso. Para instalación exprés y
 una descripción de una página, ver [README.md](README.md). Para cómo está
@@ -18,7 +18,7 @@ para copiar y pegar el comando que necesitás.
 - [0. Referencia rápida — ¿qué querés hacer?](#0-referencia-rápida-qué-querés-hacer)
 - [1. Conceptos básicos](#1-conceptos-básicos)
   - [1.1 Targets de práctica incluidos](#11-targets-de-práctica-incluidos)
-  - [1.2 Catálogo completo de ataques/escaneos (los 37 tests)](#12-catálogo-completo-de-ataquesescaneos-los-37-tests)
+  - [1.2 Catálogo completo de ataques/escaneos (los 38 tests)](#12-catálogo-completo-de-ataquesescaneos-los-38-tests)
 - [2. Instalación](#2-instalación)
 
 **Uso por terminal (CLI)**
@@ -81,7 +81,7 @@ para copiar y pegar el comando que necesitás.
 
 - **Categoría de test**: `recon`, `static`, `dynamic`, `adversarial`, `auth`,
   `exposure`, `supplychain`. Cada una vive en `engine/<categoria>/tests.py`.
-  37 tests en total, incluyendo ataques específicos de MCP documentados en
+  38 tests en total, incluyendo ataques específicos de MCP documentados en
   2026: **Line Jumping** (`recon.suspicious_descriptions` escanea también las
   descripciones de PARÁMETROS, no solo la del tool — ATR-2026-00579),
   **Rug Pull** (`adv.rug_pull`, compara definiciones de tools por hash contra
@@ -148,7 +148,7 @@ necesitar un target real:
 Ninguno de los dos debe usarse en producción — están armados a propósito
 para que casi todos los tests disparen.
 
-### 1.2 Catálogo completo de ataques/escaneos (los 37 tests)
+### 1.2 Catálogo completo de ataques/escaneos (los 38 tests)
 
 Extraído en vivo de `./ares.sh list-tests` (siempre la fuente de verdad — si
 corriste `list-tests` y ves algo distinto a esta tabla, confiá en la CLI, no
@@ -215,6 +215,7 @@ para cómo se calcula el riesgo).
 | Test | Qué hace | Default | Red | Confidence |
 |---|---|:-:|:-:|:-:|
 | `exposure.transport_security` | ¿El endpoint corre en `http://` plano en vez de `https://`? | ✅ | | verified |
+| `exposure.certificate_type` | Dictamen minucioso del certificado TLS: pondera cadena de confianza, vigencia, hostname, firma, clave y alcance de red, y gradúa en **no-riesgo / manejable (autofirmado interno) / riesgo (MITM)**; mapea a MCP07/API8/CWE-295 | ✅ | | verified |
 | `exposure.cors_misconfig` | Preflight con Origin hostil — ¿wildcard o reflejo dinámico? | ✅ | | verified |
 | `exposure.network_reachability` | Clasifica el host resuelto: IP privada (interno) vs pública (Internet) | ✅ | | verified |
 | `exposure.session_id_entropy` | Entropía de Shannon del `Mcp-Session-Id` — ¿es adivinable/fuerza-bruteable? | ✅ | | verified |
@@ -270,51 +271,145 @@ Variables de entorno que `ares.sh` respeta:
 
 ### 2.0b Windows: `ares.ps1` / `ares.bat`
 
-Mismo entry point, mismo comportamiento (crea `.venv`, instala dependencias
-solo si cambiaron, delega a `cli\main.py`) — `ares.sh` es bash puro y no
-corre nativamente en Windows, así que hay un equivalente en PowerShell:
+`ares.sh` es bash puro y no corre nativamente en Windows. El equivalente
+exacto es **`ares.ps1`** (PowerShell): mismo entry point y mismo
+comportamiento que `ares.sh` — crea el `.venv`, instala/actualiza
+dependencias solo cuando cambiaron `pyproject.toml`/`requirements.txt`, y
+delega todo lo demás a `cli\main.py`. No hace falta activar el venv ni
+instalar nada a mano, y funciona desde cualquier directorio (resuelve su
+propia ruta vía `$PSScriptRoot`).
+
+#### Requisitos previos
+
+1. **Python 3.11 o superior.** Instalalo desde
+   [python.org/downloads](https://www.python.org/downloads/) y **tildá
+   "Add python.exe to PATH"** en el instalador. Eso deja disponible el
+   launcher oficial `py`, que es el que `ares.ps1` prefiere.
+   - Para verificar, en una terminal nueva: `py -3 --version` (o
+     `python --version`) debe imprimir `3.11.x` o más nuevo.
+2. **PowerShell 5.1 (el que trae Windows 10/11) o PowerShell 7+.** Cualquiera
+   sirve; el shebang `#!/usr/bin/env pwsh` solo aplica si lo corrés como
+   ejecutable en pwsh 7, pero no es necesario.
+3. **Conexión a internet en la primera corrida** (para que `pip` baje las
+   dependencias dentro del `.venv`).
+
+No se necesita `git` para correrlo, ni permisos de administrador para nada
+de esto.
+
+#### Uso básico
 
 ```powershell
 cd Ares
 .\ares.ps1 list-tests
 ```
 
-Si PowerShell bloquea el script por la política de ejecución (mensaje tipo
-*"no se puede cargar porque la ejecución de scripts está deshabilitada"*),
-una sola vez, como usuario (no hace falta administrador):
+La **primera** invocación tarda más: vas a ver líneas `[ares.ps1] ...` que
+informan que está creando `.venv\` e instalando dependencias. Las corridas
+siguientes arrancan directo (solo reinstala si cambiaron
+`pyproject.toml`/`requirements.txt`; el estado se cachea en
+`.venv\.ares_deps_hash`).
+
+Mismos subcomandos y flags que en Linux — solo cambian las barras de las
+rutas de Windows (`\`) y el nombre del intérprete (`python`, no `python3`):
 
 ```powershell
+.\ares.ps1 discover
+.\ares.ps1 update-rules
+.\ares.ps1 scan --command python --args target_server.py --out reporte.html
+.\ares.ps1 vet  --transport http --url https://mi-server.com/mcp
+.\ares.ps1 serve
+```
+
+#### Si PowerShell bloquea el script (ExecutionPolicy)
+
+Por defecto Windows puede impedir correr scripts `.ps1` con un mensaje tipo
+*"no se puede cargar porque la ejecución de scripts está deshabilitada en
+este sistema"* (`UnauthorizedAccess` / `PSSecurityException`). Dos opciones,
+ninguna requiere administrador:
+
+```powershell
+# A) Permitir scripts locales y remotos firmados, una sola vez, para tu usuario:
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+# (confirmá con "S"/"Y"; queda seteado para siempre en tu perfil de usuario)
 ```
-
-o invocá ese script puntual sin tocar la política global:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\ares.ps1 list-tests
+# B) Sin tocar la política global, solo para esa invocación puntual:
+powershell -NoProfile -ExecutionPolicy Bypass -File .\ares.ps1 list-tests
 ```
 
-Para quien prefiera `cmd.exe` o doble-click en vez de PowerShell, `ares.bat`
-es un forwarder delgado a `ares.ps1` que ya hace ese bypass por sí mismo:
+Para comprobar cómo está hoy: `Get-ExecutionPolicy -List`.
+
+#### Desde `cmd.exe` o doble-click: `ares.bat`
+
+Para quien prefiera `cmd.exe` (o ejecutar con doble-click en el Explorador),
+**`ares.bat`** es un forwarder delgado a `ares.ps1` que ya invoca
+`powershell -NoProfile -ExecutionPolicy Bypass -File ...` por sí mismo —
+es decir, **no** necesitás tocar la ExecutionPolicy para esta vía, y el
+bypass aplica solo a esa llamada, nunca a la política global del sistema:
 
 ```bat
 ares.bat list-tests
+ares.bat scan --command python --args target_server.py --out reporte.html
 ```
 
-`$env:ARES_PYTHON` es el equivalente de `ARES_PYTHON` para Windows (misma
-semántica: ruta a un `python.exe` 3.11+ si el que resuelve `py`/`python` en
-el PATH es más viejo).
+#### Variables de entorno (Windows)
 
-Alternativa sin PowerShell: instalar como paquete (`pip install -e .`) te
-da un `ares.exe` real en `.venv\Scripts\` — ver sección 2.1 más abajo.
+Se setean con la sintaxis de PowerShell `$env:NOMBRE = "valor"` **antes** de
+invocar el script (solo para esa sesión de terminal):
 
-**Aislamiento de proceso (`engine/core/sandbox.py`) es Linux-only.**
-`prlimit` (util-linux) y `bwrap` (bubblewrap) no existen en Windows — el
-subprocess stdio del target corre sin el RLIMIT de memoria/CPU/procesos/FDs
-ni los namespaces de PID/IPC/red que sí aplican en Linux. Ares lo detecta y
-lo deja como error informativo en cada scan (nunca un fallo silencioso),
-pero la mitigación real contra un target activamente hostil hoy depende de
-Linux. Ver "Resiliencia del motor" en el [README](README.md) y la sección
-12 de este manual.
+- **`$env:ARES_PYTHON`** — ruta completa a un `python.exe` 3.11+. Pisa la
+  detección automática. Útil si el `py`/`python` que resuelve el PATH es más
+  viejo que 3.11, o si tenés varias versiones instaladas. Ejemplo:
+  ```powershell
+  $env:ARES_PYTHON = "C:\Python313\python.exe"
+  .\ares.ps1 list-tests
+  ```
+- **`$env:ARES_EXTRAS`** — qué extras opcionales instalar en el `.venv`.
+  Por defecto es `"dev,live-agent,sast"` (para que `pytest`, el agente LLM
+  en vivo y el análisis `semgrep` funcionen sin pasos manuales). Para
+  instalar **solo el core**, seteala a vacío; o pasá una sublista:
+  ```powershell
+  $env:ARES_EXTRAS = ""        # solo el core
+  $env:ARES_EXTRAS = "dev"     # core + herramientas de desarrollo
+  ```
+  Cambiar este valor dispara una reinstalación en la próxima corrida (forma
+  parte del hash de dependencias).
+
+**Detección de Python (orden exacto):** el script usa `$env:ARES_PYTHON` si
+está seteado; si no, busca el launcher `py` (lo invoca como `py -3`); si
+tampoco está, cae a `python` a secas; si no encuentra ninguno, aborta con un
+mensaje claro pidiéndote instalar Python 3.11+ o setear `$env:ARES_PYTHON`.
+Después verifica que la versión sea ≥ 3.11 y, si no, aborta indicándote
+setear `$env:ARES_PYTHON` a un intérprete válido.
+
+#### Alternativa sin scripts: `ares.exe` en el PATH del venv
+
+Si preferís no usar los wrappers, instalar como paquete te da un ejecutable
+`ares.exe` real dentro de `.venv\Scripts\`:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\ares.exe list-tests
+```
+
+(Con el venv activado — `.\.venv\Scripts\Activate.ps1` — podés usar `ares`
+a secas.) Ver sección 2.1 para la instalación manual equivalente.
+
+#### Limitación importante: el aislamiento de proceso es Linux-only
+
+**El aislamiento de proceso (`engine/core/sandbox.py`) no aplica en Windows.**
+`prlimit` (util-linux) y `bwrap` (bubblewrap) son utilidades de Linux sin
+equivalente en Windows, así que el subprocess stdio del target corre **sin**
+el `RLIMIT` de memoria/CPU/procesos/FDs ni los namespaces de PID/IPC/red que
+sí aplican en Linux. Ares lo **detecta y lo deja como error informativo en
+cada scan** (nunca es un fallo silencioso), pero la mitigación real contra
+un target *activamente hostil* hoy depende de Linux. El scan en sí corre
+igual y produce el mismo reporte; lo que falta es esa capa defensiva.
+Ver "Resiliencia del motor" en el [README](README.md) y la sección 12 de
+este manual.
 
 ### 2.1 Instalación manual (equivalente, más control)
 
@@ -553,6 +648,7 @@ Flags por grupo:
 | Flag | Uso |
 |---|---|
 | `--header "Clave: Valor"` | repetible, header HTTP crudo (cookies, headers propietarios no cubiertos por `--auth-token`) |
+| `--ca-bundle <RUTA.pem>` | valida el certificado TLS del server contra esa CA (interna/corporativa) sin desactivar la verificación — ver [3.6b](#36b-tls-con-ca-interna---ca-bundle-y-tipo-de-certificado). Fallback: variable de entorno `SSL_CERT_FILE` |
 | `--auth-token "<TOKEN>"` | credencial a inyectar |
 | `--auth-type {bearer,apikey,custom}` | default `bearer`. `bearer` → header `Authorization: Bearer <TOKEN>`; `apikey`/`custom` → header `--auth-header-name` con el token crudo |
 | `--auth-header-name "<NOMBRE>"` | requerido con `apikey`/`custom`, ej `X-API-Key` |
@@ -633,7 +729,95 @@ export ANTHROPIC_API_KEY=sk-ant-...
 # Comparar contra el scan de la semana pasada
 ./ares.sh scan --command python3 --args mi_servidor.py \
   --baseline reporte_semana_pasada.json --out reporte.html
+
+# Server interno con certificado emitido por la CA corporativa
+./ares.sh scan --transport http --url https://mcp.interno.corp/mcp \
+  --ca-bundle /etc/ssl/certs/ca-corporativa.pem --out reporte.html
 ```
+
+### 3.6b TLS con CA interna (`--ca-bundle`) y tipo de certificado
+
+Aplica solo a transporte `http`/`sse`. Por defecto Ares valida el certificado
+del server contra el trust store estándar (certifi). Contra un server **interno**
+servido con una **CA corporativa o un certificado emitido por una CA privada**,
+esa validación fallaría y la conexión quedaría registrada como error de TLS. Para
+auditarlo correctamente —validando la cadena, como lo haría un cliente real bien
+configurado, en vez de ignorar la verificación— pasá la CA en la que querés confiar:
+
+```bash
+./ares.sh scan --transport http --url https://mcp.interno.corp/mcp \
+  --ca-bundle /ruta/a/ca-interna.pem
+```
+
+- **`--ca-bundle <archivo.pem>`** — ruta a un bundle de CA en formato PEM. Se usa
+  para validar el certificado del server tanto en el cliente MCP como en las sondas
+  HTTP crudas (`exposure.cors_misconfig`, `auth.oauth_metadata_security`) y en la
+  inspección de certificado. **La verificación TLS sigue activa** (hostname + cadena):
+  confiar en una CA interna no es lo mismo que desactivar la validación — Ares nunca
+  ofrece un "modo inseguro".
+- **Fallback `SSL_CERT_FILE`** — si no pasás `--ca-bundle`, Ares respeta la variable
+  de entorno estándar `SSL_CERT_FILE` (la que honran httpx/OpenSSL). El flag explícito
+  gana sobre la variable. Si la ruta dada no existe, Ares aborta con un error claro en
+  vez de caer en silencio al trust store por defecto.
+- **No aplican** `REQUESTS_CA_BUNDLE` (es de la librería `requests`, que Ares no usa)
+  ni `NODE_EXTRA_CA_CERTS` (es de Node; Ares es Python). La única env var de CA que
+  Ares respeta es `SSL_CERT_FILE`.
+
+**Tipo de certificado anotado en el reporte.** Corra con `--ca-bundle` o no, el test
+`exposure.certificate_type` (default-on) inspecciona el certificado que el server
+realmente presenta y lo deja asentado en el reporte (HTML/JSON), con:
+
+- **tipo clasificado**: `ca-signed (publicly trusted)`, `ca-signed (internal/private CA)`
+  (cuando valida contra tu `--ca-bundle`), `self-signed`, o `untrusted / unknown chain`;
+- **emisor** y **sujeto**, **validez** (`notBefore`→`notAfter`, con aviso si está EXPIRADO),
+  **versión de TLS** negociada, **fingerprint SHA-256**, y —si `cryptography` está
+  instalada— **algoritmo de firma** y **tipo/tamaño de clave**;
+- resultado de validación **contra el trust store público** y **contra la CA provista**.
+
+Un certificado que no valida contra ningún trust store (self-signed o cadena desconocida)
+o que está expirado se reporta como hallazgo (`passed=False`); un certificado que valida
+contra la CA interna que vos mismo proveíste **no** es hallazgo —es justo el caso de uso
+que `--ca-bundle` habilita— y queda como informativo con el tipo anotado.
+
+**Dictamen minucioso y graduado (no es pass/fail binario).** El motor no se limita a decir
+"confiable/no confiable": pondera **seis factores** —cadena de confianza, vigencia, coincidencia
+de hostname (CN/SAN), fortaleza del algoritmo de firma, fortaleza de la clave, y alcance de red
+(IP interna/privada vs pública = *blast radius* de un MITM)— y emite un veredicto en tres niveles,
+enumerando cada factor con su signo (`[OK]`/`[~]`/`[X]`/`[i]`) para que se entienda el **porqué**:
+
+| Veredicto | Cuándo | Severidad | Ejemplos |
+|---|---|---|---|
+| **NO es un riesgo** | Cadena de confianza (CA pública, o CA interna validada con `--ca-bundle`), vigente, hostname OK, cripto sana | INFO (`passed=True`) | Cert de Let's Encrypt válido; autofirmado **validado contra tu `--ca-bundle`** |
+| **Riesgo posible pero MANEJABLE** | Autofirmado en un endpoint **interno** (IP privada/loopback), por lo demás sano | **Medium** (`passed=False`, no bloquea) | Server interno self-signed en `10.x`/`127.0.0.1`, firma SHA-256, clave ≥2048, vigente |
+| **RIESGO (man-in-the-middle)** | Autofirmado **público**, o cadena **desconocida**, o confiable **pero defectuoso** (expirado, firma SHA-1/MD5, clave <2048, hostname que no coincide) | **High** (`passed=False`) | Self-signed expuesto a Internet; cert de CA pero expirado; firma SHA-1 |
+
+El nivel **manejable** es la respuesta explícita a "un autofirmado ¿es un riesgo?": **puede serlo,
+pero acotado** cuando el endpoint es interno y vos controlás ambos extremos —el MITM exige posición
+dentro de esa red—. Ares igual lo reporta (no lo oculta) y recomienda formalizar la confianza (CA
+interna + `--ca-bundle`, o *pinning* del fingerprint) en vez de dejarla implícita; si ese endpoint
+pasara a ser público, sube a **riesgo real** automáticamente.
+
+**Encuadre según frameworks.** Cuando el veredicto es riesgo (manejable o real), el finding se
+mapea a **OWASP MCP Top 10 2025 — MCP07:2025** (Transport Security), **OWASP API Security Top 10
+2023 — API8:2023** (Security Misconfiguration) y **CWE-295** (Improper Certificate Validation, en
+`references`). El fundamento: TLS **cifra** pero no **autentica** la identidad del server si el
+certificado no valida contra una raíz de confianza — un atacante on-path presenta su propio
+certificado y el cliente no lo distingue del real → man-in-the-middle con intercepción y
+manipulación del tráfico, credenciales incluidas. La severidad usa CVSS v3.1 con `AC:H` (requiere
+posición on-path): por eso el techo honesto es **High**, no Critical, y el caso interno baja a
+**Medium** por el alcance acotado.
+
+**Un scan que no se conecta ya no finge un pase limpio.** Antes, si el cliente rechazaba
+el certificado (o fallaba el DNS/la red), la conexión se rechazaba, casi ningún test llegaba
+a correr, y el scan igual terminaba en un engañoso `100/100 (A)` / `ALLOW` —reflejando que no
+hubo pruebas, no que no haya problemas—. Ahora el orquestador emite un hallazgo bloqueante
+**`orchestrator.connection_failed`** (severidad alta, `BLOCK` en `production` por `policy.yaml`)
+que marca la corrida como **INCOMPLETA**: el score y el veredicto de esa corrida dejan de
+leerse como una postura validada. En paralelo, `auth.unauthenticated_access` ya **no**
+confunde un rechazo de TLS con "el server exige autenticación" (solo un 401/403 real a nivel
+HTTP, sin credenciales, cuenta como esa señal positiva). La forma correcta de volver a un
+scan válido contra un server con CA interna es `--ca-bundle` —conectarse de verdad—, nunca
+desactivar la verificación: un certificado que no valida es también lo que presentaría un MITM.
 
 ### 3.7 `vet`
 
@@ -1144,6 +1328,12 @@ Otras piezas de confiabilidad:
   antes de agregarse — nunca un número de CVE fabricado.
 - **Fail-closed por timeout**: ningún test puede colgar el scan completo —
   `--test-timeout-s` (default 60) corta el test individual y el resto sigue.
+- **Fail-closed por conexión**: si no se pudo establecer una sesión con el
+  target por un motivo que no sea el 401 legítimo (TLS rechazado, DNS/red,
+  transporte), el orquestador emite `orchestrator.connection_failed` —hallazgo
+  bloqueante (`BLOCK` en `production`) que marca la corrida INCOMPLETA—. Un scan
+  que no se conectó nunca termina en un falso `100/100 (A)` / `ALLOW`; y un
+  rechazo de TLS no se confunde con "el server exige auth" (ver §3.6b).
 
 ## 12. Qué queda afuera de esta versión
 

@@ -15,7 +15,7 @@ real; `auth.oauth_metadata_security` — RFC 9728/PKCE), exposición de red
 cadenas de exfiltración, patrones maliciosos, dependencias vulnerables,
 SAST) y correlación **cross-server** (tool shadowing + cadenas de
 exfiltración entre servers distintos conectados en la misma sesión, modo
-`full`). **37 tests** en total, incluyendo ataques multi-step confirmados
+`full`). **38 tests** en total, incluyendo ataques multi-step confirmados
 por ejecución real (no solo heurística). Cada scan produce un score 0-100, un
 veredicto de policy (BLOCK/CONDITIONAL/ALLOW) y opcionalmente un diff de qué
 hallazgos mitiga realmente la autenticación (`--compare-auth`).
@@ -67,17 +67,26 @@ activar nada a mano — `./ares.sh scan ...`, `./ares.sh vet ...`,
 `./ares.sh serve` funcionan directo, desde cualquier directorio.
 
 **Windows**: `ares.sh` es bash puro — usá `ares.ps1` (PowerShell) o
-`ares.bat` (forwarder para `cmd.exe`), mismo comportamiento:
+`ares.bat` (forwarder para `cmd.exe`), mismo comportamiento (crea el venv,
+instala dependencias solo si cambiaron, delega a la CLI real):
 
 ```powershell
+cd Ares
 .\ares.ps1 list-tests
+.\ares.ps1 scan --command python --args target_server.py --out reporte.html
 ```
 
-Ver sección 2.0b del [manual](MANUAL.md) si PowerShell bloquea el script
-por política de ejecución. El aislamiento de proceso (`prlimit`/`bwrap`,
-ver "Resiliencia del motor" abajo) es Linux-only — en Windows el scan corre
-igual, pero sin esa capa específica; Ares lo avisa en el reporte, nunca en
-silencio.
+Requisito: **Python 3.11+** (instalalo desde python.org tildando "Add to
+PATH"). Si PowerShell bloquea el script por la política de ejecución,
+corré una vez `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` o usá
+`ares.bat` (que ya hace el bypass solo para esa llamada). Variables
+`$env:ARES_PYTHON` (ruta a un python.exe 3.11+) y `$env:ARES_EXTRAS`
+(extras a instalar) ajustan el entorno. **La guía completa y detallada
+está en la sección 2.0b del [manual](MANUAL.md).**
+
+El aislamiento de proceso (`prlimit`/`bwrap`, ver "Resiliencia del motor"
+abajo) es Linux-only — en Windows el scan corre igual, pero sin esa capa
+específica; Ares lo avisa en el reporte, nunca en silencio.
 
 Instalación manual equivalente (o como paquete con `pip install -e ".[dev]"`
 para tener el comando `ares` en el PATH) — ver sección 2 del [manual](MANUAL.md).
@@ -125,6 +134,21 @@ protege realmente la autenticación, y con veredicto de policy para CI:
 Esto corre el scan dos veces (con y sin `$TOKEN`) y agrega al reporte una
 sección "Impacto de autenticación": qué hallazgos desaparecen al autenticarse
 (la auth SÍ los mitiga) y cuáles persisten igual (la auth NO los mitiga).
+
+Contra un server interno servido con una **CA corporativa/privada**, pasá esa
+CA para validar el TLS sin desactivar la verificación (fallback a la env var
+estándar `SSL_CERT_FILE`; `REQUESTS_CA_BUNDLE`/`NODE_EXTRA_CA_CERTS` no aplican
+—Ares es Python/httpx):
+
+```bash
+./ares.sh scan --transport http --url https://mcp.interno.corp/mcp \
+  --ca-bundle /etc/ssl/certs/ca-corporativa.pem --out reporte.html
+```
+
+El test `exposure.certificate_type` deja anotado en el reporte el **tipo de
+certificado** que presenta el server (CA pública, CA interna/privada,
+self-signed o cadena desconocida), con emisor, validez y fingerprint SHA-256.
+Ver sección 3.6b del [manual](MANUAL.md).
 
 Descubrir qué servidores MCP hay configurados localmente (Claude Desktop,
 Cursor, VSCode, Windsurf, Codex) y escanearlos todos de una:
