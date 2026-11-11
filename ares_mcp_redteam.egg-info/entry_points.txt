@@ -1,2 +1,0 @@
-[console_scripts]
-ares = cli.main:main
