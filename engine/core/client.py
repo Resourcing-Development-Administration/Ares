@@ -156,7 +156,17 @@ class MCPTarget:
             return {}
 
     async def __aexit__(self, *exc):
-        await self._stack.aclose()
+        # best-effort: el scan YA TERMINÓ (o ya falló) cuando esto corre -- un error AL CERRAR
+        # (ej. el SDK streamable-http cancelando su propio stream GET en pleno cleanup) nunca debe
+        # tumbar el proceso. Confirmado contra MCPGoat nivel 'difficult' (que desestabiliza el
+        # transporte a propósito): self._stack.aclose() podía levantar un BaseExceptionGroup
+        # (mezclado con un CancelledError, no-Exception) que escapaba entero fuera de run_scan,
+        # DESPUÉS de que los 44+ tests ya habían corrido bien -- mismo patrón que __aenter__, acá
+        # aplicado al cierre en vez de a la apertura.
+        try:
+            await self._stack.aclose()
+        except* BaseException:
+            pass
 
     async def _on_sampling_request(
         self, context: RequestContext, params: mcp_types.CreateMessageRequestParams,

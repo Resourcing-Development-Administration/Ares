@@ -255,8 +255,28 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
                 target.current_test_id = test_id
 
             emit({"type": "test_started", "test_id": test_id, "name": meta.name})
+            # try/except* (no un try/except normal): el cuerpo de un test puede reabrir un stream
+            # http internamente (SDK streamable-http) desde su PROPIO TaskGroup de anyio -- si eso
+            # falla a mitad de camino mientras una tarea hermana se cancela, anyio lo propaga como
+            # BaseExceptionGroup (mezclado con un CancelledError, que no es Exception), exactamente
+            # el mismo patrón ya documentado en MCPTarget.__aenter__. Un `except Exception` normal
+            # NO atrapa eso en Python 3.11+ -- confirmado en campo contra MCPGoat (niveles
+            # moderate/difficult, que desestabilizan el transporte a propósito): tumbaba el
+            # proceso ENTERO de `vet` a mitad de la batería en vez de quedar como el error de
+            # ESE test. except* no se puede mezclar con except normal en el mismo try, así que
+            # todo el manejo de esta llamada (timeout incluido) vive acá adentro.
+            test_timed_out = False
+            test_exc: BaseException | None = None
             try:
                 findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
+            except* asyncio.TimeoutError:
+                test_timed_out = True
+            except* Exception as eg:
+                test_exc = eg.exceptions[0]
+            except* BaseException as eg:
+                # red de seguridad: lo que sobre (ej. el CancelledError hermano) tampoco debe escapar.
+                test_exc = test_exc or eg.exceptions[0]
+            else:
                 consecutive_timeouts = 0
                 report.findings.extend(findings)
                 emit({
@@ -264,7 +284,8 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
                     "findings_count": len(findings),
                     "confirmed": sum(1 for f in findings if not f.passed),
                 })
-            except asyncio.TimeoutError:
+
+            if test_timed_out:
                 consecutive_timeouts += 1
                 # fail-closed: un test colgado (ej. un tool del target que nunca responde) NO debe
                 # tumbar el scan entero -- se registra como error de ESE test y se sigue con el resto.
@@ -327,7 +348,8 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
                         target = None
                         if connect_error is None:
                             connect_error = str(eg.exceptions[0])
-            except Exception as e:
+            elif test_exc is not None:
+                e = test_exc
                 # caso especial y MUY común: la conexión inicial falló (target is None) y este
                 # test, a diferencia de auth.*/exposure.* (que chequean `target is None` antes de
                 # tocarlo), asume una sesión viva -- explota con un AttributeError genérico
@@ -342,7 +364,9 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
                         f"({connect_error or 'ver error de conexión más arriba'})."
                     )
                 else:
-                    tb = traceback.format_exc()
+                    # test_exc viene de un except* (eg.exceptions[0]): no hay excepción "actual" para
+                    # traceback.format_exc() en este punto -- se formatea el objeto capturado.
+                    tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
                     report.errors.append(f"test '{test_id}' falló con excepción: {e}\n{tb}")
                 emit({"type": "test_error", "test_id": test_id, "error": str(e)})
 

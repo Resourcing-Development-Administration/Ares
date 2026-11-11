@@ -1,4 +1,5 @@
 """Tests unitarios de funciones puras -- rápidos, sin levantar ningún server."""
+import asyncio
 import shutil
 import pytest
 from engine.supplychain.similarity import jaro_winkler
@@ -16,6 +17,7 @@ from engine.core.sandbox import (
 from engine.core.models import LEVEL_NAMES
 from engine.core.registry import ids_at_or_below_level
 import engine.orchestrator  # noqa: F401 -- importa todos los módulos de tests para poblar el registry
+from conftest import SAFE_STDIO, stdio_connection
 
 
 def _report_with(*findings) -> ScanReport:
@@ -883,3 +885,44 @@ def test_ids_at_or_below_level_is_monotonic_and_covers_everyone():
     # del webui/CLI mostraría un nivel sin nada adentro, una regresión de UX silenciosa.
     for n in (1, 2, 3, 4):
         assert by_level[n], f"nivel {n} no tiene ningún test asignado"
+
+
+# --- regresión: BaseExceptionGroup mid-test / al cerrar no debe tumbar el proceso -------------
+# Confirmado en campo contra MCPGoat (niveles moderate/difficult, que desestabilizan el transporte
+# a propósito): un `except Exception` normal no atrapa un BaseExceptionGroup que además contiene
+# un CancelledError (no-Exception) -- ver engine/orchestrator.py (bucle de tests) y
+# engine/core/client.py::MCPTarget.__aexit__.
+
+async def test_mcp_target_aexit_swallows_base_exception_group(monkeypatch):
+    from engine.core.client import MCPTarget
+
+    target = MCPTarget("stdio", {"command": "true", "args": []})
+
+    async def boom():
+        raise BaseExceptionGroup("cleanup falló", [ConnectionError("boom"), asyncio.CancelledError()])
+
+    monkeypatch.setattr(target._stack, "aclose", boom)
+    await target.__aexit__(None, None, None)  # no debe levantar nada
+
+
+async def test_orchestrator_test_loop_survives_base_exception_group_mid_test():
+    """Un test registrado que levanta un BaseExceptionGroup (mezclado con un no-Exception) no debe
+    tumbar run_scan entero -- debe quedar como el error de ESE test, igual que una Exception común."""
+    from engine.core.models import ScanConfig
+    from engine.core.registry import register_test
+    from engine.orchestrator import run_scan
+
+    @register_test(id="test.raises_base_exception_group", name="x", category=Category.DYNAMIC,
+                   description="x", default_enabled=True)
+    async def _raises(target, ctx):
+        raise BaseExceptionGroup("stream roto", [ConnectionError("stream roto"), asyncio.CancelledError()])
+
+    try:
+        config = ScanConfig(target_name="t", transport="stdio", connection=stdio_connection(SAFE_STDIO),
+                            selected_tests=["recon.enumerate", "test.raises_base_exception_group"])
+        report = await run_scan(config)
+        assert any("test.raises_base_exception_group" in e for e in report.errors)
+        assert any(f.test_id == "recon.enumerate" for f in report.findings)  # el resto de la batería sí corrió
+    finally:
+        from engine.core.registry import _REGISTRY
+        _REGISTRY.pop("test.raises_base_exception_group", None)
