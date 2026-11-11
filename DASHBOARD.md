@@ -165,6 +165,26 @@ Equivalente a `./ares.sh full` por CLI.
 configurado (varios clientes MCP en la misma máquina), o para chequear si
 algún server se está "haciendo pasar" por otro que ya tenés conectado.
 
+### 3.4 `api` -- APIs REST/GraphQL
+
+**Qué hace**: audita una API REST/GraphQL (OWASP API Security Top 10) en vez de un
+server MCP -- equivalente a `./ares.sh api-scan` por CLI (ver [MANUAL.md §3.4b](MANUAL.md#34b-api-scan--api-list-tests----apis-restgraphql)).
+Al elegir este modo el fieldset "Target" (MCP) se oculta y aparece uno propio:
+
+| Campo | Qué es |
+|---|---|
+| URL base | la base HTTP de la API, ej. `http://localhost:8888` |
+| Spec OpenAPI/Swagger/Postman | ruta local o URL; vacío = Ares la autodescubre en rutas comunes |
+| Path de GraphQL | solo si no es uno de los comunes (`/graphql`, `/api/graphql`...) -- se detecta solo |
+| JWT a analizar | si la credencial de Autenticación no es el JWT que `api.jwt` debe inspeccionar |
+
+El fieldset de **Autenticación** (§6) se reutiliza tal cual (token A para
+`api.auth_required`/`api.bola`/`api.jwt`/etc., token B para `api.bola` con
+dos identidades reales) y el de **Tests** (§9) carga los tests de API en
+vez de los de MCP (incluye los de GraphQL, con la etiqueta `graphql`).
+
+**Cuándo usarlo**: para auditar una API propia o de terceros que no hable MCP.
+
 ---
 
 ## 4. Target (`scan`/`vet`)

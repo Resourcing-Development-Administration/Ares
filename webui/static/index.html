@@ -250,7 +250,44 @@
       <button data-mode="full" onclick="setMode('full')">
         <b>FULL</b><span>Varios targets en paralelo + correlación cross-server</span>
       </button>
+      <button data-mode="api" onclick="setMode('api')">
+        <b>API</b><span>Audita una API REST/GraphQL (OWASP API Security Top 10)</span>
+      </button>
     </div>
+
+    <fieldset id="api-fieldset" style="display:none">
+      <legend>Target de la API
+        <span class="tip" tabindex="0" data-tip="A qué API le vas a apuntar -- distinto de un server MCP: acá es una base URL HTTP normal.">?</span>
+      </legend>
+      <div class="row">
+        <div>
+          <label>URL base
+            <span class="tip" tabindex="0" data-tip="Base de la API. Ej: http://localhost:8888, https://api.miempresa.com.">?</span>
+          </label>
+          <input type="text" id="api_url" placeholder="http://localhost:8888">
+        </div>
+        <div>
+          <label>Spec OpenAPI/Postman (opcional)
+            <span class="tip" tabindex="0" data-tip="Ruta local o URL a un OpenAPI/Swagger/Postman. Vacío = Ares intenta autodescubrirlo en rutas comunes (/openapi.json, /swagger.json, /v3/api-docs...).">?</span>
+          </label>
+          <input type="text" id="api_spec" placeholder="http://localhost:8888/openapi.json">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Path de GraphQL (opcional)
+            <span class="tip" tabindex="0" data-tip="Solo si el endpoint GraphQL no es uno de los comunes (/graphql, /api/graphql, /v1/graphql, /gql) -- esos se detectan solos con una query mínima + introspección.">?</span>
+          </label>
+          <input type="text" id="api_graphql_path" placeholder="/graphql">
+        </div>
+        <div>
+          <label>JWT a analizar (opcional)
+            <span class="tip" tabindex="0" data-tip="Si la credencial de abajo NO es el JWT que querés que api.jwt analice (alg=none, exp), pegalo acá. Vacío = usa el token de Autenticación de abajo.">?</span>
+          </label>
+          <input type="text" id="api_jwt" placeholder="eyJhbGciOi...">
+        </div>
+      </div>
+    </fieldset>
 
     <fieldset id="target-fieldset">
       <legend>Target
@@ -651,13 +688,16 @@ function showPanel(name) {
   if (name === 'reports') loadReports();
 }
 
+let testsLoadedFor = null;  // 'mcp' | 'api' -- para no refetchear /api/tests o /api/api-tests en cada click
+
 function setMode(mode) {
   currentMode = mode;
   document.querySelectorAll('.mode-tabs button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
 
+  document.getElementById('api-fieldset').style.display = mode === 'api' ? 'block' : 'none';
   document.getElementById('full-fieldset').style.display = mode === 'full' ? 'block' : 'none';
-  document.getElementById('target-fieldset').style.display = mode === 'full' ? 'none' : 'block';
-  document.getElementById('compare-auth-line').style.display = mode === 'full' ? 'none' : 'flex';
+  document.getElementById('target-fieldset').style.display = (mode === 'full' || mode === 'api') ? 'none' : 'block';
+  document.getElementById('compare-auth-line').style.display = (mode === 'full') ? 'none' : 'flex';
 
   const testsFieldset = document.getElementById('tests-fieldset');
   const testsFieldsetList = document.getElementById('tests-fieldset-list');
@@ -667,10 +707,14 @@ function setMode(mode) {
   testsFieldsetList.style.display = showTests ? 'block' : 'none';
   testsHint.textContent = '';
 
+  const wantTests = mode === 'api' ? 'api' : 'mcp';
+  if (testsLoadedFor !== wantTests) { testsLoadedFor = wantTests; loadTests(wantTests); }
+
   const envHint = document.getElementById('environment-hint');
   envHint.textContent = mode === 'vet' ? 'vet fuerza production' : '';
 
-  document.getElementById('run-btn').textContent = mode === 'full' ? 'Ejecutar full' : (mode === 'vet' ? 'Ejecutar vet' : 'Ejecutar scan');
+  document.getElementById('run-btn').textContent =
+    mode === 'full' ? 'Ejecutar full' : mode === 'vet' ? 'Ejecutar vet' : mode === 'api' ? 'Ejecutar api-scan' : 'Ejecutar scan';
 }
 
 function toggleAuthFields() {
@@ -723,8 +767,8 @@ function applyLevel(n) {
   });
 }
 
-async function loadTests() {
-  const res = await fetch('/api/tests');
+async function loadTests(which = 'mcp') {
+  const res = await fetch(which === 'api' ? '/api/api-tests' : '/api/tests');
   testsMeta = await res.json();
   const byCat = {};
   testsMeta.forEach(t => { (byCat[t.category] ||= []).push(t); });
@@ -734,10 +778,11 @@ async function loadTests() {
     for (const t of byCat[cat]) {
       const netTag = t.requires_network ? ' <span class="net-tag">red externa</span>' : '';
       const lvlTag = ` <span class="lvl-tag">nivel ${t.level}</span>`;
+      const kindTag = t.kind === 'graphql' ? ' <span class="lvl-tag">graphql</span>' : '';
       const tip = t.description ? `<span class="tip" tabindex="0" data-tip="${esc(t.description)}">?</span>` : '';
       html += `<div class="checkline" data-level="${t.level}">
         <input type="checkbox" class="test-cb" id="test-${esc(t.id)}" value="${esc(t.id)}" ${t.default_enabled ? 'checked' : ''}>
-        <label for="test-${esc(t.id)}">${esc(t.id)} — ${esc(t.name)}${lvlTag}${netTag}</label>
+        <label for="test-${esc(t.id)}">${esc(t.id)} — ${esc(t.name)}${lvlTag}${kindTag}${netTag}</label>
         ${tip}
       </div>`;
     }
@@ -834,16 +879,29 @@ function runScan() {
   document.getElementById('log').textContent = '';
   document.getElementById('result').innerHTML = '';
 
-  const params = {
-    ...collectBaseParams(),
-    transport: document.getElementById('transport').value,
-    command: document.getElementById('command').value,
-    args: document.getElementById('args').value,
-    url: document.getElementById('url').value,
-  };
+  let params, wsPath;
+  if (currentMode === 'api') {
+    params = {
+      ...collectBaseParams(),
+      url: document.getElementById('api_url').value,
+      spec: document.getElementById('api_spec').value,
+      graphql_path: document.getElementById('api_graphql_path').value,
+      jwt: document.getElementById('api_jwt').value,
+    };
+    wsPath = '/ws/api_scan';
+  } else {
+    params = {
+      ...collectBaseParams(),
+      transport: document.getElementById('transport').value,
+      command: document.getElementById('command').value,
+      args: document.getElementById('args').value,
+      url: document.getElementById('url').value,
+    };
+    wsPath = '/ws/scan';
+  }
 
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const ws = new WebSocket(`${proto}://${location.host}/ws/scan`);
+  const ws = new WebSocket(`${proto}://${location.host}${wsPath}`);
   ws.onopen = () => ws.send(JSON.stringify(params));
   ws.onmessage = (msg) => {
     const data = JSON.parse(msg.data);
@@ -1108,7 +1166,8 @@ async function purgeOldReports() {
 }
 
 loadLevels();
-loadTests();
+testsLoadedFor = 'mcp';
+loadTests('mcp');
 </script>
 </body>
 </html>

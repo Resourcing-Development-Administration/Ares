@@ -342,6 +342,22 @@ async def api_tests():
     ]
 
 
+@app.get("/api/api-tests")
+async def api_api_tests():
+    """Tests del módulo de APIs (REST/GraphQL) -- mismo shape que /api/tests, + 'kind'
+    (rest|graphql) para que el front los agrupe aparte."""
+    from engine.api.registry import all_api_tests
+    return [
+        {
+            "id": m.id, "name": m.name, "category": m.category.value,
+            "description": m.description, "default_enabled": m.default_enabled,
+            "requires_network": m.requires_network, "level": m.level,
+            "kind": getattr(m, "kind", "rest"),
+        }
+        for m, _ in sorted(all_api_tests().values(), key=lambda mf: (getattr(mf[0], "kind", "rest"), mf[0].id))
+    ]
+
+
 @app.get("/api/levels")
 async def api_levels():
     from engine.core.models import LEVEL_NAMES, LEVEL_DESCRIPTIONS
@@ -420,6 +436,115 @@ async def api_purge_reports(request: Request):
             kept.append(e)
     _save_index(kept)
     return {"deleted": deleted, "deleted_count": len(deleted), "remaining": len(kept)}
+
+
+def _build_api_scan_config(params: dict) -> dict:
+    """kwargs para engine.api.runner.run_api_scan a partir de los params del form del dashboard.
+    Reusa los MISMOS campos de auth_type/auth_token/auth_header_name(_b) que ws_scan -- misma
+    semántica, mismos inputs del HTML (ver toggleAuthFields)."""
+    def auth_headers(token, atype, header_name):
+        if not token:
+            return None
+        if atype == "bearer":
+            return {"Authorization": f"Bearer {token}"}
+        return {(header_name or "X-API-Key"): token}
+
+    headers = {}
+    for line in (params.get("headers_raw") or "").splitlines():
+        if ":" in line:
+            k, v = line.split(":", 1)
+            headers[k.strip()] = v.strip()
+
+    selected = params.get("tests") or None
+    return dict(
+        base_url=params["url"], spec_source=params.get("spec") or None,
+        graphql_path=params.get("graphql_path") or None, selected_tests=selected,
+        headers=headers or None,
+        auth_a=auth_headers(params.get("auth_token"), params.get("auth_type"), params.get("auth_header_name")),
+        auth_b=auth_headers(params.get("auth_token_b"), params.get("auth_type_b"), params.get("auth_header_name_b")),
+        jwt=params.get("jwt") or params.get("auth_token") or None,
+        verify=_resolve_ca_bundle(params.get("ca_bundle")) if params.get("ca_bundle") else True,
+        delay_ms=int(params.get("request_delay_ms") or 0),
+        max_fuzz=int(params.get("max_fuzz_cases") or 40),
+        test_timeout_s=float(params.get("test_timeout_s") or 60.0),
+        allowlist_path=params.get("allowlist_path") or default_allowlist_path(),
+        min_confidence=params.get("min_confidence") or "heuristic",
+        environment=params.get("environment") or "production",
+    )
+
+
+@app.websocket("/ws/api_scan")
+async def ws_api_scan(websocket: WebSocket):
+    """Equivalente a ws_scan pero para el módulo de APIs (engine/api/runner.py::run_api_scan) --
+    mismo vocabulario de eventos de progreso, mismo shape de reporte final, así el JS existente
+    (log()/renderResult()) funciona sin cambios."""
+    if not websocket_token_ok(websocket):
+        await websocket.close(code=1008)
+        return
+    await websocket.accept()
+    try:
+        raw = await websocket.receive_text()
+        params = json.loads(raw)
+    except Exception as e:
+        await websocket.send_json({"type": "fatal_error", "error": f"config inválida: {e}"})
+        await websocket.close()
+        return
+
+    if not params.get("url"):
+        await websocket.send_json({"type": "fatal_error", "error": "falta la URL de la API"})
+        await websocket.close()
+        return
+
+    try:
+        kwargs = _build_api_scan_config(params)
+    except Exception as e:
+        await websocket.send_json({"type": "fatal_error", "error": f"no se pudo armar la config: {e}"})
+        await websocket.close()
+        return
+
+    from engine.api.runner import run_api_scan
+
+    queue: asyncio.Queue = asyncio.Queue()
+
+    def progress(event: dict):
+        queue.put_nowait(event)
+
+    task = asyncio.create_task(run_api_scan(progress_cb=progress, **kwargs))
+
+    try:
+        while not task.done():
+            try:
+                event = await asyncio.wait_for(queue.get(), timeout=0.2)
+                await websocket.send_json({"type": "progress", "event": event})
+            except asyncio.TimeoutError:
+                continue
+        while not queue.empty():
+            event = queue.get_nowait()
+            await websocket.send_json({"type": "progress", "event": event})
+        report = task.result()
+    except WebSocketDisconnect:
+        task.cancel()
+        return
+    except Exception as e:
+        await websocket.send_json({"type": "fatal_error", "error": str(e)})
+        await websocket.close()
+        return
+
+    scan_id = report.scan_id or uuid.uuid4().hex[:8]
+    links = await _persist_report(scan_id, "", report)
+    _add_index_entry({
+        "scan_id": scan_id, "target_name": report.target_name, "started_at": report.started_at,
+        "finished_at": report.finished_at, "score": report.score, "policy_verdict": report.policy_verdict,
+        "compare_auth": False, "mode": "api-scan", "links": links,
+        "saved_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+    await websocket.send_json({
+        "type": "done", "scan_id": scan_id, "summary": report.summary(), "score": report.score,
+        "policy_verdict": report.policy_verdict, "auth_impact": None, "baseline_diff": None,
+        "tls_certificate": None, "incomplete_reason": None, "links": links, "links_without_auth": None,
+    })
+    await websocket.close()
 
 
 @app.get("/reports/{scan_id}/{filename}")
