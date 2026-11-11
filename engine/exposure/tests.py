@@ -36,6 +36,7 @@ def _ca_bundle_from_ctx(ctx) -> str | None:
 
 @register_test(
     id="exposure.transport_security",
+    level=1,
     name="Transporte sin TLS",
     category=Category.EXPOSURE,
     description="Marca si el endpoint http/sse corre en texto plano (http://) en vez de https://.",
@@ -65,6 +66,7 @@ async def transport_security(target, ctx) -> list[Finding]:
 
 @register_test(
     id="exposure.cors_misconfig",
+    level=1,
     name="Configuración CORS insegura",
     category=Category.EXPOSURE,
     description="Envía un preflight OPTIONS con un Origin hostil y evalúa si el servidor responde con "
@@ -131,6 +133,7 @@ async def cors_misconfig(target, ctx) -> list[Finding]:
 
 @register_test(
     id="exposure.network_reachability",
+    level=1,
     name="Clasificación de alcance de red (interno vs público)",
     category=Category.EXPOSURE,
     description="Resuelve el host del endpoint y clasifica si es una IP privada/loopback (alcance interno) "
@@ -173,6 +176,7 @@ async def network_reachability(target, ctx) -> list[Finding]:
 
 @register_test(
     id="exposure.certificate_type",
+    level=1,
     name="Tipo de certificado TLS del server",
     category=Category.EXPOSURE,
     description="Inspecciona el certificado TLS que presenta el endpoint https/wss y lo clasifica "
@@ -322,6 +326,7 @@ def _shannon_entropy_bits(s: str) -> float:
 
 @register_test(
     id="exposure.session_id_entropy",
+    level=1,
     name="Entropía y longitud del Mcp-Session-Id (transporte http)",
     category=Category.EXPOSURE,
     description="Analiza el Mcp-Session-Id que el server asignó a esta sesión: longitud, entropía (bits/char "

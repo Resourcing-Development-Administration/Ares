@@ -22,15 +22,30 @@
   .page { max-width: 980px; margin: 0 auto; }
 
   header.top { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:.4rem; margin-bottom:.2rem; }
-  h1 { font-size:1.5rem; margin:0; letter-spacing:-.01em; }
+  h1 { font-size:1.35rem; margin:0; letter-spacing:.08em; font-weight:700; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  h1 .brand-sub { font-weight:400; letter-spacing:0; color:var(--text-dim); font-family:inherit; font-size:.72em; margin-left:.5rem; text-transform:none; }
   .sub { color:var(--text-dim); margin:.3rem 0 1.2rem; font-size:.92rem; }
 
   .warn {
     background:linear-gradient(0deg, rgba(63,45,5,.9), rgba(63,45,5,.9)), var(--bg-raised);
     border:1px solid var(--warn); border-radius:var(--radius); padding:.7rem 1rem;
-    font-size:.85rem; margin-bottom:1.4rem; display:flex; gap:.6rem; align-items:flex-start;
+    font-size:.85rem; margin-bottom:1.4rem; display:flex; gap:.7rem; align-items:flex-start;
   }
-  .warn .ico { font-size:1.1rem; line-height:1; }
+  .warn-label {
+    text-transform:uppercase; letter-spacing:.06em; font-size:.68rem; font-weight:700;
+    color:#fde68a; border:1px solid #fde68a; border-radius:5px; padding:.1rem .4rem; flex-shrink:0; margin-top:.05rem;
+  }
+
+  .level-selector { display:flex; gap:.6rem; flex-wrap:wrap; }
+  .level-selector button {
+    flex:1; min-width:150px; background:var(--bg-raised); color:var(--text-dim); border:1px solid var(--border);
+    border-radius:10px; padding:.6rem .8rem; cursor:pointer; text-align:left; transition:border-color .12s, box-shadow .12s;
+  }
+  .level-selector button b { display:block; color:var(--text); font-size:.86rem; margin-bottom:.1rem; }
+  .level-selector button span { font-size:.73rem; display:block; line-height:1.3; }
+  .level-selector button.active { border-color:var(--accent); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px rgba(37,99,235,.12); background:#121a2b; }
+  .level-selector button[data-level="3"].active { border-color:var(--warn); box-shadow: inset 0 0 0 1px var(--warn), 0 0 0 3px rgba(180,83,9,.15); }
+  .level-selector button[data-level="4"].active { border-color:#b91c1c; box-shadow: inset 0 0 0 1px #b91c1c, 0 0 0 3px rgba(185,28,28,.15); }
 
   /* Tabs */
   .tabs { display:flex; gap:.4rem; margin:0 0 1.4rem; border-bottom:1px solid var(--border); }
@@ -53,7 +68,6 @@
   legend {
     color:var(--accent-light); padding:0 .5rem; font-weight:600; font-size:.95rem; display:flex; align-items:center; gap:.4rem;
   }
-  legend .legend-ico { font-size:1rem; }
   legend small { color:var(--text-faint); font-weight:normal; font-size:.78rem; }
 
   label { display:flex; align-items:center; gap:.35rem; font-size:.83rem; color:var(--text-dim); margin:.6rem 0 .3rem; font-weight:500; }
@@ -169,7 +183,20 @@
   details.adv[open] summary::before { content:"▾ "; }
 
   .pill { display:inline-block; background:var(--bg-raised); border:1px solid var(--border-strong); border-radius:999px; padding:.1rem .6rem; font-size:.7rem; color:var(--text-dim); margin-left:.4rem; }
-  .net-tag { color:#fbbf24; font-size:.72rem; margin-left:.3rem; }
+  .net-tag { color:#fbbf24; font-size:.72rem; margin-left:.3rem; border:1px solid #fbbf24; border-radius:4px; padding:0 .3rem; }
+  .lvl-tag { font-size:.68rem; margin-left:.3rem; color:var(--text-faint); border:1px solid var(--border-strong); border-radius:4px; padding:0 .3rem; }
+
+  /* Reportes: toolbar de retención + acciones por fila ------------------ */
+  .reports-toolbar { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin-bottom:1rem;
+    padding:.7rem .9rem; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,.015); }
+  .reports-toolbar input[type=number] { width:5rem; display:inline-block; }
+  .btn-row-action {
+    background:transparent; border:1px solid var(--border-strong); color:var(--text-dim); border-radius:6px;
+    padding:.25rem .55rem; font-size:.74rem; cursor:pointer; margin-right:.3rem; transition:border-color .12s, color .12s;
+  }
+  .btn-row-action:hover { border-color:var(--accent); color:var(--text); }
+  .btn-row-action.pinned { border-color:var(--accent); color:var(--accent-light); }
+  .btn-row-action.danger:hover { border-color:#f87171; color:#fca5a5; }
 
   /* Tooltip "?" helper ------------------------------------------------ */
   .tip {
@@ -195,38 +222,38 @@
 <body>
 <div class="page">
   <header class="top">
-    <h1>🛡️ Ares — Dashboard</h1>
+    <h1>ARES <span class="brand-sub">Dashboard</span></h1>
   </header>
   <p class="sub">MCP Red Team Tool — corré <code>scan</code>/<code>vet</code>/<code>full</code> desde el navegador o revisá reportes anteriores.</p>
 
   <div class="warn">
-    <span class="ico">⚠️</span>
+    <span class="warn-label">Atención</span>
     <span>Este dashboard puede lanzar procesos locales (transporte stdio) y abrir conexiones
     salientes reales según el modo/tests/flags elegidos. Pensado para <b>localhost</b> — no lo expongas a redes
     no confiables sin auth/proxy encima.</span>
   </div>
 
   <div class="tabs">
-    <button class="active" onclick="showPanel('scan')">🆕 Nuevo scan</button>
-    <button onclick="showPanel('reports')">📋 Reportes anteriores</button>
+    <button class="active" onclick="showPanel('scan')">Nuevo scan</button>
+    <button onclick="showPanel('reports')">Reportes</button>
   </div>
 
   <div id="panel-scan" class="panel active">
 
     <div class="mode-tabs">
       <button class="active" data-mode="scan" onclick="setMode('scan')">
-        <b>🎯 scan</b><span>Tests seleccionados (o los default) contra UN target</span>
+        <b>SCAN</b><span>Tests seleccionados (o los default) contra UN target</span>
       </button>
       <button data-mode="vet" onclick="setMode('vet')">
-        <b>🔬 vet</b><span>TODOS los tests (incl. opt-in) contra UN target — intrusivo</span>
+        <b>VET</b><span>TODOS los tests (incl. opt-in) contra UN target — intrusivo</span>
       </button>
       <button data-mode="full" onclick="setMode('full')">
-        <b>🗂️ full</b><span>Varios targets en paralelo + correlación cross-server</span>
+        <b>FULL</b><span>Varios targets en paralelo + correlación cross-server</span>
       </button>
     </div>
 
     <fieldset id="target-fieldset">
-      <legend><span class="legend-ico">📡</span> Target
+      <legend>Target
         <span class="tip" tabindex="0" data-tip="A quién le vas a apuntar el scan: el servidor MCP que querés auditar.">?</span>
       </legend>
       <div class="row">
@@ -270,14 +297,14 @@
         </div>
       </div>
       <button type="button" class="secondary" onclick="loadDiscovered()" style="margin-top:.6rem;">
-        🔍 Descubrir servers configurados localmente
+        Descubrir servers configurados localmente
       </button>
       <p class="hint">Lista los MCPs ya declarados en Claude Desktop/Cursor/VSCode/Windsurf/Codex en esta máquina.</p>
       <div id="discovered"></div>
     </fieldset>
 
     <fieldset id="full-fieldset" style="display:none">
-      <legend><span class="legend-ico">🗂️</span> Targets para <code>full</code>
+      <legend>Targets para <code>full</code>
         <small>(varios MCPs en paralelo)</small>
       </legend>
       <p class="hint">Tildá servers de la lista de "Descubrir" (fieldset de arriba, ahora con checkboxes) o pegá
@@ -306,7 +333,7 @@
     </fieldset>
 
     <fieldset>
-      <legend><span class="legend-ico">🔐</span> Autenticación
+      <legend>Autenticación
         <small>(solo http/sse — se aplica a cada target si es <code>full</code>)</small>
       </legend>
       <div class="checkline" id="use-auth-line">
@@ -386,7 +413,7 @@
     </fieldset>
 
     <fieldset>
-      <legend><span class="legend-ico">⚙️</span> Opciones</legend>
+      <legend>Opciones</legend>
       <div class="row">
         <div>
           <label>Ambiente (policy)
@@ -521,9 +548,9 @@
         <div class="row" style="margin-top:.6rem">
           <div>
             <label>--sandbox-mem-mb
-              <span class="tip" tabindex="0" data-tip="Tope de memoria virtual (MB) del subprocess vía prlimit. Default 512 -- de sobra para cualquier server MCP legítimo respondiendo un tool call.">?</span>
+              <span class="tip" tabindex="0" data-tip="Tope de memoria VIRTUAL (MB) del subprocess vía prlimit --as. Default 2048 -- un runtime JIT/managed (Node/V8, JVM, .NET) reserva varios cientos de MB de memoria virtual solo para arrancar, mucho más que la que usa de verdad; con un valor chico (ej. 512) la conexión falla contra CUALQUIER server en esos runtimes, sin relación con un ataque real.">?</span>
             </label>
-            <input type="number" id="sandbox_mem_mb" placeholder="512" min="1">
+            <input type="number" id="sandbox_mem_mb" placeholder="2048" min="1">
           </div>
           <div>
             <label>--sandbox-cpu-s
@@ -573,26 +600,43 @@
     </fieldset>
 
     <fieldset id="tests-fieldset">
-      <legend><span class="legend-ico">🧪</span> Tests <small id="tests-hint"></small>
-        <span class="tip" tabindex="0" data-tip="Checkboxes agrupados por categoría, cargados en vivo desde el motor. Vienen pre-tildados los default_enabled=true — los mismos que correrían con ./ares.sh scan sin pasar --tests. El ícono ⚠️ significa que además necesita --allow-network tildado arriba.">?</span>
+      <legend>Nivel de ataque
+        <span class="tip" tabindex="0" data-tip="Clasifica cada test por qué tan lejos llega contra el target: 1 Básico (metadata/análisis estático, nunca invoca un tool real), 2 Intermedio (invoca tools/resources con payloads, una identidad), 3 Avanzado (impacto confirmado cruzando un límite: BOLA, cadena multi-step, SSRF real), 4 Crítico (agente real en el loop). Subir el nivel pre-tilda más tests default; nunca agrega un opt-in (red externa/live-agent) solo.">?</span>
+      </legend>
+      <div id="level-selector" class="level-selector">cargando…</div>
+      <p class="hint" id="level-hint"></p>
+    </fieldset>
+
+    <fieldset id="tests-fieldset-list">
+      <legend>Tests <small id="tests-hint"></small>
+        <span class="tip" tabindex="0" data-tip="Checkboxes agrupados por categoría y nivel, cargados en vivo desde el motor. Vienen pre-tildados los default_enabled=true dentro del nivel elegido arriba — los mismos que correrían con ./ares.sh scan sin pasar --tests. La etiqueta 'red externa' significa que además necesita --allow-network tildado arriba. Tildar/destildar un test a mano acá es siempre la elección final, independiente del nivel.">?</span>
       </legend>
       <div id="tests-container">cargando…</div>
     </fieldset>
 
-    <button class="primary" id="run-btn" onclick="runScan()">▶ Correr</button>
+    <button class="primary" id="run-btn" onclick="runScan()">Ejecutar</button>
 
     <div id="log"></div>
     <div id="result"></div>
   </div>
 
   <div id="panel-reports" class="panel">
+    <div class="reports-toolbar">
+      <span>Borrar reportes <b>no fijados</b> más viejos que</span>
+      <input type="number" id="purge_days" value="30" min="0">
+      <span>días</span>
+      <button type="button" class="secondary" onclick="purgeOldReports()">Purgar</button>
+      <span class="hint" style="margin:0">Un reporte fijado nunca se borra automáticamente ni con esta purga — desfijalo primero.</span>
+    </div>
     <div id="reports-list">cargando…</div>
   </div>
 </div>
 
 <script>
 let testsMeta = [];
+let levelsMeta = [];
 let currentMode = 'scan';
+let currentLevel = 4;  // sin restricción hasta que /api/levels cargue y fije el real (ver loadLevels)
 let discoveredServers = [];
 
 function esc(s) {
@@ -616,22 +660,17 @@ function setMode(mode) {
   document.getElementById('compare-auth-line').style.display = mode === 'full' ? 'none' : 'flex';
 
   const testsFieldset = document.getElementById('tests-fieldset');
+  const testsFieldsetList = document.getElementById('tests-fieldset-list');
   const testsHint = document.getElementById('tests-hint');
-  if (mode === 'vet') {
-    testsFieldset.style.display = 'none';
-    testsHint.textContent = '';
-  } else if (mode === 'full') {
-    testsFieldset.style.display = 'none';
-    testsHint.textContent = '';
-  } else {
-    testsFieldset.style.display = 'block';
-    testsHint.textContent = '';
-  }
+  const showTests = (mode !== 'vet' && mode !== 'full');  // vet/full corren TODOS los tests, nivel incluido -- no hay nada que elegir
+  testsFieldset.style.display = showTests ? 'block' : 'none';
+  testsFieldsetList.style.display = showTests ? 'block' : 'none';
+  testsHint.textContent = '';
 
   const envHint = document.getElementById('environment-hint');
   envHint.textContent = mode === 'vet' ? 'vet fuerza production' : '';
 
-  document.getElementById('run-btn').textContent = mode === 'full' ? '▶ Correr full' : (mode === 'vet' ? '▶ Correr vet' : '▶ Correr scan');
+  document.getElementById('run-btn').textContent = mode === 'full' ? 'Ejecutar full' : (mode === 'vet' ? 'Ejecutar vet' : 'Ejecutar scan');
 }
 
 function toggleAuthFields() {
@@ -655,6 +694,35 @@ function toggleTransport() {
   document.getElementById('url-fields').style.display = t === 'stdio' ? 'none' : 'flex';
 }
 
+async function loadLevels() {
+  const res = await fetch('/api/levels');
+  levelsMeta = await res.json();
+  const box = document.getElementById('level-selector');
+  box.innerHTML = levelsMeta.map(l => `
+    <button type="button" data-level="${l.level}" onclick="applyLevel(${l.level})">
+      <b>${l.level} — ${esc(l.name)}</b><span>${esc(l.description)}</span>
+    </button>`).join('');
+  applyLevel(4);  // sin restricción por default -- igual que el comportamiento de siempre (todos los default_enabled)
+}
+
+function applyLevel(n) {
+  currentLevel = n;
+  document.querySelectorAll('#level-selector button').forEach(b => b.classList.toggle('active', Number(b.dataset.level) === n));
+  const hint = document.getElementById('level-hint');
+  hint.textContent = n < 4
+    ? `Mostrando/pre-tildando solo tests de nivel <= ${n}. Un test opt-in (red externa/agente real) sigue sin tildarse solo aunque esté dentro del nivel -- tildalo a mano si lo querés correr.`
+    : '';
+  // re-tilda los checkboxes ya renderizados según el nuevo nivel, sin pisar lo que el
+  // usuario ya haya tocado a mano fuera de esta función (ver nota en runLevelDefaults)
+  document.querySelectorAll('.test-cb').forEach(cb => {
+    const t = testsMeta.find(x => x.id === cb.value);
+    if (!t) return;
+    const row = cb.closest('.checkline');
+    if (row) row.style.display = (t.level <= n) ? 'flex' : 'none';
+    cb.checked = t.default_enabled && t.level <= n;
+  });
+}
+
 async function loadTests() {
   const res = await fetch('/api/tests');
   testsMeta = await res.json();
@@ -664,17 +732,19 @@ async function loadTests() {
   for (const cat of Object.keys(byCat).sort()) {
     html += `<div class="cat-group"><h4>${esc(cat)}</h4>`;
     for (const t of byCat[cat]) {
-      const netTag = t.requires_network ? ' <span class="net-tag">⚠️ red externa</span>' : '';
+      const netTag = t.requires_network ? ' <span class="net-tag">red externa</span>' : '';
+      const lvlTag = ` <span class="lvl-tag">nivel ${t.level}</span>`;
       const tip = t.description ? `<span class="tip" tabindex="0" data-tip="${esc(t.description)}">?</span>` : '';
-      html += `<div class="checkline">
+      html += `<div class="checkline" data-level="${t.level}">
         <input type="checkbox" class="test-cb" id="test-${esc(t.id)}" value="${esc(t.id)}" ${t.default_enabled ? 'checked' : ''}>
-        <label for="test-${esc(t.id)}">${esc(t.id)} — ${esc(t.name)}${netTag}</label>
+        <label for="test-${esc(t.id)}">${esc(t.id)} — ${esc(t.name)}${lvlTag}${netTag}</label>
         ${tip}
       </div>`;
     }
     html += `</div>`;
   }
   document.getElementById('tests-container').innerHTML = html;
+  applyLevel(currentLevel);
 }
 
 async function loadDiscovered() {
@@ -779,35 +849,35 @@ function runScan() {
     const data = JSON.parse(msg.data);
     if (data.type === 'progress') {
       const e = data.event;
-      if (e.type === 'test_started') log(`▶ ${e.test_id} — ${e.name}`);
+      if (e.type === 'test_started') log(`> ${e.test_id} — ${e.name}`);
       else if (e.type === 'tool_call') {
         const elapsed = e.elapsed_ms ? ` (${e.elapsed_ms.toFixed(1)}ms)` : '';
         log(`    → ${e.kind}(${truncateJs(e.request)})${elapsed}`);
-        if (e.error) log(`      ✖ error: ${truncateJs(e.error, 120)}`);
+        if (e.error) log(`      ERROR: ${truncateJs(e.error, 120)}`);
         else if (e.response !== null && e.response !== undefined) log(`      ← ${truncateJs(e.response)}`);
       }
-      else if (e.type === 'test_finished') log(`  ${e.confirmed ? '🔴' : '🟢'} ${e.findings_count} findings, ${e.confirmed} confirmados`);
-      else if (e.type === 'test_error') log(`  ✖ error en ${e.test_id}: ${e.error}${e.timeout ? ' (timeout)' : ''}`);
-      else if (e.type === 'connection_error') log(`✖ error de conexión: ${e.error}`);
+      else if (e.type === 'test_finished') log(`  [${e.confirmed ? 'CONFIRMADO' : 'OK'}] ${e.findings_count} findings, ${e.confirmed} confirmados`);
+      else if (e.type === 'test_error') log(`  ERROR en ${e.test_id}: ${e.error}${e.timeout ? ' (timeout)' : ''}`);
+      else if (e.type === 'connection_error') log(`ERROR de conexión: ${e.error}`);
       else if (e.type === 'scan_started') log(`— scan ${e.scan_id} iniciado (${e.tests_selected.length} tests) —`);
       else if (e.type === 'noise_reduction') log(`  · reducción de ruido: ${e.allowlisted} suprimido(s) por allowlist, ${e.below_confidence_floor} por piso de confidence`);
       else if (e.type === 'log') log(e.message);
     } else if (data.type === 'fatal_error') {
-      log(`✖ FATAL: ${data.error}`);
+      log(`FATAL: ${data.error}`);
       btn.disabled = false;
     } else if (data.type === 'done') {
       renderResult(data);
       btn.disabled = false;
     }
   };
-  ws.onerror = () => { log('✖ error de WebSocket'); btn.disabled = false; };
+  ws.onerror = () => { log('ERROR de WebSocket'); btn.disabled = false; };
 }
 
 function renderResult(data) {
   const s = data.summary, sc = data.score, pv = data.policy_verdict;
   let html = '';
   if (data.incomplete_reason) {
-    html += `<div class="incomplete-banner">⚠ Corrida INCOMPLETA — el score y el veredicto
+    html += `<div class="incomplete-banner">ATENCIÓN — Corrida INCOMPLETA: el score y el veredicto
       no son válidos como postura de seguridad: ${esc(data.incomplete_reason)}</div>`;
   }
   html += `<div class="stat"><b>${s.confirmed_findings}</b>hallazgos confirmados</div>`;
@@ -870,9 +940,9 @@ function certCardHtml(cert) {
   }
   // factores evaluados (el "minucioso" del dictamen)
   if (a.factors && a.factors.length) {
-    const FM = { ok: '✓', caution: '⚠', bad: '✗', info: 'ℹ' };
+    const FM = { ok: 'OK', caution: 'ADV', bad: 'FALLA', info: 'INFO' };
     const items = a.factors.map(fac =>
-      `<li class="cf-${esc(fac.status)}">${esc(FM[fac.status] || '·')} ${esc(fac.text)}</li>`).join('');
+      `<li class="cf-${esc(fac.status)}"><b>[${esc(FM[fac.status] || '—')}]</b> ${esc(fac.text)}</li>`).join('');
     rows.push(['Factores', `<ul class="cert-factors">${items}</ul>`]);
   }
   if (cert.issuer) rows.push(['Emisor', esc(cert.issuer)]);
@@ -918,30 +988,30 @@ function runFull() {
     const data = JSON.parse(msg.data);
     if (data.type === 'progress') {
       const e = data.event;
-      if (e.type === 'test_started') log(`[${data.target}] ▶ ${e.test_id}`);
+      if (e.type === 'test_started') log(`[${data.target}] > ${e.test_id}`);
       else if (e.type === 'tool_call') {
         const elapsed = e.elapsed_ms ? ` (${e.elapsed_ms.toFixed(1)}ms)` : '';
         log(`[${data.target}]     → ${e.kind}(${truncateJs(e.request)})${elapsed}`);
-        if (e.error) log(`[${data.target}]       ✖ error: ${truncateJs(e.error, 120)}`);
+        if (e.error) log(`[${data.target}]       ERROR: ${truncateJs(e.error, 120)}`);
         else if (e.response !== null && e.response !== undefined) log(`[${data.target}]       ← ${truncateJs(e.response)}`);
       }
-      else if (e.type === 'test_finished') log(`[${data.target}]   ${e.confirmed ? '🔴' : '🟢'} ${e.findings_count} findings, ${e.confirmed} confirmados`);
-      else if (e.type === 'test_error') log(`[${data.target}]   ✖ error en ${e.test_id}: ${e.error}`);
-      else if (e.type === 'connection_error') log(`[${data.target}] ✖ error de conexión: ${e.error}`);
+      else if (e.type === 'test_finished') log(`[${data.target}]   [${e.confirmed ? 'CONFIRMADO' : 'OK'}] ${e.findings_count} findings, ${e.confirmed} confirmados`);
+      else if (e.type === 'test_error') log(`[${data.target}]   ERROR en ${e.test_id}: ${e.error}`);
+      else if (e.type === 'connection_error') log(`[${data.target}] ERROR de conexión: ${e.error}`);
       else if (e.type === 'log') log(`[${data.target}] ${e.message}`);
     } else if (data.type === 'target_done') {
-      log(`[${data.target}] ✔ listo — ${data.summary.confirmed_findings} hallazgos, grade ${data.score ? data.score.grade : '?'}, policy ${data.policy_verdict ? data.policy_verdict.overall : '?'}`);
+      log(`[${data.target}] listo — ${data.summary.confirmed_findings} hallazgos, grade ${data.score ? data.score.grade : '?'}, policy ${data.policy_verdict ? data.policy_verdict.overall : '?'}`);
     } else if (data.type === 'target_error') {
-      log(`[${data.target}] ✖ falló: ${data.error}`);
+      log(`[${data.target}] falló: ${data.error}`);
     } else if (data.type === 'fatal_error') {
-      log(`✖ FATAL: ${data.error}`);
+      log(`FATAL: ${data.error}`);
       btn.disabled = false;
     } else if (data.type === 'full_done') {
       renderFullResult(data);
       btn.disabled = false;
     }
   };
-  ws.onerror = () => { log('✖ error de WebSocket'); btn.disabled = false; };
+  ws.onerror = () => { log('ERROR de WebSocket'); btn.disabled = false; };
 }
 
 function renderFullResult(data) {
@@ -969,7 +1039,7 @@ function renderFullResult(data) {
           <td>${i.servers.join(' / ')}</td><td>${i.tools.join(' / ')}</td><td>${i.detail}</td></tr>`).join('') + '</table>';
     }
     if (!data.cross_server.tool_shadowing.length && !data.cross_server.cross_server_exfil_chains.length) {
-      html += '<p style="color:#6ee7b7">✓ sin indicios de tool shadowing ni cadenas de exfiltración cross-server.</p>';
+      html += '<p style="color:#6ee7b7">Sin indicios de tool shadowing ni cadenas de exfiltración cross-server.</p>';
     }
   } else if (data.results.filter(r => !r.error).length >= 2) {
     html += '<p class="sub" style="margin-top:1rem">Correlación cross-server no disponible para esta corrida.</p>';
@@ -983,20 +1053,61 @@ async function loadReports() {
   const reports = await res.json();
   const box = document.getElementById('reports-list');
   if (!reports.length) { box.innerHTML = '<p class="sub">Sin reportes todavía.</p>'; return; }
-  box.innerHTML = '<table><tr><th>Target</th><th>Modo</th><th>Fecha</th><th>Score</th><th>Policy</th><th>Reporte</th></tr>' +
+  box.innerHTML = '<table><tr><th>Target</th><th>Modo</th><th>Fecha</th><th>Score</th><th>Policy</th><th>Reporte</th><th>Conservar</th></tr>' +
     reports.map(r => {
       const href = (r.links && r.links.html) ? r.links.html : `/reports/${r.scan_id}/report.html`;
+      const pinned = !!r.pinned;
       return `<tr>
-      <td>${r.target_name}${r.batch_id ? ' <span class="pill">full</span>' : ''}</td>
-      <td>${r.mode || 'scan'}</td>
-      <td>${r.started_at}</td>
+      <td>${esc(r.target_name)}${r.batch_id ? ' <span class="pill">full</span>' : ''}</td>
+      <td>${esc(r.mode || 'scan')}</td>
+      <td>${esc(r.started_at)}</td>
       <td>${r.score ? r.score.score + '/100 (' + r.score.grade + ')' : '—'}</td>
       <td>${r.policy_verdict ? r.policy_verdict.overall : '—'}</td>
       <td><a href="${href}" target="_blank">ver</a></td>
+      <td>
+        <button type="button" class="btn-row-action${pinned ? ' pinned' : ''}" onclick="togglePin('${r.scan_id}', ${!pinned})">${pinned ? 'Fijado' : 'Fijar'}</button>
+        <button type="button" class="btn-row-action danger" onclick="deleteReport('${r.scan_id}', ${pinned})">Borrar</button>
+      </td>
     </tr>`;
     }).join('') + '</table>';
 }
 
+async function togglePin(scanId, pinned) {
+  await fetch(`/api/reports/${scanId}/pin`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({pinned}),
+  });
+  loadReports();
+}
+
+async function deleteReport(scanId, isPinned) {
+  if (isPinned) {
+    if (!confirm('Este reporte está fijado. ¿Desfijarlo y borrarlo de todas formas? Esto no se puede deshacer.')) return;
+  } else {
+    if (!confirm('¿Borrar este reporte? Esto no se puede deshacer.')) return;
+  }
+  const url = `/api/reports/${scanId}` + (isPinned ? '?force=true' : '');
+  const res = await fetch(url, {method: 'DELETE'});
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    alert(body.error || `No se pudo borrar (HTTP ${res.status}).`);
+  }
+  loadReports();
+}
+
+async function purgeOldReports() {
+  const days = Number(document.getElementById('purge_days').value || 0);
+  if (!confirm(`¿Borrar todos los reportes NO fijados más viejos que ${days} días? Esto no se puede deshacer.`)) return;
+  const res = await fetch('/api/reports/purge', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({older_than_days: days}),
+  });
+  const body = await res.json();
+  alert(`Borrados: ${body.deleted_count}. Quedan ${body.remaining} reporte(s) en el índice.`);
+  loadReports();
+}
+
+loadLevels();
 loadTests();
 </script>
 </body>

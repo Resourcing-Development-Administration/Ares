@@ -58,7 +58,10 @@ Ares/
 │   │   │                      #   cada Top 10 cubiertos, verificados contra fuente primaria (no memoria)
 │   │   ├── framework_watch.py # check_for_updates()/save_baseline(): avisa (nunca actualiza solo) si
 │   │   │                      #   OWASP MCP/LLM/API Top 10 o MITRE ATLAS cambiaron de versión pública
-│   │   │                      #   (comando `check-frameworks`, con --ack y --fail-if-stale para CI)
+│   │   │                      #   (comando `check-frameworks`, con --ack y --fail-if-stale para CI) +
+│   │   │                      #   verify_citations(): cada código citado debe existir en la fuente primaria (--verify)
+│   │   ├── list_watch.py      # comando `check-lists`: feed de CVEs vs OSV.dev, paquetes legítimos vs repo oficial,
+│   │   │                      #   patrones de secretos vs gitleaks. Solo informa; nunca edita las listas
 │   │   ├── limits.py          # cap_text(): tope de tamaño para texto analizado con regex y para
 │   │   │                      #   respuestas de call_tool/read_resource -- defensa contra un target
 │   │   │                      #   que infla el costo de análisis de Ares a propósito
@@ -78,7 +81,8 @@ Ares/
 │   ├── adversarial/
 │   │   ├── tests.py          # injection_passthrough, confused_deputy, destructive_no_confirmation,
 │   │   │                     #   rug_pull, ssrf_exfil
-│   │   ├── chain_tests.py    # adv.stateful_chain_exfil: encadenamiento multi-step CONFIRMADO por ejecución real
+│   │   ├── chain_tests.py    # adv.stateful_chain_exfil (2 tools) + adv.multistep_chain (hasta 4, eslabones probados con canario)
+│   │   │                     #   + adv.stored_injection_roundtrip (escribe→lee)
 │   │   ├── live_agent_tests.py  # adv.live_agent_injection: agente real en el loop (Anthropic/OpenAI/Ollama), opt-in
 │   │   └── oob.py             # listener local para confirmar SSRF por callback real (--oob-callback-host)
 │   ├── auth/tests.py          # unauthenticated_access, weak_credentials, authz_object_level (BOLA en
@@ -87,6 +91,25 @@ Ares/
 │   │                          #   id vs secreto, nunca el mismo valor -- plantado con una credencial y
 │   │                          #   confirmado con una SEGUNDA credencial/tenant independiente; requiere
 │   │                          #   --auth-token-b, http/sse únicamente)
+│   ├── api/                   # módulo de APIs REST/GraphQL (OWASP API Security Top 10), separado de MCP
+│   │   ├── client.py          # ApiTarget: httpx directo, credenciales A/B, nunca sigue redirects solo
+│   │   ├── spec.py            # parser de OpenAPI/Swagger/Postman + autodescubrimiento + sample_value()
+│   │   ├── registry.py        # registro propio (api_test), separado del de MCP -- recibe ApiTarget
+│   │   ├── meta.py            # inyecta vectores CVSS/business-impact/confidence/frameworks en las
+│   │   │                      #   mismas tablas de engine/core/ -- Finding.severity/risk funciona igual
+│   │   ├── rest_tests.py      # api.sensitive_paths, security_headers, cors, auth_required, bola,
+│   │   │                      #   verbose_errors, injection_probe, method_tampering, rate_limit, jwt,
+│   │   │                      #   mass_assignment
+│   │   ├── graphql_tests.py   # gql.introspection, field_suggestions, depth_limit, alias_batching,
+│   │   │                      #   unauth_queries, get_mutations
+│   │   └── runner.py          # run_api_scan(): equivalente a orchestrator.py pero para ApiTarget;
+│   │                          #   reusa ScanReport/scoring/policy/suppress tal cual (comando `api-scan`)
+│   ├── protocol/
+│   │   ├── tests.py           # sampling_elicitation_exposure
+│   │   ├── rawrpc.py          # canal JSON-RPC CRUDO (RawStdio: 2º subproceso sandboxeado; RawHttp: httpx directo)
+│   │   │                      #   -- el SDK valida todo lo que envía, así que no se puede fuzzear a través de él
+│   │   └── fuzz_tests.py      # jsonrpc_malformed_fuzz, batch_cancel_robustness, session_replay. Un crash/hang se
+│   │                          #   CONFIRMA reproduciéndolo en un canal nuevo antes de reportarlo (anti-flaky)
 │   ├── exposure/tests.py      # transport_security, cors_misconfig, network_reachability, session_id_entropy
 │   ├── supplychain/
 │   │   ├── tests.py           # secret_exposure, tool_squatting, exfiltration_chain, malicious_patterns,

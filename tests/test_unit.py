@@ -1,4 +1,6 @@
 """Tests unitarios de funciones puras -- rápidos, sin levantar ningún server."""
+import shutil
+import pytest
 from engine.supplychain.similarity import jaro_winkler
 from payloads.canary import strip_reflections, new_canary
 from engine.reporting.scoring import calculate_score, PENALTY
@@ -11,6 +13,9 @@ from engine.core.sandbox import (
     wrap_command, sandbox_available, sandbox_status, prlimit_available, bwrap_available,
     _current_user_proc_count, NPROC_HEADROOM,
 )
+from engine.core.models import LEVEL_NAMES
+from engine.core.registry import ids_at_or_below_level
+import engine.orchestrator  # noqa: F401 -- importa todos los módulos de tests para poblar el registry
 
 
 def _report_with(*findings) -> ScanReport:
@@ -465,6 +470,35 @@ def test_sandbox_network_cutoff_is_conditional_on_allow_network():
         assert "--unshare-ipc" in args
 
 
+def test_sandbox_default_mem_mb_is_enough_for_a_jit_runtime_to_start():
+    """Regresión directa de un bug real encontrado probando Ares contra servers MCP en
+    Node.js reales (campo de tiro): RLIMIT_AS (memoria VIRTUAL, no física) con el valor
+    viejo (512MB) hacía que V8 ni siquiera pudiera arrancar -- 'Fatal process OOM in
+    Failed to reserve virtual memory for CodeRange' -- así que TODO server Node.js se
+    reportaba como 'Connection closed' sin relación con su seguridad real. Confirmado a
+    mano en este host: 1024MB sigue fallando, 2048MB arranca -- este test fija el piso
+    para que nadie lo baje de nuevo sin volver a probarlo contra un runtime JIT real."""
+    from engine.core.sandbox import DEFAULT_MEM_MB
+    assert DEFAULT_MEM_MB >= 2048, (
+        "bajar esto rompe la conexión con cualquier server MCP en Node.js/JVM/.NET bajo "
+        "el sandbox bwrap+prlimit -- ver el comentario de DEFAULT_MEM_MB en sandbox.py"
+    )
+
+
+@pytest.mark.skipif(not bwrap_available() or not prlimit_available() or not shutil.which("node"),
+                     reason="necesita bwrap, prlimit y node instalados")
+def test_sandbox_default_mem_mb_lets_node_actually_start():
+    """Mismo bug que el test de arriba, pero end-to-end: corre node de verdad envuelto en
+    el sandbox completo (bwrap+prlimit) con los defaults reales de wrap_command(), no un
+    número a mano -- si alguien cambia DEFAULT_MEM_MB o la forma en que se arma el wrap,
+    esto lo detecta corriendo el runtime real, no solo leyendo la constante."""
+    import subprocess
+    command, args = wrap_command("node", ["-e", "process.exit(0)"])
+    proc = subprocess.run([command, *args], capture_output=True, timeout=15, text=True)
+    assert proc.returncode == 0, f"node no arrancó bajo el sandbox: {proc.stderr}"
+    assert "OOM" not in proc.stderr
+
+
 def test_sandbox_restores_script_path_shadowed_by_tmp_tmpfs(tmp_path):
     """Bug real encontrado probando esto mismo: `--tmpfs /tmp` (necesario para que el
     target tenga un /tmp propio y escribible) tapa con un tmpfs VACÍO cualquier cosa
@@ -480,12 +514,19 @@ def test_sandbox_restores_script_path_shadowed_by_tmp_tmpfs(tmp_path):
     assert str(script).startswith("/tmp")
 
     _, args = wrap_command("python3", [str(script)])
-    # el --ro-bind puntual del script tiene que aparecer DESPUÉS del --tmpfs /tmp en la
-    # lista (bwrap aplica binds en orden; el de más atrás gana en la misma ruta).
+    # Se restaura el PRIMER directorio bajo /tmp que contiene el script (no solo el
+    # archivo puntual) -- así un runtime/paquete relativo al comando (ej. un venv
+    # bajo /tmp, "/tmp/foo-venv/bin/python" necesitando "/tmp/foo-venv/lib/...") queda
+    # visible también, no solo el script en sí. El --ro-bind tiene que aparecer
+    # DESPUÉS del --tmpfs /tmp en la lista (bwrap aplica binds en orden; el de más
+    # atrás gana en la misma ruta).
+    top = "/" + "/".join(str(script).strip("/").split("/")[:2])  # /tmp/<primer-dir>
     idx_tmpfs = args.index("--tmpfs")
-    ro_bind_indices = [i for i, a in enumerate(args) if a == "--ro-bind" and args[i + 1] == str(script)]
-    assert ro_bind_indices, f"falta un --ro-bind puntual para {script} en {args}"
+    ro_bind_indices = [i for i, a in enumerate(args) if a == "--ro-bind" and args[i + 1] == top]
+    assert ro_bind_indices, f"falta un --ro-bind para {top} en {args}"
     assert ro_bind_indices[0] > idx_tmpfs
+    # y el script sigue siendo alcanzable dentro de ese subárbol restaurado
+    assert str(script).startswith(top + "/")
 
 
 def test_cross_server_findings_produce_real_scoreable_findings():
@@ -817,3 +858,28 @@ def test_fetch_presented_cert_pem_pins_self_signed(tmp_path):
         os.unlink(pem)
     finally:
         srv.shutdown()
+
+
+def test_every_registered_test_has_a_valid_level():
+    """Regresión: TestMeta.level es 1-4 para TODO test registrado (register_test ya lo valida
+    al registrar, pero esto confirma que ningún test se quedó en el default sin asignar a mano
+    -- hubiera pasado silenciosamente si alguien agrega un test nuevo y se olvida del kwarg)."""
+    from engine.core.registry import list_meta
+    rows = list_meta()
+    assert len(rows) >= 38, f"se esperaban al menos 38 tests registrados, hay {len(rows)}"
+    for meta in rows:
+        assert meta.level in LEVEL_NAMES, f"{meta.id}: level={meta.level!r} inválido"
+
+
+def test_ids_at_or_below_level_is_monotonic_and_covers_everyone():
+    """A nivel 4 (el tope) tienen que aparecer TODOS los tests registrados, y el set de
+    nivel N siempre es subconjunto del de nivel N+1 (subir el nivel nunca saca un test)."""
+    from engine.core.registry import all_tests
+    everyone = set(all_tests().keys())
+    by_level = {n: set(ids_at_or_below_level(n)) for n in (1, 2, 3, 4)}
+    assert by_level[4] == everyone
+    assert by_level[1] <= by_level[2] <= by_level[3] <= by_level[4]
+    # al menos un test real en cada nivel -- si alguno quedara vacío, el selector de nivel
+    # del webui/CLI mostraría un nivel sin nada adentro, una regresión de UX silenciosa.
+    for n in (1, 2, 3, 4):
+        assert by_level[n], f"nivel {n} no tiene ningún test asignado"

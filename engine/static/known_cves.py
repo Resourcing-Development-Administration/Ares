@@ -40,6 +40,16 @@ def _version_lt(a: str, b: str) -> bool:
     return ta < tb
 
 
+# Revisión manual de este feed: `ares check-lists` avisa si pasó MAX_AGE_DAYS y verifica cada CVE
+# contra OSV.dev (existe, y el fix publicado coincide con `affected_before`).
+LAST_REVIEWED = "2026-11-11"
+MAX_AGE_DAYS = 90
+# paquete publicado de cada familia, para consultar OSV.dev por CVEs nuevos que falten acá
+OSV_PACKAGES = {
+    "filesystem": ("npm", "@modelcontextprotocol/server-filesystem"),
+    "git": ("PyPI", "mcp-server-git"),
+}
+
 KNOWN_MCP_CVES = [
     {
         "name_hints": ["filesystem", "server-filesystem"],
@@ -99,27 +109,71 @@ KNOWN_MCP_CVES = [
         "fixed_in": "2025.12.18",
         "source": "https://vulnerablemcp.info/vuln/cve-2025-68145-anthropic-git-mcp-rce-chain.html",
     },
+    {
+        # agregado por `ares check-lists` (2026-11-11): OSV.dev publica esta vuln en mcp-server-git
+        # y el feed no la tenía. Fuente primaria: GHSA-vjqx-cfc4-9h6v (revisada por GitHub, 2026-02-26).
+        "name_hints": ["git", "server-git", "mcp-server-git"],
+        "cve": "CVE-2026-27735",
+        "title": "Path traversal en git_add (stagea archivos fuera del repositorio)",
+        "affected_before": "2026.1.14",
+        "cvss": "MODERATE (severidad GitHub Advisory; OSV solo publica un vector CVSS v4 sin score numérico)",
+        "summary": "git_add no validaba que las rutas de `files` quedaran dentro del repositorio: con `../` se "
+                    "podían agregar al índice archivos externos y luego exfiltrarlos con commit + push.",
+        "fixed_in": "2026.1.14",
+        "source": "https://github.com/modelcontextprotocol/servers/security/advisories/GHSA-vjqx-cfc4-9h6v",
+    },
 ]
 
 
-def check_known_cves(server_name: str | None, server_version: str | None) -> list[dict]:
-    """server_name/version: lo que el target autoreportó en `initialize`
-    (serverInfo) -- ver engine/core/client.py::MCPTarget.server_info.
-    Devuelve las entradas cuyo name_hint matchea Y (si hay versión) la
-    reportada es anterior al fix. Sin versión reportada, se listan igual
-    (mejor falso positivo a revisar manualmente que falso negativo)."""
+# Nombres EXACTOS con los que estos servers oficiales se autoreportan en `initialize` o se publican.
+# Antes se matcheaba por substring ("filesystem" in name): cualquier server propio que contuviera
+# "filesystem" o "git" en el nombre ("github-tools", "vulnerable-...-filesystem-workspace-actions")
+# se marcaba con el CVE del server oficial -- falso positivo confirmado en el lab. Ahora el nombre
+# normalizado debe ser IGUAL a uno de estos.
+_OFFICIAL_NAMES = {
+    "filesystem": {"filesystem", "server-filesystem", "secure-filesystem-server", "mcp-server-filesystem",
+                    "@modelcontextprotocol/server-filesystem"},
+    "git": {"git", "server-git", "mcp-git", "mcp-server-git"},
+}
+
+
+def _is_calver(v: str) -> bool:
+    """Los paquetes oficiales usan CalVer (2025.7.1). Muchos servers se autoreportan con su propia
+    versión interna (0.2.0, 1.0.0), que NO es comparable con la del paquete: compararlas diría
+    '0.2.0 < 2025.7.1 -> vulnerable' para un server ya parcheado."""
+    t = _version_tuple(v)
+    return bool(t) and t[0] >= 2024
+
+
+def _official_family(server_name: str) -> str | None:
+    n = server_name.strip().lower()
+    for fam, names in _OFFICIAL_NAMES.items():
+        if n in names:
+            return fam
+    return None
+
+
+def check_known_cves_detailed(server_name: str | None, server_version: str | None) -> dict:
+    """{"hits": [...CVEs que aplican con certeza razonable...],
+        "indeterminate": [...CVEs de un server oficial cuyo versionado autoreportado no es comparable...]}"""
+    out = {"hits": [], "indeterminate": []}
     if not server_name:
-        return []
-    name_lower = server_name.lower()
-    hits = []
+        return out
+    fam = _official_family(server_name)
+    if fam is None:
+        return out
     for entry in KNOWN_MCP_CVES:
-        if not any(hint in name_lower for hint in entry["name_hints"]):
+        if not any(h in _OFFICIAL_NAMES[fam] or h == fam for h in entry["name_hints"]):
             continue
-        if server_version:
-            try:
-                if not _version_lt(server_version, entry["affected_before"]):
-                    continue  # versión reportada ya es >= al fix conocido
-            except Exception:
-                pass
-        hits.append(entry)
-    return hits
+        if not server_version or not _is_calver(server_version):
+            out["indeterminate"].append(entry)
+            continue
+        if _version_lt(server_version, entry["affected_before"]):
+            out["hits"].append(entry)
+    return out
+
+
+def check_known_cves(server_name: str | None, server_version: str | None) -> list[dict]:
+    """Solo los hits con certeza razonable (nombre oficial exacto + versión CalVer comparable
+    anterior al fix). Ver check_known_cves_detailed para los casos indeterminados."""
+    return check_known_cves_detailed(server_name, server_version)["hits"]

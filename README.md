@@ -15,8 +15,26 @@ real; `auth.oauth_metadata_security` — RFC 9728/PKCE), exposición de red
 cadenas de exfiltración, patrones maliciosos, dependencias vulnerables,
 SAST) y correlación **cross-server** (tool shadowing + cadenas de
 exfiltración entre servers distintos conectados en la misma sesión, modo
-`full`). **38 tests** en total, incluyendo ataques multi-step confirmados
-por ejecución real (no solo heurística). Cada scan produce un score 0-100, un
+`full`). **39 tests** en total (niveles 1-4 de complejidad, ver `--max-level`),
+incluyendo ataques multi-step confirmados
+por ejecución real (no solo heurística).
+
+**También audita APIs REST y GraphQL** (`ares api-scan`, módulo separado en
+`engine/api/`, mismo motor de score/policy/SARIF): OWASP API Security Top 10
+2023 -- rutas sensibles expuestas, headers de seguridad, CORS reflejado,
+autenticación no exigida (BFLA), **BOLA/IDOR confirmado** (acceso cruzado
+real entre dos ids con la misma credencial), errores verbosos, inyección
+SQL/NoSQL básica, método TRACE, rate limiting, debilidades de JWT (`alg=none`,
+sin `exp`), mass assignment; y GraphQL -- introspección, sugerencias de
+campo, límite de profundidad, batching por alias sin límite, queries/
+mutations sin autenticación, mutations ejecutables por GET. Guiado por un
+spec OpenAPI/Swagger/Postman (local o URL) o autodescubierto en rutas
+comunes; GraphQL se detecta solo. Probado en campo contra DVGA (GraphQL:
+introspección + queries sin auth + mutations por GET, las 3 confirmadas) y
+contra un fixture REST propio (los 7 detectores con hallazgo confirmado,
+cero falsos positivos contra su contraparte segura).
+
+Cada scan produce un score 0-100, un
 veredicto de policy (BLOCK/CONDITIONAL/ALLOW) y opcionalmente un diff de qué
 hallazgos mitiga realmente la autenticación (`--compare-auth`).
 
@@ -304,28 +322,38 @@ para el detalle completo de qué se evaluó y por qué.
   se improvisó porque un jail mal calibrado (qué rutas exponer depende del
   `command`/runtime específico) genera falsos negativos silenciosos, peor
   que no tenerlo. Necesita un diseño propio, no un parche.
-- **`prlimit`/`bwrap` son Linux-only** — en macOS/Windows el aislamiento de
-  proceso se degrada a avisar y seguir sin nada de eso. Cerrarlo de verdad
-  en otras plataformas implica un backend alternativo (Docker/Podman), no
-  un fix chico.
+
+**Plataforma — decisión de alcance: por ahora Ares es Linux-only.** El
+aislamiento de proceso (`prlimit` + `bwrap`) depende de Linux, y es parte de
+lo que hace seguro auditar un server hostil. `ares.ps1`/`ares.bat` quedan en
+el repo pero no están soportados ni probados; soportar macOS/Windows exigiría
+un backend alternativo (Docker/Podman), y eso se retoma solo si cambia la decisión.
 
 **Nivel "ya cerrado, pulido menor pendiente":**
 - SAST/taint — `supplychain.source_sast` (semgrep, ruleset propio) ya cubre
   command injection/path traversal/eval-exec/deserialización insegura sobre
   el código fuente real, pero es un ruleset chico y curado a mano, no un
   motor SAST exhaustivo.
-- Ataques multi-step genéricos — `adv.stateful_chain_exfil` ya confirma por
-  ejecución real (no heurística) el patrón lector→emisor de dos llamadas;
-  encadenar N tools arbitrarios en secuencias más largas sigue sin cubrirse.
-- Fuzzing a nivel protocolo (frames JSON-RPC malformados, replay de
-  `Mcp-Session-Id`).
-- `ares check-frameworks --fail-if-stale` existe y funciona, pero no hay un
-  cron/GitHub Action que lo dispare solo — hoy depende de que alguien se
-  acuerde de correrlo.
-- Listas curadas (`static.known_cve_check`, `static.typosquatting_check`,
-  patrones de secretos propios) siguen siendo mantenimiento manual —
-  `check-frameworks` avisa sobre los 4 frameworks externos, no sobre estas
-  listas internas.
+- Fuzzing de protocolo: **cubierto** por `protocol.jsonrpc_malformed_fuzz`,
+  `protocol.batch_cancel_robustness` y `protocol.session_replay` (ver
+  sección 12 del manual). Lo que sigue sin cubrirse: fuzzing del transporte
+  SSE legado (solo stdio y streamable-http tienen canal crudo) y de la
+  negociación de `protocolVersion`.
+- Cadenas multi-step: **cubierto** por `adv.multistep_chain` (hasta 4 tools,
+  cada eslabón probado con canario) y `adv.stored_injection_roundtrip`
+  (escribe→lee). Límite real: la clasificación fuente/propagador/emisor es
+  por nombre de tool; un server que nombra sus tools de forma opaca
+  (`do_x`, `run_42`) no se analiza.
+- Vigilancia automática: `.github/workflows/watch.yml` corre cada lunes
+  `check-frameworks --verify --fail-if-stale 45` y `check-lists
+  --fail-on-drift`; si algo cambió/venció, el job falla y avisa. Nada se
+  actualiza solo -- decide un humano. Requiere haber commiteado
+  `rules/framework_versions.json` (el baseline).
+- Listas curadas: `ares check-lists` las contrasta contra OSV.dev (CVEs, con
+  detección de CVEs nuevos), el repo oficial `modelcontextprotocol/servers`
+  (paquetes legítimos) y gitleaks (patrones de secretos). **Siguen siendo
+  manuales** las listas internas sin fuente pública verificable: el ruleset
+  semgrep propio y los patrones de secretos propios (no-gitleaks).
 
 **Ya cubierto (dejado acá para no reabrirlo sin releer esto primero):**
 - Tool Shadowing cross-server (MCP09:2025) y Context Injection/Over-Sharing

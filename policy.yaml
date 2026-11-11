@@ -51,6 +51,29 @@ rules:
     production: CONDITIONAL
     development: ALLOW
 
+  # --- módulo de APIs (REST/GraphQL) ---
+  - pattern: "api.bola"
+    production: BLOCK
+    development: CONDITIONAL
+  - pattern: "api.auth_required"
+    production: BLOCK
+    development: CONDITIONAL
+  - pattern: "api.injection_probe"
+    production: BLOCK
+    development: BLOCK
+  - pattern: "api.jwt"
+    production: BLOCK
+    development: CONDITIONAL
+  - pattern: "api.sensitive_paths"
+    production: BLOCK
+    development: CONDITIONAL
+  - pattern: "gql.introspection"
+    production: CONDITIONAL
+    development: ALLOW
+  - pattern: "gql.unauth_queries"
+    production: BLOCK
+    development: CONDITIONAL
+
 # fallback por severidad cuando ningún pattern específico matchea el test_id
 severity_fallback:
   critical:

@@ -19,7 +19,10 @@ def register_test(
     description: str,
     default_enabled: bool = True,
     requires_network: bool = False,
+    level: int = 1,
 ):
+    if level not in (1, 2, 3, 4):
+        raise ValueError(f"{id}: level debe ser 1-4, recibido {level!r}")
     def decorator(func: TestFunc):
         meta = TestMeta(
             id=id,
@@ -28,6 +31,7 @@ def register_test(
             description=description,
             default_enabled=default_enabled,
             requires_network=requires_network,
+            level=level,
         )
         if id in _REGISTRY:
             raise ValueError(f"test id duplicado: {id}")
@@ -46,3 +50,9 @@ def get_test(test_id: str):
 
 def list_meta() -> list[TestMeta]:
     return [meta for meta, _ in _REGISTRY.values()]
+
+
+def ids_at_or_below_level(max_level: int) -> list[str]:
+    """IDs de todos los tests con level <= max_level -- usado por --max-level en la CLI
+    y por el selector de nivel del webui para pre-armar la selección por defecto."""
+    return [meta.id for meta, _ in _REGISTRY.values() if meta.level <= max_level]

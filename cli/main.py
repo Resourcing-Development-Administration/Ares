@@ -24,10 +24,10 @@ from rich.console import Console
 from rich.markup import escape as _rich_escape
 from rich.table import Table
 
-from engine.core.models import ScanConfig, AuthConfig, ScanReport
+from engine.core.models import ScanConfig, AuthConfig, ScanReport, LEVEL_NAMES
 from engine.reporting.scoring import calculate_score
 from engine.policy.engine import PolicyEngine
-from engine.core.registry import list_meta, all_tests
+from engine.core.registry import list_meta, all_tests, ids_at_or_below_level
 from engine.orchestrator import run_scan
 from engine.compare import run_auth_comparison
 from engine.reporting.html_report import save_html_report
@@ -36,6 +36,7 @@ from engine.reporting.redact import redact_report
 from engine.reporting.suppress import default_allowlist_path
 from engine.baseline import diff_against_baseline
 from engine.core.tls import resolve_ca_bundle, ca_bundle_source
+from engine.core.sandbox import DEFAULT_MEM_MB as DEFAULT_SANDBOX_MEM_MB
 from engine.discovery.local_configs import discover_mcp_servers
 from engine.crossserver import analyze_cross_server, cross_server_findings
 from engine import __version__ as ARES_VERSION
@@ -45,20 +46,42 @@ from engine.core.framework_watch import check_for_updates, save_baseline, oldest
 console = Console()
 
 
+def cmd_api_list_tests(args):
+    from engine.api.registry import all_api_tests
+    table = Table(title="Tests de API disponibles (REST + GraphQL)")
+    table.add_column("ID"); table.add_column("Nivel"); table.add_column("Tipo")
+    table.add_column("Nombre"); table.add_column("Default")
+    reg = all_api_tests()
+    for tid, (meta, _) in sorted(reg.items(), key=lambda kv: (getattr(kv[1][0], "kind", "rest"), kv[0])):
+        table.add_row(tid, f"{meta.level} {LEVEL_NAMES[meta.level]}", getattr(meta, "kind", "rest"),
+                      meta.name, "si" if meta.default_enabled else "no (opt-in)")
+    console.print(table)
+
+
 def cmd_list_tests(args):
-    table = Table(title="Tests disponibles")
+    max_level = getattr(args, "max_level", None)
+    table = Table(title="Tests disponibles" + (f" (nivel <= {max_level})" if max_level else ""))
     table.add_column("ID")
+    table.add_column("Nivel")
     table.add_column("Categoría")
     table.add_column("Nombre")
     table.add_column("Default")
     table.add_column("Red externa")
-    for meta in sorted(list_meta(), key=lambda m: (m.category.value, m.id)):
+    rows = sorted(list_meta(), key=lambda m: (m.level, m.category.value, m.id))
+    if max_level:
+        rows = [m for m in rows if m.level <= max_level]
+    for meta in rows:
         table.add_row(
-            meta.id, meta.category.value, meta.name,
-            "✅" if meta.default_enabled else "❌ (opt-in)",
-            "⚠️ sí" if meta.requires_network else "no",
+            meta.id, f"{meta.level} {LEVEL_NAMES[meta.level]}", meta.category.value, meta.name,
+            "si" if meta.default_enabled else "no (opt-in)",
+            "si" if meta.requires_network else "no",
         )
     console.print(table)
+    console.print(
+        "\n[dim]Niveles -- 1 Básico (metadata/análisis estático), 2 Intermedio (sondeo con "
+        "payloads), 3 Avanzado (impacto confirmado/red real), 4 Crítico (agente real en el "
+        "loop). Usá --max-level en 'scan'/'vet' para correr solo hasta un nivel dado.[/dim]"
+    )
 
 
 def cmd_discover(args):
@@ -161,7 +184,33 @@ def cmd_check_frameworks(args):
     elif not any(r["status"] == "error" for r in results):
         console.print("[dim]Sin novedades respecto al último check.[/dim]")
 
-    if args.ack:
+    verify_bad = 0
+    if getattr(args, "verify", False):
+        from engine.core.framework_watch import verify_citations
+        console.print("\n[cyan]Verificando que cada código/ID citado en frameworks.py exista en su fuente primaria...[/cyan]")
+        try:
+            vrows = asyncio.run(verify_citations())
+        except Exception as e:
+            console.print(f"[red]Falló la verificación: {e}[/red]")
+            vrows = []
+        vt = Table(title="Citas verificadas contra la fuente primaria")
+        for c in ("Framework", "Código", "Estado", "Detalle"):
+            vt.add_column(c)
+        for r in vrows:
+            if r["status"] == "ok":
+                continue  # solo mostrar lo que requiere atención; el resumen cuenta los ok
+            verify_bad += 1
+            vt.add_row(r["framework"], r["code"], f"[bold red]{r['status']}[/bold red]", r["detail"][:90])
+        ok = sum(1 for r in vrows if r["status"] == "ok")
+        if verify_bad:
+            console.print(vt)
+        console.print(f"[{'green' if not verify_bad else 'red'}]{ok}/{len(vrows)} citas verificadas OK"
+                      f"{'' if not verify_bad else f', {verify_bad} requieren revisión'}.[/]")
+
+    if args.ack and verify_bad:
+        console.print("[bold red]No se aceptó el baseline:[/bold red] hay citas que no verifican contra la fuente primaria "
+                      "(ver arriba). Corregir frameworks.py y volver a correr con --ack.")
+    elif args.ack:
         save_baseline(results)
         console.print("[green]Baseline actualizado.[/green]")
 
@@ -173,7 +222,7 @@ def cmd_check_frameworks(args):
     # nunca se entera de nada. Se evalúa DESPUÉS de un --ack en la misma invocación (si
     # se pasan juntos, el --ack de hoy ya cuenta como corrida reciente).
     if args.fail_if_stale is not None:
-        exit_code = 1 if any_alert else 0
+        exit_code = 1 if (any_alert or verify_bad) else 0
         age = oldest_baseline_age_days()
         if age is None:
             console.print("[red]--fail-if-stale: nunca se corrió --ack -- sin baseline.[/red]")
@@ -184,6 +233,67 @@ def cmd_check_frameworks(args):
             exit_code = 1
         if exit_code:
             sys.exit(exit_code)
+
+
+def cmd_check_lists(args):
+    """Contrasta las listas curadas a mano contra su fuente pública real (ver engine/core/list_watch.py).
+    Nunca modifica nada: solo informa qué hay que revisar."""
+    from engine.core.list_watch import check_all_lists, STATUS_BAD
+    console.print("[cyan]Verificando listas curadas contra OSV.dev, modelcontextprotocol/servers y gitleaks...[/cyan]")
+    try:
+        rows = asyncio.run(check_all_lists())
+    except Exception as e:
+        console.print(f"[red]Falló la verificación: {e}[/red]")
+        sys.exit(1)
+    table = Table(title="Listas curadas -- estado contra la fuente pública")
+    for c in ("Lista", "Chequeo", "Estado", "Detalle"):
+        table.add_column(c)
+    style = {"ok": "green", "stale": "bold red", "drift": "bold red", "missing": "bold red", "error": "yellow"}
+    for r in rows:
+        table.add_row(r["list"], r["check"], f"[{style[r['status']]}]{r['status']}[/{style[r['status']]}]", r["detail"][:110])
+    console.print(table)
+    bad = [r for r in rows if r["status"] in STATUS_BAD]
+    errs = [r for r in rows if r["status"] == "error"]
+    if bad:
+        console.print(f"\n[bold red]{len(bad)} chequeo(s) requieren revisión humana[/bold red] "
+                      f"(vencida / desfasada / con entradas faltantes). Este comando nunca edita las listas.")
+    if errs:
+        console.print(f"[yellow]{len(errs)} chequeo(s) no se pudieron completar (red/API) -- no cuentan como OK.[/yellow]")
+    if not bad and not errs:
+        console.print("[green]Todas las listas curadas coinciden con su fuente.[/green]")
+    if args.fail_on_drift and (bad or errs):
+        sys.exit(1)
+
+
+
+def _build_api_auth(token, atype, header_name):
+    if not token:
+        return {}
+    if atype == "bearer":
+        return {"Authorization": f"Bearer {token}"}
+    return {(header_name or "X-API-Key"): token}
+
+
+def cmd_api_scan(args):
+    from engine.api.runner import run_api_scan
+    headers = _parse_headers(args.header)
+    auth_a = _build_api_auth(args.auth_token, args.auth_type, args.auth_header_name)
+    auth_b = _build_api_auth(args.auth_token_b, args.auth_type_b, args.auth_header_name_b)
+    selected = [t for t in args.tests.split(",") if t] if args.tests else []
+    if args.max_level and not selected:
+        from engine.api.registry import all_api_tests
+        reg = all_api_tests()
+        selected = [tid for tid, (meta, _) in reg.items() if meta.default_enabled and meta.level <= args.max_level]
+    verify = resolve_ca_bundle(args.ca_bundle) if getattr(args, "ca_bundle", None) else True
+    console.print(f"[cyan]Auditando API en {args.url} ...[/cyan]")
+    report = asyncio.run(run_api_scan(
+        base_url=args.url, spec_source=args.spec, selected_tests=selected or None, headers=headers,
+        auth_a=auth_a or None, auth_b=auth_b or None, jwt=args.jwt or args.auth_token, verify=verify,
+        delay_ms=args.request_delay_ms, max_fuzz=args.max_fuzz_cases, test_timeout_s=args.test_timeout_s,
+        graphql_path=args.graphql_path, allowlist_path=_resolve_allowlist(args),
+        min_confidence=args.min_confidence, environment=args.environment,
+    ))
+    _emit_report(report, args, args.out, args.sarif_out)
 
 
 def _parse_headers(raw: list[str]) -> dict:
@@ -294,6 +404,15 @@ def _resolve_ca_bundle_arg(args):
 
 def _build_config(args, target_name: str, transport: str, connection: dict) -> ScanConfig:
     selected = args.tests.split(",") if args.tests else []
+    max_level = getattr(args, "max_level", None)
+    if max_level and not selected:
+        # sin --tests explícito: en vez de dejar selected_tests vacío (que el orquestador
+        # expande a TODOS los default_enabled sin mirar nivel), armamos la lista a mano
+        # como "default_enabled AND nivel <= N" -- --max-level nunca agrega opt-in, solo
+        # recorta. Si el usuario puso --tests a mano, esa elección explícita gana entera
+        # (ver help de --max-level): no filtramos esa lista por nivel.
+        allowed = set(ids_at_or_below_level(max_level))
+        selected = [tid for tid, (meta, _) in all_tests().items() if meta.default_enabled and tid in allowed]
     connection = dict(connection)
     auth = _build_auth(args)
     headers = _parse_headers(args.header)
@@ -327,7 +446,7 @@ def _build_config(args, target_name: str, transport: str, connection: dict) -> S
         verbose=getattr(args, "verbose", False),
         max_consecutive_timeouts=getattr(args, "max_consecutive_timeouts", 3),
         sandbox_subprocess=not getattr(args, "no_sandbox", False),
-        sandbox_mem_mb=getattr(args, "sandbox_mem_mb", 512),
+        sandbox_mem_mb=getattr(args, "sandbox_mem_mb", None) or DEFAULT_SANDBOX_MEM_MB,
         sandbox_cpu_s=getattr(args, "sandbox_cpu_s", 120),
         sandbox_nproc=getattr(args, "sandbox_nproc", None),
         sandbox_nofile=getattr(args, "sandbox_nofile", 256),
@@ -511,9 +630,13 @@ def cmd_vet(args):
             sys.exit(1)
         connection = {"url": args.url}
 
+    vet_test_ids = sorted(all_tests().keys())
+    if getattr(args, "max_level", None):
+        vet_test_ids = [t for t in vet_test_ids if t in set(ids_at_or_below_level(args.max_level))]
+
     full_args = argparse.Namespace(
         transport=args.transport, command=args.command, args=args.args, url=args.url,
-        name=args.name, tests=",".join(sorted(all_tests().keys())),
+        name=args.name, tests=",".join(vet_test_ids),
         out=args.out, sarif_out=args.sarif_out or (args.out.rsplit(".", 1)[0] + ".sarif"),
         baseline=args.baseline, max_fuzz_cases=args.max_fuzz_cases,
         allow_network=True, request_delay_ms=args.request_delay_ms,
@@ -574,7 +697,18 @@ async def _full_one(sem: asyncio.Semaphore, args, server: dict, mode: str, out_d
         if auth:
             connection["auth"] = auth
 
-        selected = [] if mode == "scan" else sorted(all_tests().keys())
+        max_level = getattr(args, "max_level", None)
+        if mode == "scan":
+            if max_level:
+                allowed = set(ids_at_or_below_level(max_level))
+                selected = [tid for tid, (meta, _) in all_tests().items() if meta.default_enabled and tid in allowed]
+            else:
+                selected = []
+        else:
+            selected = sorted(all_tests().keys())
+            if max_level:
+                allowed = set(ids_at_or_below_level(max_level))
+                selected = [t for t in selected if t in allowed]
         config = ScanConfig(
             target_name=name,
             transport=transport,
@@ -831,7 +965,12 @@ def main():
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_list = sub.add_parser("list-tests")
+    p_list.add_argument("--max-level", dest="max_level", type=int, choices=[1, 2, 3, 4], default=None,
+                         help="solo lista tests con nivel <= N (1 Básico .. 4 Crítico)")
     p_list.set_defaults(func=cmd_list_tests)
+
+    p_api_list = sub.add_parser("api-list-tests", help="lista los tests de API (REST + GraphQL) disponibles")
+    p_api_list.set_defaults(func=cmd_api_list_tests)
 
     p_discover = sub.add_parser("discover", help="Descubre servers MCP configurados localmente (Claude Desktop, Cursor, etc.)")
     p_discover.set_defaults(func=cmd_discover)
@@ -842,7 +981,12 @@ def main():
     p_frameworks = sub.add_parser("check-frameworks", help="Avisa si OWASP MCP/LLM/API Top 10 o MITRE ATLAS cambiaron de versión -- nunca actualiza nada solo")
     p_frameworks.add_argument("--ack", action="store_true", help="acepta el estado actual como nuevo baseline (deja de avisar sobre este cambio puntual)")
     p_frameworks.add_argument("--fail-if-stale", dest="fail_if_stale", type=float, default=None, help="para CI: exit code 1 si el baseline más viejo tiene más de N días, o si no hay baseline, o si hay un cambio sin revisar. Sin esta flag, el comando siempre sale 0 (uso interactivo normal)")
+    p_frameworks.add_argument("--verify", action="store_true", help="además de detectar cambios, verifica que CADA código citado en frameworks.py (MCP/LLM/ATLAS) exista en su fuente primaria -- detecta renumeraciones/retiros (ej. LLM Top 10 2025->2026)")
     p_frameworks.set_defaults(func=cmd_check_frameworks)
+
+    p_lists = sub.add_parser("check-lists", help="verifica las listas curadas (feed de CVEs, paquetes legítimos, patrones de secretos) contra sus fuentes públicas (OSV.dev, repo oficial de servers MCP, gitleaks)")
+    p_lists.add_argument("--fail-on-drift", dest="fail_on_drift", action="store_true", help="para CI: exit code 1 si alguna lista está vencida, desfasada o le faltan entradas")
+    p_lists.set_defaults(func=cmd_check_lists)
 
     p_serve = sub.add_parser("serve", help="Levanta el dashboard web (FastAPI + WebSocket) en localhost")
     p_serve.add_argument("--host", default="127.0.0.1")
@@ -858,6 +1002,10 @@ def main():
     p_scan.add_argument("--config", default=None, help="ruta a un config estilo Claude Desktop; escanea todos sus mcpServers en batch")
     p_scan.add_argument("--name", default=None)
     p_scan.add_argument("--tests", default="", help="lista de test ids separados por coma; vacío = todos los default")
+    p_scan.add_argument("--max-level", dest="max_level", type=int, choices=[1, 2, 3, 4], default=None,
+                         help="solo corre tests con nivel <= N (1 Básico, 2 Intermedio, 3 Avanzado, 4 Crítico -- "
+                              "ver 'list-tests'). Se combina con --tests; si --tests viene explícito, ese ID "
+                              "corre igual aunque supere --max-level (elección explícita gana).")
     p_scan.add_argument("--out", default="reporte.html")
     p_scan.add_argument("--sarif-out", dest="sarif_out", default=None, help="también exporta hallazgos confirmados en SARIF")
     p_scan.add_argument("--baseline", default=None, help="ruta a un reporte.json anterior; agrega al reporte qué hallazgos son nuevos/resueltos/persisten desde esa corrida")
@@ -886,7 +1034,11 @@ def main():
     p_scan.add_argument("--test-timeout-s", dest="test_timeout_s", type=float, default=60.0, help="segundos máximos por test antes de cortarlo y seguir con el resto (default 60)")
     p_scan.add_argument("--max-consecutive-timeouts", dest="max_consecutive_timeouts", type=int, default=3, help="circuit breaker: tras N timeouts seguidos, se saltea el resto de la batería de una (0 = sin límite)")
     p_scan.add_argument("--no-sandbox", dest="no_sandbox", action="store_true", help="desactiva el aislamiento de proceso (prlimit) del subprocess stdio del target -- por default va con RLIMIT real de memoria/CPU/procesos/FDs")
-    p_scan.add_argument("--sandbox-mem-mb", dest="sandbox_mem_mb", type=int, default=512, help="tope de memoria virtual (MB) del proceso del target vía prlimit (default 512)")
+    p_scan.add_argument("--sandbox-mem-mb", dest="sandbox_mem_mb", type=int, default=DEFAULT_SANDBOX_MEM_MB,
+                         help=f"tope de memoria VIRTUAL (MB) del proceso del target vía prlimit --as (default "
+                              f"{DEFAULT_SANDBOX_MEM_MB}; un runtime JIT/managed -- Node/V8, JVM, .NET -- reserva "
+                              f"mucha más memoria virtual que la que usa de verdad al arrancar, así que un valor "
+                              f"chico corta la conexión con TODO server en esos runtimes, no solo a un ataque real)")
     p_scan.add_argument("--sandbox-cpu-s", dest="sandbox_cpu_s", type=int, default=120, help="tope de tiempo de CPU (segundos) del proceso del target vía prlimit (default 120)")
     p_scan.add_argument("--sandbox-nproc", dest="sandbox_nproc", type=int, default=None, help="tope de procesos/threads del target vía prlimit -- bloquea fork bombs. Default: calculado dinámicamente (lo que ya tiene el usuario corriendo + margen), nunca un número absoluto fijo")
     p_scan.add_argument("--sandbox-nofile", dest="sandbox_nofile", type=int, default=256, help="tope de file descriptors abiertos del target vía prlimit (default 256)")
@@ -896,6 +1048,33 @@ def main():
     p_scan.add_argument("--verbose", action="store_true", help="imprime cada llamada real (list_tools/call_tool/read_resource) en vivo, con request/response truncados -- no solo el resumen por test")
     p_scan.add_argument("--webhook-on-regression", dest="webhook_on_regression", default=None, help="requiere --baseline: si aparecen hallazgos NUEVOS respecto al baseline, hace UN POST JSON a esta URL (nunca si no hay regresión). Para correr esto en un cron/systemd timer del SO -- Ares no reinventa scheduling")
     p_scan.set_defaults(func=cmd_scan)
+
+    p_api = sub.add_parser("api-scan", help="Audita una API REST/GraphQL (OWASP API Security Top 10) -- mismo motor de reporte/score/policy/SARIF que 'scan'")
+    p_api.add_argument("--url", required=True, help="base URL de la API, ej: http://localhost:8888")
+    p_api.add_argument("--spec", default=None, help="OpenAPI/Swagger/Postman: ruta local o URL. Sin esto, se intenta autodescubrir en rutas comunes (/openapi.json, /swagger.json...)")
+    p_api.add_argument("--graphql-path", dest="graphql_path", default=None, help="path del endpoint GraphQL si no es uno de los comunes (/graphql, /api/graphql, /v1/graphql, /gql)")
+    p_api.add_argument("--tests", default="", help="lista de test ids separados por coma; vacío = todos los default_enabled")
+    p_api.add_argument("--max-level", dest="max_level", type=int, choices=[1, 2, 3, 4], default=None)
+    p_api.add_argument("--out", default="reporte_api.html")
+    p_api.add_argument("--sarif-out", dest="sarif_out", default=None)
+    p_api.add_argument("--header", action="append", default=[], help='header HTTP extra "Clave: Valor" (repetible)')
+    p_api.add_argument("--auth-token", dest="auth_token", default=None, help="credencial principal (identidad A)")
+    p_api.add_argument("--auth-type", dest="auth_type", choices=["bearer", "apikey", "custom"], default="bearer")
+    p_api.add_argument("--auth-header-name", dest="auth_header_name", default=None)
+    p_api.add_argument("--auth-token-b", dest="auth_token_b", default=None, help="SEGUNDA credencial/identidad, para api.bola (acceso cruzado con dos usuarios reales)")
+    p_api.add_argument("--auth-type-b", dest="auth_type_b", choices=["bearer", "apikey", "custom"], default="bearer")
+    p_api.add_argument("--auth-header-name-b", dest="auth_header_name_b", default=None)
+    p_api.add_argument("--jwt", default=None, help="override: JWT a analizar en api.jwt, si es distinto de --auth-token")
+    p_api.add_argument("--ca-bundle", dest="ca_bundle", default=None)
+    p_api.add_argument("--request-delay-ms", dest="request_delay_ms", type=int, default=0)
+    p_api.add_argument("--max-fuzz-cases", dest="max_fuzz_cases", type=int, default=40)
+    p_api.add_argument("--test-timeout-s", dest="test_timeout_s", type=float, default=60.0)
+    p_api.add_argument("--environment", choices=["production", "development"], default="production")
+    p_api.add_argument("--allowlist", default=None)
+    p_api.add_argument("--min-confidence", dest="min_confidence", choices=["heuristic", "verified"], default="heuristic")
+    p_api.add_argument("--print", dest="print_findings", action="store_true")
+    p_api.add_argument("--no-file", dest="no_file", action="store_true")
+    p_api.set_defaults(func=cmd_api_scan)
 
     p_vet = sub.add_parser("vet", help="Auditoría de máxima cobertura antes de implementar un MCP: corre TODOS los tests (incluidos opt-in), pensada para el gate de 'apto para mi operación'")
     p_vet.add_argument("--transport", choices=["stdio", "sse", "http"], default="stdio")
@@ -907,6 +1086,9 @@ def main():
     p_vet.add_argument("--sarif-out", dest="sarif_out", default=None, help="default: mismo nombre que --out con extensión .sarif")
     p_vet.add_argument("--baseline", default=None)
     p_vet.add_argument("--max-fuzz-cases", type=int, default=50, help="más alto que 'scan' default -- esto es auditoría exhaustiva")
+    p_vet.add_argument("--max-level", dest="max_level", type=int, choices=[1, 2, 3, 4], default=None,
+                        help="por default vet corre TODOS los tests incluidos opt-in; con esto se limita a "
+                             "nivel <= N (ej. --max-level 3 para excluir adv.live_agent_injection)")
     p_vet.add_argument("--request-delay-ms", dest="request_delay_ms", type=int, default=0)
     p_vet.add_argument("--oob-callback-host", dest="oob_callback_host", default=None)
     p_vet.add_argument("--source-path", dest="source_path", default=None, help="ruta al código fuente, para incluir el chequeo de dependencias vulnerables (OSV.dev)")
@@ -942,6 +1124,8 @@ def main():
     p_full.add_argument("--url", default=None, help="target único explícito (http/sse), en vez de auto-discover")
     p_full.add_argument("--name", default=None)
     p_full.add_argument("--max-fuzz-cases", type=int, default=25)
+    p_full.add_argument("--max-level", dest="max_level", type=int, choices=[1, 2, 3, 4], default=None,
+                         help="limita los tests corridos (en ambos modos) a nivel <= N -- ver 'list-tests'")
     p_full.add_argument("--allow-network", action="store_true", help="ignorado en modo vet (ya lo fuerza); aplica solo a --mode scan")
     p_full.add_argument("--request-delay-ms", dest="request_delay_ms", type=int, default=0)
     p_full.add_argument("--oob-callback-host", dest="oob_callback_host", default=None)

@@ -35,6 +35,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from engine.core.models import ScanConfig, AuthConfig, ScanReport
 from engine.core.tls import resolve_ca_bundle
+from engine.core.sandbox import DEFAULT_MEM_MB as DEFAULT_SANDBOX_MEM_MB
 from engine.core.registry import list_meta, all_tests
 from engine.orchestrator import run_scan
 from engine.compare import run_auth_comparison
@@ -104,10 +105,38 @@ def _save_index(entries: list[dict]):
         json.dump(entries, f, indent=2, ensure_ascii=False)
 
 
+MAX_INDEX_ENTRIES = 200  # tope histórico del index -- ver _add_index_entry
+
+
+def _delete_report_dir(scan_id: str):
+    """Borra reports/<scan_id>/ del disco -- separado de _save_index para que tanto el
+    cap automático como el borrado manual (DELETE /api/reports/{id}) y la purga masiva
+    usen el mismo camino y no dejen carpetas huérfanas (bug real de antes: el cap de
+    _add_index_entry solo recortaba el index.json, nunca el directorio en disco -- un
+    reporte #201+ en adelante quedaba invisible en la UI pero SEGUÍA ocupando espacio
+    para siempre, sin ninguna forma de encontrarlo para borrarlo a mano)."""
+    import shutil
+    scan_dir = os.path.join(REPORTS_DIR, scan_id)
+    if os.path.isdir(scan_dir):
+        shutil.rmtree(scan_dir, ignore_errors=True)
+
+
 def _add_index_entry(entry: dict):
     entries = _load_index()
     entries.insert(0, entry)
-    _save_index(entries[:200])  # cap histórico
+    # El cap nunca saca un entry fijado ("pinned": true) -- esa es la garantía completa de
+    # fijar un reporte: sin esto, un reporte importante fijado hoy igual podía desaparecer
+    # más tarde si se acumulaban 200 corridas nuevas encima. Se recorta primero lo NO
+    # fijado, más viejo primero (la lista ya viene más-nuevo-primero por el insert(0,...)
+    # de arriba, así que lo no-fijado al final de la lista es lo más viejo).
+    pinned = [e for e in entries if e.get("pinned")]
+    unpinned = [e for e in entries if not e.get("pinned")]
+    keep_unpinned_budget = max(0, MAX_INDEX_ENTRIES - len(pinned))
+    to_drop = unpinned[keep_unpinned_budget:]
+    kept_ids = {e["scan_id"] for e in pinned} | {e["scan_id"] for e in unpinned[:keep_unpinned_budget]}
+    for e in to_drop:
+        _delete_report_dir(e["scan_id"])
+    _save_index([e for e in entries if e["scan_id"] in kept_ids])
 
 
 # --- construcción de ScanConfig: separado en (transporte+conexión) por un lado
@@ -190,7 +219,7 @@ def _build_config(params: dict, target_name: str, transport: str, connection: di
         # sobre ellos, a diferencia de la CLI. Mismos params que la UI ya puede mandar.
         max_consecutive_timeouts=int(params.get("max_consecutive_timeouts") or 3),
         sandbox_subprocess=not bool(params.get("no_sandbox")),
-        sandbox_mem_mb=int(params.get("sandbox_mem_mb") or 512),
+        sandbox_mem_mb=int(params.get("sandbox_mem_mb") or DEFAULT_SANDBOX_MEM_MB),
         sandbox_cpu_s=int(params.get("sandbox_cpu_s") or 120),
         sandbox_nproc=int(params["sandbox_nproc"]) if params.get("sandbox_nproc") else None,
         sandbox_nofile=int(params.get("sandbox_nofile") or 256),
@@ -307,10 +336,16 @@ async def api_tests():
         {
             "id": m.id, "name": m.name, "category": m.category.value,
             "description": m.description, "default_enabled": m.default_enabled,
-            "requires_network": m.requires_network,
+            "requires_network": m.requires_network, "level": m.level,
         }
-        for m in sorted(list_meta(), key=lambda m: (m.category.value, m.id))
+        for m in sorted(list_meta(), key=lambda m: (m.level, m.category.value, m.id))
     ]
+
+
+@app.get("/api/levels")
+async def api_levels():
+    from engine.core.models import LEVEL_NAMES, LEVEL_DESCRIPTIONS
+    return [{"level": n, "name": LEVEL_NAMES[n], "description": LEVEL_DESCRIPTIONS[n]} for n in (1, 2, 3, 4)]
 
 
 @app.get("/api/discover")
@@ -321,6 +356,70 @@ async def api_discover():
 @app.get("/api/reports")
 async def api_reports():
     return _load_index()
+
+
+@app.post("/api/reports/{scan_id}/pin")
+async def api_pin_report(scan_id: str, request: Request):
+    """Fija/desfija un reporte. Fijado = nunca lo saca el cap automático de
+    _add_index_entry ni lo toca /api/reports/purge -- la decisión de "conservar esto"
+    la toma la persona, no un timer. Sin decisión (queda sin fijar), eventualmente
+    se lo lleva el cap o una purga manual -- ver _add_index_entry más arriba."""
+    body = await request.json()
+    pinned = bool(body.get("pinned", True))
+    entries = _load_index()
+    for e in entries:
+        if e["scan_id"] == scan_id:
+            e["pinned"] = pinned
+            _save_index(entries)
+            return {"scan_id": scan_id, "pinned": pinned}
+    return JSONResponse({"error": "scan_id no encontrado"}, status_code=404)
+
+
+@app.delete("/api/reports/{scan_id}")
+async def api_delete_report(scan_id: str, force: bool = False):
+    """Borra un reporte (index + carpeta en disco). Si está fijado, exige
+    ?force=true -- fijar es justamente la protección contra un borrado por error;
+    saltearla en silencio la volvería inútil."""
+    entries = _load_index()
+    match = next((e for e in entries if e["scan_id"] == scan_id), None)
+    if match is None:
+        return JSONResponse({"error": "scan_id no encontrado"}, status_code=404)
+    if match.get("pinned") and not force:
+        return JSONResponse(
+            {"error": "este reporte está fijado -- desfijalo antes de borrarlo (o pasá ?force=true)"},
+            status_code=409,
+        )
+    _delete_report_dir(scan_id)
+    _save_index([e for e in entries if e["scan_id"] != scan_id])
+    return {"scan_id": scan_id, "deleted": True}
+
+
+@app.post("/api/reports/purge")
+async def api_purge_reports(request: Request):
+    """Borra en bloque los reportes NO fijados más viejos que older_than_days. Nunca
+    toca un fijado, pase lo que pase -- mismo criterio que el cap automático."""
+    body = await request.json()
+    older_than_days = float(body.get("older_than_days", 30))
+    cutoff = datetime.now(timezone.utc).timestamp() - older_than_days * 86400
+    entries = _load_index()
+    kept, deleted = [], []
+    for e in entries:
+        if e.get("pinned"):
+            kept.append(e)
+            continue
+        ts = e.get("started_at") or e.get("saved_at") or ""
+        try:
+            age_ts = datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+        except (ValueError, TypeError):
+            kept.append(e)  # fecha ilegible -- no borrar a ciegas, mejor conservar
+            continue
+        if age_ts < cutoff:
+            _delete_report_dir(e["scan_id"])
+            deleted.append(e["scan_id"])
+        else:
+            kept.append(e)
+    _save_index(kept)
+    return {"deleted": deleted, "deleted_count": len(deleted), "remaining": len(kept)}
 
 
 @app.get("/reports/{scan_id}/{filename}")

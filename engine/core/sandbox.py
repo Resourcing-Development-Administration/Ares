@@ -55,10 +55,23 @@ PRLIMIT_BIN = "prlimit"
 BWRAP_BIN = "bwrap"
 
 # Defaults generosos para cualquier server MCP legítimo (ninguno necesita más
-# de 512MB/120s de CPU/256 FDs para responder un tool call) pero que sí
-# cortan un ataque real contra el HOST -- distinto de test_timeout_s (que
-# corta el TEST de Ares si tarda, no el proceso del target).
-DEFAULT_MEM_MB = 512
+# de 120s de CPU/256 FDs para responder un tool call) pero que sí cortan un
+# ataque real contra el HOST -- distinto de test_timeout_s (que corta el TEST
+# de Ares si tarda, no el proceso del target).
+#
+# DEFAULT_MEM_MB confirmado contra targets reales del campo de tiro (no
+# teórico): 512 -- el valor de la primera versión de esto -- bloqueaba la
+# conexión a TODO server MCP en Node.js (@modelcontextprotocol/sdk sobre
+# V8/libnode), con 'Connection closed' sin relación alguna con la seguridad
+# del target. Causa: RLIMIT_AS limita memoria VIRTUAL reservada, no memoria
+# física en uso -- V8 reserva varios cientos de MB de CodeRange/heap arena al
+# arrancar (antes de ejecutar una sola línea del server), aunque solo use una
+# fracción real. Confirmado en este host: V8 no levanta con --as=1024MB, sí
+# con --as=2048MB -- el mismo patrón aplica a cualquier runtime JIT/managed
+# (JVM, .NET) por el mismo motivo. 2048 sigue cortando una bomba de memoria
+# real (el objetivo de este límite) sin romper el ecosistema Node del MCP,
+# que es la mayoría de los servers publicados hoy.
+DEFAULT_MEM_MB = 2048
 DEFAULT_CPU_S = 120
 DEFAULT_NOFILE = 256
 # RLIMIT_NPROC NO es un límite "por proceso hijo" -- es un tope sobre el TOTAL
@@ -138,9 +151,18 @@ def _paths_under_tmp_to_restore(command: str, args: list[str]) -> list[str]:
     desde el scratchpad de la sesión (bajo /tmp/claude-.../) quedaba invisible para el
     subprocess, que ni siquiera podía encontrar su propio archivo ('No such file or
     directory'). Si command o algún arg apunta a una ruta bajo /tmp, hay que re-exponer
-    ESE archivo puntual (ro-bind individual, no la carpeta entera -- no regala visibilidad
-    de lo demás que haya en esa carpeta de /tmp) DESPUÉS del --tmpfs /tmp en la lista de
-    bwrap args, para que la capa posterior gane."""
+    ese subárbol DESPUÉS del --tmpfs /tmp en la lista de bwrap args, para que la capa
+    posterior gane.
+
+    Se restaura el PRIMER directorio bajo /tmp que contiene la ruta (ej. "/tmp/foo" para
+    "/tmp/foo/bin/python"), no solo el archivo puntual -- confirmado rompiendo esto mismo
+    en la práctica: un intérprete de un virtualenv creado bajo /tmp (común en CI/sandboxes,
+    ej. "/tmp/ares-venv/bin/python") se resuelve bien como ejecutable, pero al importar
+    falla con "ModuleNotFoundError" porque site-packages/lib del mismo venv, un par de
+    directorios al lado, seguía tapado por el tmpfs -- solo se había expuesto el binario,
+    no el resto del árbol del que depende en tiempo de ejecución. Restaurar el directorio
+    completo (no todo /tmp) es el balance: cubre runtimes/paquetes relativos al comando sin
+    regalar visibilidad de otras rutas no relacionadas que hubiera en /tmp."""
     binds = []
     seen = set()
     base = os.getcwd()
@@ -148,9 +170,12 @@ def _paths_under_tmp_to_restore(command: str, args: list[str]) -> list[str]:
         if not isinstance(c, str) or not c:
             continue
         p = c if os.path.isabs(c) else os.path.normpath(os.path.join(base, c))
-        if (p == "/tmp" or p.startswith("/tmp/")) and p not in seen and os.path.exists(p):
-            seen.add(p)
-            binds += ["--ro-bind", p, p]
+        if p == "/tmp" or p.startswith("/tmp/"):
+            rest = p[len("/tmp/"):] if p != "/tmp" else ""
+            top = "/tmp/" + rest.split("/", 1)[0] if rest else "/tmp"
+            if top not in seen and os.path.exists(top):
+                seen.add(top)
+                binds += ["--ro-bind", top, top]
     return binds
 
 

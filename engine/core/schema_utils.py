@@ -186,3 +186,48 @@ def pathology_report(schema: dict | None) -> dict | None:
         return None
     return {"reasons": reasons, "node_count_estimate": budget.nodes, "max_depth_estimate": depth,
             "combinator_branch_count": total_branches}
+
+
+# --- argumentos mínimos válidos ----------------------------------------------------------
+
+def minimal_valid_args(schema: dict | None) -> dict:
+    """Argumentos mínimos que cumplen el schema para los parámetros `required`, con el TIPO
+    correcto (int para integer, bool para boolean...) y respetando enum/default/minimum.
+    Antes cada test armaba `{p: "test" for p in required}`: un parámetro integer recibía un
+    string, el server lo rechazaba, y el test "medía" un rechazo de validación creyendo que
+    medía el comportamiento del tool (origen de falsos positivos en rate-limit/chain/etc.)."""
+    schema = normalize_schema(schema or {})
+    props = schema.get("properties", {}) or {}
+    out = {}
+    for name in schema.get("required", []) or []:
+        out[name] = _sample_value(props.get(name) or {})
+    return out
+
+
+def _sample_value(ps: dict):
+    if not isinstance(ps, dict):
+        return "test"
+    if "default" in ps:
+        return ps["default"]
+    if ps.get("enum"):
+        return ps["enum"][0]
+    if "const" in ps:
+        return ps["const"]
+    t = ps.get("type", "string")
+    if isinstance(t, list):
+        t = next((x for x in t if x != "null"), "string")
+    if t in ("integer", "number"):
+        lo = ps.get("minimum")
+        return int(lo) if lo is not None and t == "integer" else (lo if lo is not None else 1)
+    if t == "boolean":
+        return False
+    if t == "array":
+        return []
+    if t == "object":
+        return {}
+    fmt = ps.get("format")
+    if fmt in ("uri", "url"):
+        return "https://example.com/"
+    if fmt == "email":
+        return "test@example.com"
+    return "test"

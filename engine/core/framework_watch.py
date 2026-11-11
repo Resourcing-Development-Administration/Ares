@@ -69,8 +69,7 @@ FRAMEWORK_SOURCES = [
     FrameworkSource(
         key="owasp_llm_top10", label="OWASP LLM / GenAI Top 10",
         repo="GenAI-Security-Project/GenAI-LLM-Top10", method="commit",
-        tracked_as="OWASP LLM Top 10 2025 (ver OWASP_LLM) -- ya existe un '2026 GenAI LLM Top 10' "
-                    "publicado por este mismo proyecto: revisar si reemplaza o complementa al 2025.",
+        tracked_as="OWASP LLM Top 10 2026 (ver OWASP_LLM; migrado desde la edición 2025 el 2026-11-11)",
         url="https://genai.owasp.org/llm-top-10/",
     ),
     FrameworkSource(
@@ -213,3 +212,80 @@ def oldest_baseline_age_days() -> float | None:
             continue
         ages.append((now - dt).total_seconds() / 86400)
     return max(ages) if ages else None
+
+
+# ---------------------------------------------------------------------------------------------
+# Verificación de CITAS: que cada código/ID que frameworks.py cita EXISTA en la fuente primaria.
+# check_for_updates() solo detecta "algo cambió"; esto detecta "lo que Ares cita ya no es cierto"
+# (un ID renumerado o retirado -- caso real: OWASP LLM Top 10 2025 -> 2026 renumeró 8 de 10 entradas).
+
+async def verify_citations() -> list[dict]:
+    """[{framework, code, status: ok|missing|name_mismatch|error, detail}] -- nunca escribe nada."""
+    import re
+    from engine.core import frameworks as fw
+    rows: list[dict] = []
+
+    def row(framework, code, status, detail=""):
+        rows.append({"framework": framework, "code": code, "status": status, "detail": detail})
+
+    def norm(t: str) -> str:
+        # "Data and Model Poisoning" (nombre) vs "DataModelPoisoning" (archivo): ignorar la conjunción
+        return re.sub(r"[^a-z0-9]", "", t.lower()).replace("and", "")  # se aplica a ambos lados
+
+    async with httpx.AsyncClient() as client:
+        # --- OWASP MCP Top 10: archivos MCPnn-2025-* en el repo oficial
+        try:
+            r = await client.get(f"{_GH_API}/repos/OWASP/www-project-mcp-top-10/contents/2025", headers=_HEADERS, timeout=15)
+            r.raise_for_status()
+            files = [x["name"] for x in r.json()]
+            for code in fw.OWASP_MCP:
+                n = code.split(":")[0]  # MCP01
+                hit = [f for f in files if f.upper().startswith(n)]
+                row("OWASP MCP Top 10", code, "ok" if hit else "missing", hit[0] if hit else "no existe el archivo en 2025/")
+        except Exception as e:
+            row("OWASP MCP Top 10", "*", "error", str(e))
+
+        # --- OWASP LLM Top 10: archivos LLMnn_* en la edición citada (el año sale del propio código)
+        try:
+            years = {c.split(":")[1] for c in fw.OWASP_LLM}
+            year = sorted(years)[-1]
+            r = await client.get(f"{_GH_API}/repos/GenAI-Security-Project/GenAI-LLM-Top10/contents/{year}/final",
+                                 headers=_HEADERS, timeout=15)
+            r.raise_for_status()
+            files = [x["name"] for x in r.json() if x["name"].startswith("LLM") and x["name"][3:5].isdigit()]
+            for code, name in fw.OWASP_LLM.items():
+                n = code.split(":")[0][3:]  # "03"
+                hit = [f for f in files if f[3:5] == n]
+                if not hit:
+                    row("OWASP LLM Top 10", code, "missing", f"no hay LLM{n}_* en {year}/final")
+                elif norm(name) not in norm(hit[0]):
+                    row("OWASP LLM Top 10", code, "name_mismatch", f"Ares: '{name}' / fuente: {hit[0]}")
+                else:
+                    row("OWASP LLM Top 10", code, "ok", hit[0])
+        except Exception as e:
+            row("OWASP LLM Top 10", "*", "error", str(e))
+
+        # --- MITRE ATLAS: IDs de técnica en el YAML del último release
+        try:
+            r = await client.get(f"{_GH_API}/repos/mitre-atlas/atlas-data/releases/latest", headers=_HEADERS, timeout=15)
+            r.raise_for_status()
+            asset = next(a for a in r.json()["assets"] if re.fullmatch(r"ATLAS-[\d.]+\.yaml", a["name"]))
+            y = await client.get(asset["browser_download_url"], timeout=60, follow_redirects=True)
+            y.raise_for_status()
+            text = y.text
+            # "- id: AML.T0051.001\n  name: ..." -- nombre = línea siguiente al id de técnica
+            techs = dict(re.findall(r"^- id: (AML\.T[\d.]+)\n  name: (.+)$", text, flags=re.M))
+            if not techs:  # formato distinto: caer a solo-existencia del id
+                techs = {i: "" for i in re.findall(r"id: (AML\.T[\d.]+)", text)}
+            for key, (tid, name) in fw.ATLAS_TECHNIQUES.items():
+                if tid not in techs:
+                    row("MITRE ATLAS", tid, "missing", f"({key}) no está en {asset['name']}")
+                elif techs[tid] and norm(techs[tid]) != norm(name):
+                    row("MITRE ATLAS", tid, "name_mismatch", f"Ares: '{name}' / ATLAS: '{techs[tid].strip()}'")
+                else:
+                    row("MITRE ATLAS", tid, "ok", techs[tid].strip() or "existe")
+        except StopIteration:
+            row("MITRE ATLAS", "*", "error", "el release no trae ATLAS-*.yaml")
+        except Exception as e:
+            row("MITRE ATLAS", "*", "error", str(e))
+    return rows

@@ -226,6 +226,7 @@ _MODEL_NAME = {"anthropic": ANTHROPIC_MODEL, "openai": OPENAI_MODEL, "ollama": O
 
 @register_test(
     id="adv.live_agent_injection",
+    level=4,
     name="Live-agent: ¿el agente obedece la inyección? (multi-proveedor, opt-in)",
     category=Category.ADVERSARIAL,
     description="Pone un agente real en el loop (Anthropic/OpenAI/Ollama, ver --live-agent-provider): "

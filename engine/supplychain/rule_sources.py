@@ -17,6 +17,7 @@ import json
 import os
 import re
 import tomllib
+from datetime import datetime, timezone
 
 import httpx
 
@@ -73,7 +74,8 @@ async def fetch_gitleaks_patterns(timeout: float = 20.0) -> list[dict]:
 def save_cache(patterns: list[dict], source: str = "gitleaks"):
     os.makedirs(os.path.dirname(_CACHE_PATH), exist_ok=True)
     with open(_CACHE_PATH, "w", encoding="utf-8") as f:
-        json.dump({"source": source, "count": len(patterns), "patterns": patterns}, f, indent=2, ensure_ascii=False)
+        json.dump({"source": source, "count": len(patterns), "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "patterns": patterns}, f, indent=2, ensure_ascii=False)
 
 
 def load_secret_patterns() -> list[tuple[str, str]]:
@@ -104,4 +106,5 @@ def cache_info() -> dict | None:
         return None
     with open(_CACHE_PATH, "r", encoding="utf-8") as f:
         data = json.load(f)
-    return {"source": data.get("source"), "count": data.get("count"), "path": _CACHE_PATH}
+    return {"source": data.get("source"), "count": data.get("count"), "path": _CACHE_PATH,
+            "updated_at": data.get("updated_at")}

@@ -5,12 +5,13 @@ sin ejecutar nada contra el servidor.
 from __future__ import annotations
 from engine.core.models import Finding, Evidence, Category
 from engine.core.registry import register_test
-from engine.static.known_cves import check_known_cves
+from engine.static.known_cves import check_known_cves, check_known_cves_detailed
 from engine.static.typosquatting import check_typosquatting
 
 
 @register_test(
     id="static.schema_permissive",
+    level=1,
     name="Detección de schemas demasiado permisivos",
     category=Category.STATIC,
     description="Marca parámetros sin tipo, sin enum/pattern, o con additionalProperties=true en tools de alto riesgo.",
@@ -60,6 +61,7 @@ async def schema_permissive(target, ctx) -> list[Finding]:
 
 @register_test(
     id="static.no_schema",
+    level=1,
     name="Tools sin input_schema definido",
     category=Category.STATIC,
     description="Detecta tools que no publican ningún schema de entrada (imposible de fuzzear con guía, riesgo de inputs no validados).",
@@ -90,6 +92,7 @@ async def no_schema(target, ctx) -> list[Finding]:
 
 @register_test(
     id="static.known_cve_check",
+    level=1,
     name="CVEs conocidos de servers MCP oficiales (feed curado)",
     category=Category.STATIC,
     description="Compara el server_info.name/version que el TARGET autoreporta en 'initialize' contra un "
@@ -110,7 +113,8 @@ async def known_cve_check(target, ctx) -> list[Finding]:
 
     name = getattr(target.server_info, "name", None)
     version = getattr(target.server_info, "version", None)
-    hits = check_known_cves(name, version)
+    detail = check_known_cves_detailed(name, version)
+    hits = detail["hits"]
 
     findings = []
     for entry in hits:
@@ -128,6 +132,17 @@ async def known_cve_check(target, ctx) -> list[Finding]:
             references=[entry["source"], f"https://nvd.nist.gov/vuln/detail/{entry['cve']}"],
         ))
 
+    if not findings and detail["indeterminate"]:
+        cves = ", ".join(e["cve"] for e in detail["indeterminate"])
+        findings.append(Finding(
+            test_id="static.known_cve_check",
+            title=f"Server oficial '{name}': versión autoreportada ('{version or '?'}') no comparable con el CalVer del paquete",
+            category=Category.STATIC, target=f"{name} {version or '?'}",
+            description=f"El nombre coincide con un server MCP oficial con CVEs publicados ({cves}), pero la "
+                         f"versión que reporta en `initialize` no es CalVer, así que no se puede decir si está "
+                         f"parcheado. Verificar la versión del PAQUETE instalado (npm ls / pip show).",
+            passed=True,
+        ))
     if not findings:
         findings.append(Finding(
             test_id="static.known_cve_check",
@@ -142,6 +157,7 @@ async def known_cve_check(target, ctx) -> list[Finding]:
 
 @register_test(
     id="static.typosquatting_check",
+    level=1,
     name="Typosquatting de paquete MCP (requiere --package-name)",
     category=Category.STATIC,
     description="Compara --package-name (el nombre de paquete que creés estar instalando) contra una lista "

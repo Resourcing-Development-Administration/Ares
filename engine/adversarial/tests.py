@@ -11,6 +11,8 @@ from engine.core.models import Finding, Evidence, Category
 from engine.core.registry import register_test
 from engine.core.risk import build_vector, base_vector_for
 from payloads.prompt_injection import build_injection_payloads
+from payloads.canary import strip_reflections
+from engine.core.schema_utils import minimal_valid_args
 
 SSRF_TARGETS = [
     "http://169.254.169.254/latest/meta-data/",       # AWS IMDSv1
@@ -34,6 +36,7 @@ def _string_params(schema: dict) -> list[str]:
 
 @register_test(
     id="adv.injection_passthrough",
+    level=2,
     name="Passthrough de prompt injection sin sanitizar",
     category=Category.ADVERSARIAL,
     description="Envía payloads de prompt injection como argumento y verifica si el tool los almacena/refleja "
@@ -44,6 +47,8 @@ async def injection_passthrough(target, ctx) -> list[Finding]:
     tools = ctx.get("tools") or await target.list_tools()
     findings = []
     payloads = build_injection_payloads()
+    echoed_in_errors = 0
+    reported: set = set()
 
     for tool in tools:
         schema = tool.get("input_schema") or {}
@@ -67,6 +72,15 @@ async def injection_passthrough(target, ctx) -> list[Finding]:
                 # payload como éxito y lo devolvió/guardó tal cual" (señal fuerte).
                 if p["marker"] in content and result.get("ok"):
                     is_error = bool(result.get("is_error"))
+                    key = (tool["name"], param, is_error)
+                    if key in reported:
+                        # un hallazgo por (tool, parámetro, rechazado/aceptado): los 3 payloads de
+                        # muestra son la misma causa -- antes esto generaba 12 hallazgos idénticos
+                        # en espíritu por un solo tool (confirmado contra get_folder_size del lab).
+                        if is_error:
+                            echoed_in_errors += 1
+                        continue
+                    reported.add(key)
                     findings.append(Finding(
                         test_id="adv.injection_passthrough",
                         title=(f"Payload de injection citado en un error de '{tool['name']}'" if is_error else
@@ -100,7 +114,9 @@ async def injection_passthrough(target, ctx) -> list[Finding]:
         findings.append(Finding(
             test_id="adv.injection_passthrough", title="Sin passthrough detectado",
             category=Category.ADVERSARIAL, target="server",
-            description="Los payloads de prompt injection probados no se reflejaron intactos en las respuestas.",
+            description="Los payloads de prompt injection probados no se reflejaron intactos en respuestas "
+                         "exitosas." + (f" ({echoed_in_errors} eco(s) del payload dentro de mensajes de error de "
+                                         f"validación -- comportamiento normal, no se reporta.)" if echoed_in_errors else ""),
             passed=True,
         ))
     return findings
@@ -108,6 +124,7 @@ async def injection_passthrough(target, ctx) -> list[Finding]:
 
 @register_test(
     id="adv.ssrf_exfil",
+    level=3,
     name="SSRF / exfiltración vía parámetros tipo URL",
     category=Category.ADVERSARIAL,
     description="Identifica parámetros que parecen aceptar URLs/paths y prueba si el server hace requests a "
@@ -153,6 +170,11 @@ async def ssrf_exfil(target, ctx) -> list[Finding]:
                     args[param] = ssrf_url
                     result = await target.call_tool(tool["name"], args)
                     content = str(result.get("content", "")) + str(result.get("raw_error", "") or "")
+                    # Un error del tipo "No such file or directory: 'http://metadata.google.internal/
+                    # computeMetadata/v1/'" CITA la URL enviada: sin quitar ese eco, el substring
+                    # "computemetadata" disparaba un "Posible SSRF" en un tool que solo abre archivos
+                    # locales (falso positivo confirmado contra target_server.read_file).
+                    content = strip_reflections(content, ssrf_url)
 
                     oob_confirmed = False
                     if ssrf_url in oob_token_by_url and oob_listener:
@@ -163,7 +185,10 @@ async def ssrf_exfil(target, ctx) -> list[Finding]:
                     # (que confirma que SÍ intentó conectar, distinto de "parámetro inválido")
                     connection_attempted = any(k in content.lower() for k in
                                                 ["connection refused", "timed out", "econnrefused", "instance-id",
-                                                 "computemetadata", "root:x:0:0"])
+                                                 "computemetadata", "root:x:0:0", "no route to host",
+                                                 "network is unreachable", "errno 111", "errno 113",
+                                                 "name or service not known", "getaddrinfo", "urlopen error",
+                                                 "connecttimeout", "connecterror", "fetch failed"])
                     if connection_attempted or oob_confirmed:
                         findings.append(Finding(
                             test_id="adv.ssrf_exfil",
@@ -207,6 +232,7 @@ async def ssrf_exfil(target, ctx) -> list[Finding]:
 
 @register_test(
     id="adv.confused_deputy",
+    level=2,
     name="Confused deputy / escalación de alcance",
     category=Category.ADVERSARIAL,
     description="Prueba si tools 'de lectura' aceptan parámetros que en realidad permiten escritura/acción "
@@ -217,20 +243,31 @@ async def confused_deputy(target, ctx) -> list[Finding]:
     findings = []
     read_like = [t for t in tools if any(k in t["name"].lower() for k in ["get", "read", "list", "fetch", "search"])]
 
-    escalation_payloads = ["../config.json", "../../.env", "*", "admin", "0", "-1", "true"]
+    # solo payloads que de verdad intentan salir del alcance (traversal / comodín / rol). "0", "-1" y
+    # "true" se sacaron: en un parámetro tipo `limit`, -1 significa "sin límite" -- diseño normal de
+    # paginación, no escalación (falso positivo confirmado contra un tool de noticias).
+    escalation_payloads = ["../config.json", "../../.env", "*", "admin"]
 
     for tool in read_like:
         schema = tool.get("input_schema") or {}
         props = schema.get("properties", {}) or {}
-        for pname in props:
+        for pname, pschema in props.items():
+            if isinstance((pschema or {}).get("type"), str) and pschema["type"] in ("integer", "number", "boolean"):
+                continue  # un payload de path/comodín no es un valor legítimo de un parámetro numérico/bool
+            base_args = minimal_valid_args(schema)
+            base_args[pname] = base_args.get(pname, "test")
+            baseline = await target.call_tool(tool["name"], base_args)
+            base_len = len(str(baseline.get("content", "")))
             for payload in escalation_payloads:
-                required = schema.get("required", [])
-                args = {r: "test" for r in required}
+                args = dict(base_args)
                 args[pname] = payload
                 result = await target.call_tool(tool["name"], args)
                 content = str(result.get("content", ""))
 
-                if result.get("ok") and not result.get("is_error") and len(content) > 200:
+                # la respuesta al payload debe ser claramente MÁS GRANDE que la de un valor benigno:
+                # un tool cuya respuesta normal ya es larga (noticias, listados) no "escaló" nada.
+                if (result.get("ok") and not result.get("is_error") and len(content) > 200
+                        and len(content) > 3 * max(base_len, 1) and content != str(baseline.get("content", ""))):
                     # heurística: una respuesta "grande" a un payload de escalación en un tool
                     # nominalmente de solo-lectura acotado amerita revisión manual
                     findings.append(Finding(
@@ -260,6 +297,7 @@ async def confused_deputy(target, ctx) -> list[Finding]:
 
 @register_test(
     id="adv.destructive_no_confirmation",
+    level=1,
     name="Ejecución de acciones destructivas sin confirmación",
     category=Category.ADVERSARIAL,
     description="Identifica tools de nombre/semántica destructiva (delete/drop/remove) y verifica si ejecutan "
@@ -312,6 +350,7 @@ def _tool_fingerprint(tool: dict) -> str:
 
 @register_test(
     id="adv.rug_pull",
+    level=1,
     name="Rug pull: la definición de un tool cambió desde el baseline",
     category=Category.ADVERSARIAL,
     description="Compara la descripción + input_schema de cada tool contra un --baseline anterior (por "

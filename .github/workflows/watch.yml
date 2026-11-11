@@ -1,0 +1,22 @@
+# Vigilancia semanal de lo que se desactualiza solo: frameworks externos citados y listas curadas.
+# Nunca modifica el repo: si algo cambió o venció, el job FALLA y GitHub notifica a los mantenedores;
+# un humano decide qué actualizar (ver engine/core/framework_watch.py y engine/core/list_watch.py).
+name: watch-frameworks-and-lists
+on:
+  schedule:
+    - cron: "0 9 * * 1"   # lunes 09:00 UTC
+  workflow_dispatch:
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e .
+      - name: Frameworks (cambios + citas verificadas + baseline no vencido)
+        run: python cli/main.py check-frameworks --verify --fail-if-stale 45
+      - name: Listas curadas (CVEs vs OSV, paquetes vs repo oficial, secretos vs gitleaks)
+        if: always()
+        run: python cli/main.py check-lists --fail-on-drift

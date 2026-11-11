@@ -39,6 +39,8 @@ packages = [
     "engine.dynamic",
     "engine.adversarial",
     "engine.auth",
+    "engine.api",
+    "engine.protocol",
     "engine.exposure",
     "engine.supplychain",
     "engine.reporting",

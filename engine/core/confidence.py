@@ -60,6 +60,12 @@ CONFIDENCE_MAP: dict[str, str] = {
     "exposure.network_reachability": VERIFIED,
     "exposure.session_id_entropy": VERIFIED,
 
+    "protocol.sampling_elicitation_exposure": HEURISTIC,
+    "protocol.jsonrpc_malformed_fuzz": VERIFIED,   # crash/hang reproducido en canal nuevo; las filtraciones se pisan a heuristic por instancia
+    "protocol.batch_cancel_robustness": VERIFIED,
+    "protocol.session_replay": VERIFIED,
+    "adv.multistep_chain": VERIFIED,               # taint propagado y aceptado por ejecución real, con canario
+    "adv.stored_injection_roundtrip": VERIFIED,
     "supplychain.secret_exposure": HEURISTIC,
     "supplychain.tool_squatting": HEURISTIC,
     "supplychain.exfiltration_chain": HEURISTIC,

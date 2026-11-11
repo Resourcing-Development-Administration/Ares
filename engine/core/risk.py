@@ -222,6 +222,54 @@ _TABLE: dict[str, dict] = {
         "business_impact": {"financial": "high", "reputational": "high", "compliance": "high", "privacy": "high"},
         "remediation_effort": ("medium", "Requiere un punto de control explícito (confirmación humana o segmentación de contexto) entre tools lectores y emisores, no un fix de una línea."),
     },
+    # Fuzzing de protocolo: lo observado es una caída/cuelgue (A:H) por un frame que cualquiera que
+    # alcance el transporte puede enviar. AV se ajusta por instancia (N en http, L en stdio).
+    "protocol.jsonrpc_malformed_fuzz": {
+        "vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "business_impact": {"financial": "medium", "reputational": "medium", "compliance": "low", "privacy": "low"},
+        "remediation_effort": ("low", "Manejador de errores alrededor del parseo/dispatch + límites de tamaño/profundidad del JSON."),
+    },
+    "protocol.batch_cancel_robustness": {
+        "vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "business_impact": {"financial": "medium", "reputational": "medium", "compliance": "low", "privacy": "low"},
+        "remediation_effort": ("low", "Validar lotes/cancelaciones y limitar su tamaño; ignorar cancelaciones de ids desconocidos."),
+    },
+    "protocol.session_replay": {
+        "vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+        "business_impact": {"financial": "medium", "reputational": "medium", "compliance": "medium", "privacy": "medium"},
+        "remediation_effort": ("medium", "Tabla de sesiones activas en el server, validación en cada request, invalidación en DELETE/expiración."),
+    },
+    "adv.multistep_chain": {
+        "vector": "AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:N/A:N",
+        "business_impact": {"financial": "high", "reputational": "high", "compliance": "high", "privacy": "high"},
+        "remediation_effort": ("medium", "Punto de control (confirmación humana / segmentación de contexto) entre tools de lectura y de salida; no un fix de una línea."),
+    },
+    "adv.stored_injection_roundtrip": {
+        "vector": "AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:H/A:N",
+        "business_impact": {"financial": "medium", "reputational": "high", "compliance": "medium", "privacy": "medium"},
+        "remediation_effort": ("medium", "Marcar/escapar contenido almacenado antes de devolverlo al contexto del modelo; no mezclar datos e instrucciones."),
+    },
+    "protocol.sampling_elicitation_exposure": {
+        # Baseline = caso sampling (el más grave de los dos que este test puede emitir --
+        # ver engine/protocol/tests.py). S:C porque un sampling/createMessage cruza de
+        # "tool call atendido por el server" a "el server dicta contenido que termina en
+        # el contexto/salida del LLM real del cliente" -- un límite de confianza distinto,
+        # igual que adv.live_agent_injection. I:H porque esto es control real sobre lo que
+        # el agente razona/concluye/hace después (ASI01 Agent Goal Hijack); C:L porque
+        # includeContext="thisServer"/"allServers" puede filtrarle al server contexto de
+        # OTRAS conversaciones/servers que no le correspondía ver. UI:N a propósito: el
+        # spec de MCP exige aprobación humana antes de ejecutar un sampling request, pero
+        # ESTE test mide si el server lo PIDE -- cuántos clientes reales la hacen cumplir
+        # de verdad es la variable que hace esto riesgoso (confirmado en campo: Unit 42
+        # midió 78.3% de éxito de ataque con sampling entre 5 MCP servers conectados a un
+        # mismo agente, marzo 2026).
+        "vector": "AV:N/AC:L/PR:N/UI:N/S:C/C:L/I:H/A:N",
+        "business_impact": {"financial": "high", "reputational": "high", "compliance": "medium", "privacy": "medium"},
+        "remediation_effort": ("high", "Requiere que el CLIENTE (no Ares, no el server) haga cumplir aprobación "
+                                         "humana explícita y visibilidad del prompt completo antes de todo "
+                                         "sampling/elicitation -- un fix de arquitectura del lado del cliente MCP, "
+                                         "no del server bajo prueba."),
+    },
     "adv.rug_pull": {
         # el tool cambió de definición entre dos corridas sin ninguna señal al usuario --
         # el caso de libro es "benigno en la revisión, malicioso en la actualización".

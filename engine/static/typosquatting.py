@@ -17,6 +17,10 @@ del paquete antes de instalar nada.
 from __future__ import annotations
 from engine.supplychain.similarity import jaro_winkler
 
+# `ares check-lists` compara esto contra modelcontextprotocol/servers/src y avisa si pasó MAX_AGE_DAYS.
+LAST_REVIEWED = "2026-11-11"
+MAX_AGE_DAYS = 90
+
 # Servers de referencia oficiales activos (modelcontextprotocol/servers, 2026)
 _ACTIVE = ["everything", "fetch", "filesystem", "sequentialthinking", "memory", "git", "time"]
 # Archivados -- ya no mantenidos, pero siguen siendo blanco real de typosquatting

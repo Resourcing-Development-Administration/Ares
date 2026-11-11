@@ -23,6 +23,7 @@ WEAK_TOKENS = ["test", "default", "mcp", "admin", "password", "changeme", "demo"
 
 @register_test(
     id="auth.unauthenticated_access",
+    level=1,
     name="Acceso sin autenticación",
     category=Category.AUTH,
     description="Verifica si el servidor MCP permite listar tools/resources sin ninguna credencial. "
@@ -123,6 +124,7 @@ async def unauthenticated_access(target, ctx) -> list[Finding]:
 
 @register_test(
     id="auth.weak_credentials",
+    level=2,
     name="Credenciales por defecto / débiles",
     category=Category.AUTH,
     description="Prueba una wordlist chica de tokens comunes (test, admin, password, etc.) como Bearer "
@@ -215,6 +217,7 @@ def _id_like_params(schema: dict) -> list[str]:
 
 @register_test(
     id="auth.authz_object_level",
+    level=3,
     name="Autorización a nivel de objeto (BOLA) con la sesión actual",
     category=Category.AUTH,
     description="Con LA SESIÓN ACTUAL (autenticada o no, la que se haya configurado para el scan), busca "
@@ -309,6 +312,7 @@ def _instantiate_template(uri_template: str, values: dict[str, str]) -> str:
 
 @register_test(
     id="auth.resource_object_level",
+    level=3,
     name="Autorización a nivel de objeto (BOLA) en resource templates",
     category=Category.AUTH,
     description="Mismo patrón que auth.authz_object_level (BOLA) pero sobre RESOURCE TEMPLATES en vez "
@@ -384,6 +388,7 @@ async def resource_object_level(target, ctx) -> list[Finding]:
 
 @register_test(
     id="auth.oauth_metadata_security",
+    level=1,
     name="Seguridad de metadata OAuth 2.1 (RFC 9728 / MCP authorization spec)",
     category=Category.AUTH,
     description="El spec de MCP (2025-03-26+) exige que un server HTTP protegido devuelva 401 con un header "
@@ -520,6 +525,7 @@ def _required_string_params(schema: dict) -> list[str]:
 
 @register_test(
     id="auth.cross_session_context_bleed",
+    level=3,
     name="Fuga de contexto entre sesiones/tenants (canario cross-session)",
     category=Category.AUTH,
     description="Requiere una SEGUNDA credencial válida contra el mismo server (--auth-token-b): planta un "

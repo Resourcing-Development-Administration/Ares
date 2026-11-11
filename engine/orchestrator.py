@@ -26,6 +26,8 @@ import engine.adversarial.tests  # noqa: F401
 import engine.adversarial.chain_tests  # noqa: F401
 import engine.adversarial.live_agent_tests  # noqa: F401
 import engine.auth.tests         # noqa: F401
+import engine.protocol.tests     # noqa: F401
+import engine.protocol.fuzz_tests  # noqa: F401
 import engine.exposure.tests     # noqa: F401
 import engine.supplychain.tests  # noqa: F401
 

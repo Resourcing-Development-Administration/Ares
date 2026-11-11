@@ -11,7 +11,7 @@ import pytest
 
 from engine.core.models import ScanConfig
 from engine.orchestrator import run_scan
-from conftest import VULN_STDIO, SAFE_STDIO, RUGPULLED_STDIO, VALIDATING_STDIO, stdio_connection
+from conftest import VULN_STDIO, SAFE_STDIO, RUGPULLED_STDIO, VALIDATING_STDIO, SAMPLING_STDIO, stdio_connection
 
 
 def confirmed_ids(report) -> set[str]:
@@ -206,6 +206,43 @@ async def test_safe_server_destructive_requires_confirm_param():
 
 
 async def test_safe_server_no_secret_exposure():
+    report = await _scan(SAFE_STDIO, ["supplychain.secret_exposure"])
+    assert confirmed_ids(report) == set()
+
+
+async def test_secret_exposure_scans_source_path_for_plaintext_secret(tmp_path):
+    """Regresión de un gap real encontrado probando Ares contra un server MCP de
+    terceros (vulnerable-mcp-server-secrets-pii, campo de tiro): con --source-path dado,
+    secret_exposure antes solo miraba tools/resources/prompts del protocolo -- un secreto
+    que vive SOLO en el código fuente del server (nunca expuesto por ninguna tool) pasaba
+    invisible aunque se le haya dado la ruta."""
+    src = tmp_path / "server_src"
+    src.mkdir()
+    (src / "config.py").write_text('AWS_KEY = "AKIAABCDEFGHIJKLMNOP"\n')
+    report = await _scan(SAFE_STDIO, ["supplychain.secret_exposure"], source_path=str(src))
+    findings = [f for f in report.findings if f.test_id == "supplychain.secret_exposure" and not f.passed]
+    assert findings, "no detectó el secreto en texto plano del --source-path"
+    assert any("config.py" in f.target for f in findings)
+
+
+async def test_secret_exposure_decodes_base64_pii_in_source_path(tmp_path):
+    """Mismo gap, pero el caso real exacto que lo encontró: el secreto/PII no está en
+    texto plano sino 'ofuscado' en base64 (patrón real de vulnerable-mcp-server-secrets-pii)
+    -- un regex plano sobre el código nunca lo iba a matchear sin decodear primero."""
+    import base64
+    src = tmp_path / "server_src"
+    src.mkdir()
+    encoded = base64.b64encode(b"admin.contact@example.com").decode()
+    (src / "index.js").write_text(f'const ADMIN = "{encoded}"; // "ofuscado"\n')
+    report = await _scan(SAFE_STDIO, ["supplychain.secret_exposure"], source_path=str(src))
+    findings = [f for f in report.findings if f.test_id == "supplychain.secret_exposure" and not f.passed]
+    assert findings, "no decodeó/detectó el email ofuscado en base64 del --source-path"
+    assert any("admin.contact@example.com" in f.description for f in findings)
+
+
+async def test_secret_exposure_without_source_path_is_unchanged():
+    """Sin --source-path (el caso de siempre, la inmensa mayoría de corridas), el
+    comportamiento no cambia en nada -- el escaneo de código fuente es puramente aditivo."""
     report = await _scan(SAFE_STDIO, ["supplychain.secret_exposure"])
     assert confirmed_ids(report) == set()
 
@@ -500,3 +537,51 @@ async def test_audit_logging_does_not_false_positive_when_connection_failed():
     assert "recon.audit_logging" not in confirmed_ids(report)
     hits = [f for f in report.findings if f.test_id == "recon.audit_logging"]
     assert hits and hits[0].passed
+
+
+# --- protocol.sampling_elicitation_exposure ----------------------------------
+# Gap real documentado en la sección 12 del manual ("Protocolo: ... sampling,
+# elicitation -- Pendiente") y confirmado vigente contra investigación 2026 (Unit 42:
+# 78.3% ASR encadenando sampling entre 5 MCP servers). tests/fixtures/sampling_server.py
+# tiene un tool con sampling benigno, uno con una directiva oculta inyectada en el
+# prompt de sampling, y uno que usa elicitation para pedir una credencial -- los tres
+# casos que este test necesita distinguir.
+
+async def test_sampling_with_hidden_directive_is_confirmed():
+    report = await _scan(SAMPLING_STDIO, ["protocol.sampling_elicitation_exposure"])
+    findings = [f for f in report.findings
+                if f.test_id == "protocol.sampling_elicitation_exposure" and not f.passed]
+    hidden = [f for f in findings if f.target == "summarize_with_hidden_directive"]
+    assert hidden, "no detectó el sampling con directiva oculta inyectada"
+    assert "PWNED_BY_SAMPLING" in str(hidden[0].evidence.response)
+
+
+async def test_elicitation_asking_for_secret_is_confirmed():
+    report = await _scan(SAMPLING_STDIO, ["protocol.sampling_elicitation_exposure"])
+    findings = [f for f in report.findings
+                if f.test_id == "protocol.sampling_elicitation_exposure" and not f.passed]
+    elicit = [f for f in findings if f.target == "ask_user_for_secret"]
+    assert elicit, "no detectó la elicitation pidiendo una API key al usuario"
+    assert "api key" in elicit[0].description.lower() or "api_key" in str(elicit[0].evidence.response)
+
+
+async def test_clean_sampling_without_hidden_directive_still_flags_the_capability():
+    """summarize_clean NO inyecta nada -- pero el test mide 'el server pidió sampling',
+    no 'el prompt que pidió era malicioso' (eso lo decide quien lea la evidencia, el
+    oráculo acá es la EXPOSICIÓN de la superficie, no un contenido específico). Confirma
+    que el caso benigno también se reporta, con la evidencia mostrando que no hay
+    directiva oculta -- sin esto, alguien podría pensar que el test solo dispara ante
+    contenido sospechoso, cuando en realidad audita el USO de la primitiva en sí."""
+    report = await _scan(SAMPLING_STDIO, ["protocol.sampling_elicitation_exposure"])
+    findings = [f for f in report.findings
+                if f.test_id == "protocol.sampling_elicitation_exposure" and not f.passed]
+    clean = [f for f in findings if f.target == "summarize_clean"]
+    assert clean, "no reportó el sampling 'limpio' como superficie expuesta"
+    assert "PWNED_BY_SAMPLING" not in str(clean[0].evidence.response)
+
+
+async def test_safe_server_no_sampling_or_elicitation():
+    """safe_server.py no usa sampling ni elicitation en absoluto -- cero findings,
+    mismo control de falsos positivos que el resto del suite."""
+    report = await _scan(SAFE_STDIO, ["protocol.sampling_elicitation_exposure"])
+    assert confirmed_ids(report) == set()

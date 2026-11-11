@@ -1,7 +1,7 @@
 # Manual de Ares
 
 **Motor de pruebas de seguridad red-team para servidores MCP (Model Context
-Protocol)** — 38 tests, terminal (CLI) y dashboard web, reportes HTML/JSON/SARIF.
+Protocol)** — 39 tests, terminal (CLI) y dashboard web, reportes HTML/JSON/SARIF.
 
 Este documento es la referencia completa de uso. Para instalación exprés y
 una descripción de una página, ver [README.md](README.md). Para cómo está
@@ -18,7 +18,7 @@ para copiar y pegar el comando que necesitás.
 - [0. Referencia rápida — ¿qué querés hacer?](#0-referencia-rápida-qué-querés-hacer)
 - [1. Conceptos básicos](#1-conceptos-básicos)
   - [1.1 Targets de práctica incluidos](#11-targets-de-práctica-incluidos)
-  - [1.2 Catálogo completo de ataques/escaneos (los 38 tests)](#12-catálogo-completo-de-ataquesescaneos-los-38-tests)
+  - [1.2 Catálogo completo de ataques/escaneos](#12-catálogo-completo-de-ataquesescaneos)
 - [2. Instalación](#2-instalación)
 
 **Uso por terminal (CLI)**
@@ -80,8 +80,9 @@ para copiar y pegar el comando que necesitás.
 ## 1. Conceptos básicos
 
 - **Categoría de test**: `recon`, `static`, `dynamic`, `adversarial`, `auth`,
-  `exposure`, `supplychain`. Cada una vive en `engine/<categoria>/tests.py`.
-  38 tests en total, incluyendo ataques específicos de MCP documentados en
+  `protocol`, `exposure`, `supplychain`. Cada una vive en `engine/<categoria>/tests.py`.
+  39 tests en total (nivel 1-4 de complejidad por test, ver `--max-level` en
+  `scan`/`vet`/`full`), incluyendo ataques específicos de MCP documentados en
   2026: **Line Jumping** (`recon.suspicious_descriptions` escanea también las
   descripciones de PARÁMETROS, no solo la del tool — ATR-2026-00579),
   **Rug Pull** (`adv.rug_pull`, compara definiciones de tools por hash contra
@@ -148,7 +149,7 @@ necesitar un target real:
 Ninguno de los dos debe usarse en producción — están armados a propósito
 para que casi todos los tests disparen.
 
-### 1.2 Catálogo completo de ataques/escaneos (los 38 tests)
+### 1.2 Catálogo completo de ataques/escaneos
 
 Extraído en vivo de `./ares.sh list-tests` (siempre la fuente de verdad — si
 corriste `list-tests` y ves algo distinto a esta tabla, confiá en la CLI, no
@@ -185,7 +186,7 @@ para cómo se calcula el riesgo).
 | `dynamic.command_injection_confirmed` | Canario aleatorio en payloads de shell (`; echo`, backticks, PowerShell, etc.) — **confirma ejecución real**, no solo reflejo | ✅ | | verified |
 | `dynamic.path_traversal_confirmed` | Payloads de traversal, confirma leyendo contenido real de `/etc/passwd` | ✅ | | verified |
 | `dynamic.credential_harvest_paths` | Traversal dirigido a rutas de alto valor real (claves SSH, credenciales AWS/GCP/Azure, `.netrc`, configs de clientes MCP) — confirma por firma de contenido, no por inferencia | ✅ | | verified |
-| `dynamic.rate_limit` | Ráfaga de 50 llamadas concurrentes — ¿hay throttling? | ❌ | | verified |
+| `dynamic.rate_limit` | Ráfaga de 30 llamadas concurrentes contra un tool de SOLO LECTURA (nunca uno destructivo/de envío) de un server **http/sse**: ¿hay throttling? **No aplica a stdio** (un solo cliente). Solo reporta si la ráfaga fue medible; la ausencia de límite es una señal de baja severidad y confianza `heuristic`, no una vulnerabilidad probada | ❌ | | heuristic |
 
 **`adversarial` — simula intención real de atacante:**
 
@@ -197,6 +198,8 @@ para cómo se calcula el riesgo).
 | `adv.rug_pull` | Compara hash de descripción+schema contra `--baseline` — ¿el tool cambió de definición desde la última corrida? | ✅ | | verified |
 | `adv.ssrf_exfil` | Prueba SSRF contra metadata endpoints (AWS/GCP/Azure/Alibaba/Oracle/DigitalOcean/K8s) + callback OOB opcional | ❌ | 🌐 | heuristic (→ verified con `--oob-callback-host`) |
 | `adv.live_agent_injection` | Agente real (Anthropic/OpenAI/Ollama, ver `--live-agent-provider`) en el loop: ¿intenta ejecutar la acción que un payload inyectado le ordenó? | ❌ | 🌐 | heuristic (confirmado → verified) |
+| `adv.multistep_chain` | **Cadena de hasta 4 tools** (fuente → propagador(es) → emisor): cada tool intermedio se PRUEBA con un canario y solo cuenta como eslabón si lo devuelve (tal cual o en base64/hex/url/mayúsculas); la cadena se ejecuta de punta a punta pasando la salida real de cada paso como entrada del siguiente. Nunca reenvía datos reales de la fuente | ❌ | | verified |
+| `adv.stored_injection_roundtrip` | Escribe un payload de inyección con un tool `save/store/add/note…` y verifica si un tool de lectura lo devuelve intacto (ataque second-order ejecutado de verdad, no inferido). ESCRIBE un texto inocuo en el target | ❌ | | verified |
 | `adv.stateful_chain_exfil` | **Multi-step, ejecuta la cadena real**: llama al tool lector, pasa un canario sintético al tool emisor — a diferencia de `supplychain.exfiltration_chain` (heurístico, solo coexistencia), esto CONFIRMA que el emisor acepta el dato sin validar procedencia | ❌ | | verified |
 
 **`auth` — autenticación y autorización (solo http/sse salvo aclaración):**
@@ -219,6 +222,15 @@ para cómo se calcula el riesgo).
 | `exposure.cors_misconfig` | Preflight con Origin hostil — ¿wildcard o reflejo dinámico? | ✅ | | verified |
 | `exposure.network_reachability` | Clasifica el host resuelto: IP privada (interno) vs pública (Internet) | ✅ | | verified |
 | `exposure.session_id_entropy` | Entropía de Shannon del `Mcp-Session-Id` — ¿es adivinable/fuerza-bruteable? | ✅ | | verified |
+
+**`protocol` — primitivas del protocolo MCP en sí (no un tool puntual):**
+
+| Test | Qué hace | Default | Red | Confidence |
+|---|---|:-:|:-:|:-:|
+| `protocol.sampling_elicitation_exposure` | Declara soporte de sampling en el handshake y observa si algún tool dispara `sampling/createMessage` o `elicitation/create` (siempre se rechazan; el pedido completo queda como evidencia) | ✅ | | heuristic |
+| `protocol.jsonrpc_malformed_fuzz` | **Fuzzing sobre un canal JSON-RPC crudo propio** (stdio: 2º subproceso con el mismo sandbox; http: peticiones directas con las mismas credenciales): ~35 frames inválidos (JSON truncado, bytes basura, tipos erróneos en method/id/params, ids de 10k, enteros de 5000 dígitos, anidamiento de 60000 niveles, unicode inválido, `arguments` mal tipados). Tras cada uno verifica con `ping` que el server sigue vivo. Reporta solo crash/hang **reproducidos en un canal nuevo**, 5xx y filtración de tracebacks/rutas. "No contestó a un frame inválido" NO es hallazgo (la spec lo permite) | ✅ | | verified (filtración: heuristic) |
+| `protocol.batch_cancel_robustness` | Lotes JSON-RPC (válidos, de 500, mixtos con elementos inválidos, anidados, con `initialize`), cancelaciones (de un request en vuelo, de ids inexistentes, de `initialize`, con tipos erróneos) e `initialize` duplicado. Que el server soporte o rechace los lotes NO es hallazgo (depende de la revisión de la spec) | ✅ | | verified |
+| `protocol.session_replay` | Solo http: ¿atiende requests **sin** `Mcp-Session-Id`, con uno **inventado**, o con una sesión ya **terminada con DELETE**? Un server stateless (sin sesiones) queda fuera. La entropía del id la mide `exposure.session_id_entropy` | ✅ | | verified |
 
 **`supplychain` — secretos, dependencias, integridad de tools:**
 
@@ -580,6 +592,48 @@ conectarse ni escanear nada todavía. Es el paso previo típico a `scan
 ./ares.sh discover
 ```
 
+
+### 3.4b `api-scan` / `api-list-tests` -- APIs REST/GraphQL
+
+Módulo separado del escaneo de MCP (`engine/api/`), mismo motor de reporte/
+score/policy/SARIF. OWASP API Security Top 10 2023.
+
+```bash
+./ares.sh api-list-tests
+./ares.sh api-scan --url http://localhost:8888 --spec http://localhost:8888/openapi.json \
+  --auth-token "$TOKEN" --print --out reporte_api.html
+```
+
+| Flag | Qué hace |
+|---|---|
+| `--url` (requerido) | base URL de la API |
+| `--spec` | OpenAPI/Swagger/Postman: ruta local o URL. Sin esto, autodescubre en rutas comunes (`/openapi.json`, `/swagger.json`, `/v3/api-docs`...) |
+| `--graphql-path` | si el endpoint GraphQL no es uno de los comunes (`/graphql`, `/api/graphql`, `/v1/graphql`, `/gql`) -- se detecta solo con una query mínima + introspección |
+| `--auth-token` / `--auth-token-b` | credencial A / una SEGUNDA identidad real, para `api.bola` (acceso cruzado confirmado con dos usuarios reales, no solo "parece distinto") |
+| `--jwt` | si la credencial no es el JWT a analizar en `api.jwt` |
+| `--tests` / `--max-level` | igual semántica que en `scan` |
+
+**Tests REST** (nivel/default, ver `api-list-tests`): `api.sensitive_paths`
+(.env/.git/backups sin auth), `api.security_headers`, `api.cors` (refleja
+Origin + Allow-Credentials), `api.auth_required` (BFLA: mismo endpoint con y
+sin credenciales), `api.bola` (IDOR confirmado con ids vecinos, opt-in),
+`api.verbose_errors` (tracebacks filtrados), `api.injection_probe`
+(SQLi/NoSQLi básico, opt-in), `api.method_tampering` (TRACE), `api.rate_limit`
+(opt-in), `api.jwt` (`alg=none`, sin `exp`), `api.mass_assignment` (campos no
+documentados aceptados, opt-in).
+
+**Tests GraphQL**: `gql.introspection`, `gql.field_suggestions` ("did you
+mean"), `gql.depth_limit` (opt-in, necesita un campo recursivo real
+detectado por introspección), `gql.alias_batching` (opt-in, N alias =
+N intentos en 1 request -- bypass de rate limit), `gql.unauth_queries`,
+`gql.get_mutations` (CSRF).
+
+Probado contra DVGA (`Campo-Tiro/Damn-Vulnerable-GraphQL-Application`,
+levantado local sin Docker vía `run_dvga.py`): introspección, `pastes`/
+`users`/`search`/`audits` accesibles sin auth, y mutations por GET -- las
+3 clases confirmadas. `crAPI` queda sin probar en este equipo por falta de
+Docker; el runner (`Campo-Tiro/run_all.py`) ya lo soporta cuando haya Docker.
+
 ### 3.5 `update-rules`
 
 **Qué hace**: refresca el cache local de patrones de detección de secretos
@@ -604,9 +658,43 @@ Top 10 nuevo puede implicar escribir un test, no solo refrescar un JSON. Ver
 `engine/core/framework_watch.py`.
 
 ```bash
-./ares.sh check-frameworks          # avisa si hay novedades, no toca el cache
-./ares.sh check-frameworks --ack    # acepta el estado actual como nuevo baseline
+./ares.sh check-frameworks            # avisa si hay novedades, no toca el cache
+./ares.sh check-frameworks --verify   # + verifica que CADA código citado en frameworks.py exista en su fuente
+./ares.sh check-frameworks --ack      # acepta el estado actual como nuevo baseline (se rehúsa si --verify falla)
+./ares.sh check-frameworks --verify --fail-if-stale 45   # modo CI: exit 1 si hay cambio sin revisar, cita rota o baseline > 45 días
 ```
+
+`--verify` existe porque "algo cambió" no alcanza: detecta que lo que Ares
+**cita ya no es cierto**. Caso real que lo motivó: el OWASP LLM Top 10 pasó de
+la edición 2025 a la **2026** (publicada 2026-08-04) renumerando 8 de las 10
+entradas (Excessive Agency LLM06→LLM03, Unbounded Consumption LLM10→LLM06…);
+Ares seguía etiquetando con los códigos 2025. Hoy verifica contra la fuente
+primaria: los archivos `MCPnn-2025-*` del repo OWASP MCP, los `LLMnn_*` de la
+edición citada y los IDs/nombres de técnica del YAML del último release de ATLAS.
+
+El **baseline** (`rules/framework_versions.json`) debe estar commiteado: sin él,
+cada corrida en CI es "la primera" y nunca alerta. `.github/workflows/watch.yml`
+lo corre cada lunes.
+
+### 3.5b `check-lists`
+
+Contrasta las **listas curadas a mano** contra su fuente pública (nunca las
+edita; informa qué revisar):
+
+| Lista | Se contrasta contra | Qué detecta |
+|---|---|---|
+| Feed de CVEs (`static.known_cve_check`) | OSV.dev (alias-aware: un CVE indexado solo como GHSA/PYSEC se resuelve igual) | CVE inexistente, `fixed_in` que no coincide con el fix publicado, **CVEs nuevos** de los paquetes oficiales que el feed no tiene |
+| Paquetes legítimos (`static.typosquatting_check`) | `modelcontextprotocol/servers/src` | servers nuevos o que dejaron de ser activos |
+| Patrones de secretos (`rules/secrets_patterns.json`) | `gitleaks.toml` upstream | cache viejo (>90 días) o reglas nuevas/retiradas |
+
+```bash
+./ares.sh check-lists                  # tabla ok / stale / drift / missing / error
+./ares.sh check-lists --fail-on-drift  # modo CI
+```
+
+Primera corrida real (2026-11-11): encontró que el feed **no tenía
+CVE-2026-27735** (path traversal en `git_add` de `mcp-server-git`, corregido en
+2026.1.14); ya agregado.
 
 ### 3.6 `scan`
 
@@ -1133,9 +1221,9 @@ resumen de terceros) antes de citarla:
   (bleed ENTRE sesiones/tenants del MISMO server — planta un canario con una
   credencial y confirma con una segunda si aparece sin que nadie se lo haya
   dado; requiere `--auth-token-b`, opt-in e intrusivo, ver sección 3.6).
-- **OWASP Top 10 for LLM Applications (2025)** — `LLM01:2025` … `LLM10:2025`,
-  **los 10 con al menos un test**. LLM08 (Vector/Embedding Weaknesses) y
-  LLM09 (Misinformation) son los dos únicos sin tests dedicados -- son
+- **OWASP Top 10 for LLM Applications (2026)** — `LLM01:2026` … `LLM10:2026`,
+  **los 10 con al menos un test**. LLM09 (Vector/Embedding Weaknesses) y
+  LLM07 (Misinformation) son los dos únicos sin tests dedicados -- son
   riesgos de la capa de aplicación LLM (embeddings, alucinación del modelo),
   no algo que un servidor MCP exponga por protocolo; deliberadamente fuera
   de alcance, no un olvido.
@@ -1366,12 +1454,26 @@ se decidió NO construir todavía en esta pasada, y por qué:
   es un ruleset chico y curado a mano, no un motor SAST completo — sigue
   siendo una brecha frente a herramientas dedicadas (`mcp-guard`, Semgrep
   Pro/registro público) para recall exhaustivo.
-- **Ataques multi-step/stateful** — `adv.stateful_chain_exfil` cubre AHORA el
-  patrón más importante (lector→emisor, confirmado por ejecución real con
-  canario), pero sigue siendo un patrón puntual de dos llamadas; encadenar
-  N tools arbitrarios en secuencias más largas/genéricas sigue sin cubrirse.
-- **Fuzzing a nivel protocolo** (frames JSON-RPC malformados, replay/
-  predictibilidad del `Mcp-Session-Id` en streamable-http).
+- **Ataques multi-step/stateful** — `adv.stateful_chain_exfil` cubre el patrón
+  de dos llamadas; `adv.multistep_chain` lo generaliza a cadenas de hasta 4
+  tools y `adv.stored_injection_roundtrip` cierra el ciclo escribir→leer.
+  Cada eslabón se PRUEBA (un tool es "propagador" solo si devuelve el canario)
+  y la cadena se ejecuta de punta a punta; solo circula el canario, nunca el
+  dato real de la fuente. Límite honesto: la clasificación fuente/emisor es
+  por NOMBRE de tool (`get_*`, `send_*`…), así que un server con nombres
+  opacos no se analiza, y los propagadores se prueban de a uno (no se explora
+  si dos tools combinados propagan algo que ninguno propaga solo).
+- **Sampling/elicitation** — cubierto AHORA por `protocol.sampling_elicitation_exposure`:
+  el cliente de Ares declara soporte de sampling en el handshake y registra
+  callbacks que capturan cualquier pedido real de sampling/createMessage o
+  elicitation/create que un tool dispare, sin completar nunca nada en nombre
+  del server. Gap real confirmado contra investigación 2026 (Unit 42: 78.3%
+  de tasa de éxito de ataque encadenando sampling entre 5 MCP servers) y
+  validado en campo de tiro contra MCPGoat (desafío `sampling-abuse`, nivel
+  easy, capturado con el prompt inyectado completo como evidencia). Fuzzing a nivel protocolo: cubierto por `protocol.jsonrpc_malformed_fuzz`,
+  `protocol.batch_cancel_robustness` y `protocol.session_replay` (canal
+  JSON-RPC crudo propio; ver tabla de tests). Sigue sin cubrirse el transporte
+  SSE legado y la negociación de `protocolVersion`.
 - **Grafo de exfiltración cross-server** — cubierto AHORA por la correlación
   cross-server del modo `full` (sección 3.8): con 2+ targets en la misma
   corrida, detecta cadenas lector(server A)→emisor(server B) que

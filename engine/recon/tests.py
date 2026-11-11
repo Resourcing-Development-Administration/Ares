@@ -26,6 +26,7 @@ SUSPICIOUS_PATTERNS = [
 
 @register_test(
     id="recon.enumerate",
+    level=1,
     name="Enumeración de tools/resources/prompts",
     category=Category.RECON,
     description="Lista todo lo que expone el servidor MCP (tools, resources, prompts).",
@@ -66,6 +67,7 @@ def _param_descriptions(tool: dict) -> dict[str, str]:
 
 @register_test(
     id="recon.suspicious_descriptions",
+    level=1,
     name="Análisis de descripciones sospechosas (tool poisoning / line jumping)",
     category=Category.RECON,
     description="Busca instrucciones ocultas o dirigidas al modelo dentro de las descripciones de tools "
@@ -126,6 +128,7 @@ async def suspicious_descriptions(target, ctx) -> list[Finding]:
 
 @register_test(
     id="recon.audit_logging",
+    level=1,
     name="Soporte de audit/telemetría (logging capability)",
     category=Category.RECON,
     description="Verifica si el server declara soporte del capability 'logging' del protocolo MCP en su "
@@ -174,6 +177,7 @@ async def audit_logging(target, ctx) -> list[Finding]:
 
 @register_test(
     id="recon.excessive_permissions",
+    level=1,
     name="Detección de permisos/alcance excesivo declarado",
     category=Category.RECON,
     description="Marca tools cuyo nombre/descripción sugiere capacidades muy amplias (fs, shell, network) sin sandboxing aparente.",

@@ -265,7 +265,7 @@ host, y no tiene red real salvo que tildes `--allow-network` (§7).
 | Campo | Qué es | Qué poner | Para qué sirve |
 |---|---|---|---|
 | **`--no-sandbox`** (checkbox) | Desactiva TODO el aislamiento de proceso | Casi nunca hace falta tildarlo | Apaga `prlimit` + `bwrap` por completo — existe para debuggear o para un host donde ninguno de los dos está disponible de todas formas |
-| **`--sandbox-mem-mb`** | Tope de memoria virtual (MB) del subprocess | Vacío = `512` | Vía `prlimit` (`RLIMIT_AS`) — de sobra para cualquier server MCP legítimo |
+| **`--sandbox-mem-mb`** | Tope de memoria VIRTUAL (MB) del subprocess | Vacío = `2048` | Vía `prlimit` (`RLIMIT_AS`) — un runtime JIT/managed (Node/V8, JVM, .NET) reserva varios cientos de MB solo para arrancar; un valor chico (ej. 512) corta la conexión con CUALQUIER server en esos runtimes, no solo con un ataque real |
 | **`--sandbox-cpu-s`** | Tope de tiempo de CPU (segundos) | Vacío = `120` | Vía `prlimit` (`RLIMIT_CPU`) |
 | **`--sandbox-nproc`** | Tope de procesos/threads — bloquea fork bombs | **Dejalo vacío** (recomendado) | Vacío = calculado dinámicamente como "lo que el host ya tiene corriendo + margen" — `RLIMIT_NPROC` es un tope sobre el TOTAL de procesos del usuario en todo el host, no por proceso hijo; un número fijo puesto a mano puede romper la corrida si el host ya tiene más procesos que ese número |
 | **`--sandbox-nofile`** | Tope de file descriptors abiertos | Vacío = `256` | Vía `prlimit` (`RLIMIT_NOFILE`) |

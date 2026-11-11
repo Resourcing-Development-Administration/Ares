@@ -10,6 +10,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VULN_STDIO = os.path.join(ROOT, "target_server.py")
 VULN_HTTP = os.path.join(ROOT, "target_server_http.py")
 SAFE_STDIO = os.path.join(ROOT, "tests", "fixtures", "safe_server.py")
+SAMPLING_STDIO = os.path.join(ROOT, "tests", "fixtures", "sampling_server.py")
 RUGPULLED_STDIO = os.path.join(ROOT, "tests", "fixtures", "safe_server_rugpulled.py")
 VALIDATING_STDIO = os.path.join(ROOT, "tests", "fixtures", "validating_server.py")
 

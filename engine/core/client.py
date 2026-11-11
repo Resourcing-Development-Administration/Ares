@@ -11,6 +11,9 @@ from typing import Any, Optional
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+from mcp.shared.context import RequestContext
+from mcp import types as mcp_types
+from mcp.types import SamplingCapability
 from engine.core.limits import cap_text, MAX_TEXT_FOR_ANALYSIS, MAX_RESPONSE_CONTENT
 from engine.core.sandbox import wrap_command, sandbox_available, sandbox_status, DEFAULT_MEM_MB, DEFAULT_CPU_S, DEFAULT_NOFILE
 
@@ -54,6 +57,17 @@ class MCPTarget:
         self.current_test_id: Optional[str] = None
         self.sandboxed: bool = False  # True solo si transport=="stdio" y alguna capa (prlimit/bwrap) envolvió el comando
         self.sandbox_layers: dict = {"prlimit": False, "bwrap": False}
+        # Captura de cada sampling/elicitation request que el SERVER le pide al cliente --
+        # ver engine/protocol/tests.py. Declaramos soporte de sampling en el initialize
+        # (sampling_capabilities=SamplingCapability() más abajo) para que un server que
+        # SÍ lo use no se autolimite por creer que el cliente no lo soporta; sin esto,
+        # Ares jamás vería esta superficie -- quedaría indistinguible de "el server nunca
+        # pide sampling" cuando en realidad podría ser "el server nunca lo intenta porque
+        # cree que no hay con quién hablar". Ambos callbacks RECHAZAN el pedido siempre
+        # (nunca le dan al server una respuesta real que pueda usar) -- el objetivo es
+        # observar qué pide y con qué prompt, no completar nada en su nombre.
+        self.sampling_requests: list[dict] = []
+        self.elicitation_requests: list[dict] = []
 
     async def __aenter__(self) -> "MCPTarget":
         # Si algo falla a mitad de camino (ej. session.initialize() con un DNS que no
@@ -117,7 +131,12 @@ class MCPTarget:
             else:
                 raise ValueError(f"transporte no soportado: {self.transport}")
 
-            self.session = await self._stack.enter_async_context(ClientSession(read, write))
+            self.session = await self._stack.enter_async_context(ClientSession(
+                read, write,
+                sampling_callback=self._on_sampling_request,
+                elicitation_callback=self._on_elicitation_request,
+                sampling_capabilities=SamplingCapability(),
+            ))
             init_result = await self.session.initialize()
             self.capabilities = init_result.capabilities
             self.server_info = init_result.serverInfo
@@ -138,6 +157,46 @@ class MCPTarget:
 
     async def __aexit__(self, *exc):
         await self._stack.aclose()
+
+    async def _on_sampling_request(
+        self, context: RequestContext, params: mcp_types.CreateMessageRequestParams,
+    ) -> mcp_types.CreateMessageResult | mcp_types.ErrorData:
+        """El server nos pide que le hagamos completar un prompt con un LLM real
+        (sampling/createMessage). Se captura entero (mensajes, systemPrompt, modelPreferences)
+        como evidencia -- esto es exactamente lo que un agente real vería y, sin
+        aprobación humana de por medio, podría devolverle al server sin que nadie lo
+        audite -- y se RECHAZA siempre (nunca le damos al server una completion real que
+        pueda usar para actuar)."""
+        entry = {
+            "messages": [m.model_dump(exclude_none=True) for m in (params.messages or [])],
+            "system_prompt": params.systemPrompt,
+            "model_preferences": params.modelPreferences.model_dump(exclude_none=True) if params.modelPreferences else None,
+            "include_context": params.includeContext,
+            "tools_offered": bool(getattr(params, "tools", None)),
+        }
+        self.sampling_requests.append(entry)
+        if self.progress_cb:
+            self.progress_cb({"type": "sampling_request", "test_id": self.current_test_id, **entry})
+        return mcp_types.ErrorData(
+            code=mcp_types.INVALID_REQUEST,
+            message="Rechazado por Ares (escáner automatizado, sin humano ni LLM real detrás de esta sesión).",
+        )
+
+    async def _on_elicitation_request(
+        self, context: RequestContext, params: mcp_types.ElicitRequestParams,
+    ) -> mcp_types.ElicitResult | mcp_types.ErrorData:
+        """El server nos pide que le saquemos un dato al USUARIO en vivo (elicitation/create)
+        -- mismo criterio que sampling: se captura el pedido completo (qué pregunta, qué
+        schema de datos pide) como evidencia, y se declina siempre."""
+        schema = getattr(params, "requestedSchema", None)
+        entry = {
+            "message": getattr(params, "message", None),
+            "requested_schema": schema.model_dump(exclude_none=True) if hasattr(schema, "model_dump") else schema,
+        }
+        self.elicitation_requests.append(entry)
+        if self.progress_cb:
+            self.progress_cb({"type": "elicitation_request", "test_id": self.current_test_id, **entry})
+        return mcp_types.ElicitResult(action="decline")
 
     def _tls_kwargs(self, client_fn) -> dict:
         """kwargs TLS para el cliente http/sse del SDK MCP cuando hay una CA custom

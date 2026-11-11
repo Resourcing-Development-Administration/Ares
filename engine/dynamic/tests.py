@@ -9,6 +9,8 @@ import time
 
 from engine.core.models import Finding, Evidence, Category
 from engine.core.registry import register_test
+from engine.core.risk import build_vector, base_vector_for
+from engine.core.schema_utils import minimal_valid_args
 from engine.dynamic.payload_gen import build_fuzz_cases
 from payloads.canary import (
     new_canary, strip_reflections, command_injection_payloads,
@@ -28,6 +30,7 @@ LEAK_PATTERNS = [
 
 @register_test(
     id="dynamic.fuzz_tools",
+    level=2,
     name="Fuzzing black-box de parámetros por tool",
     category=Category.DYNAMIC,
     description="Envía inputs edge-case/malformados a cada tool y detecta crashes, leaks de info o falta de validación.",
@@ -44,6 +47,7 @@ async def fuzz_tools(target, ctx) -> list[Finding]:
 
         crash_count = 0
         leak_findings = 0
+        leaks: dict = {}
         accepted_invalid = 0
 
         for args in cases:
@@ -67,18 +71,10 @@ async def fuzz_tools(target, ctx) -> list[Finding]:
             for pattern, label in LEAK_PATTERNS:
                 if re.search(pattern, content):
                     leak_findings += 1
-                    findings.append(Finding(
-                        test_id="dynamic.fuzz_tools",
-                        title=f"Leak de información interna en '{name}'",
-                        category=Category.DYNAMIC,
-                        target=name,
-                        description=f"{label}. Detectado al enviar payload adversarial.",
-                        evidence=Evidence(request={"tool": name, "arguments": args}, response=result),
-                        passed=False,
-                        confidence_override="heuristic",
-                        remediation="Capturar excepciones y devolver mensajes de error genéricos al cliente; "
-                                     "loguear el detalle solo server-side.",
-                    ))
+                    # un solo finding por (tool, tipo de leak): antes cada caso de fuzz generaba
+                    # el suyo (89 idénticos contra UN solo server) y ahogaba el reporte.
+                    entry = leaks.setdefault(label, {"count": 0, "args": args, "result": result})
+                    entry["count"] += 1
                     break  # un leak por caso alcanza
 
             # 2. server no manejó el error explícitamente pero tampoco crasheó -> ok
@@ -89,6 +85,21 @@ async def fuzz_tools(target, ctx) -> list[Finding]:
             if result.get("ok") and not result.get("is_error"):
                 if any(v is None or isinstance(v, (list, dict)) and not isinstance(v, str) for v in [] ):
                     pass  # placeholder, la heurística fuerte ya está en leak/crash
+
+        for label, entry in leaks.items():
+            findings.append(Finding(
+                test_id="dynamic.fuzz_tools",
+                title=f"Leak de información interna en '{name}'",
+                category=Category.DYNAMIC,
+                target=name,
+                description=f"{label}. Detectado en {entry['count']} de {len(cases)} casos de fuzzing "
+                             f"(se muestra el primero como evidencia).",
+                evidence=Evidence(request={"tool": name, "arguments": entry["args"]}, response=entry["result"]),
+                passed=False,
+                confidence_override="heuristic",
+                remediation="Capturar excepciones y devolver mensajes de error genéricos al cliente; "
+                             "loguear el detalle solo server-side.",
+            ))
 
         if crash_count > 0:
             findings.append(Finding(
@@ -114,44 +125,104 @@ async def fuzz_tools(target, ctx) -> list[Finding]:
     return findings
 
 
+_UNSAFE_FOR_BURST = re.compile(
+    r"delete|drop|remove|destroy|wipe|truncate|purge|kill|send|post|email|mail|notify|webhook|upload|"
+    r"exec|run|shell|command|write|create|insert|update|set_|put|publish|pay|transfer|charge|"
+    r"deploy|install|reset|restart|shutdown|commit|push",
+    re.IGNORECASE,
+)
+_THROTTLE_SIGNALS = re.compile(
+    r"\b429\b|rate.?limit|too many requests|throttl|quota|retry.?after|slow down|exceeded", re.IGNORECASE
+)
+
+
+def _pick_burst_tool(tools: list[dict]):
+    """Un tool SEGURO de ráfagas: sin efectos laterales (nada de borrar/enviar/escribir) y
+    llamable solo con sus parámetros requeridos. Antes se usaba tools[0] a ciegas: contra un
+    server con `delete_*` o `send_email` como primer tool, el test de rate limit BORRABA /
+    ENVIABA 50 veces."""
+    candidates = []
+    for t in tools:
+        text = t["name"] + " " + (t.get("description") or "")[:200]
+        if _UNSAFE_FOR_BURST.search(t["name"]):
+            continue
+        # preferir lectura explícita
+        read_like = bool(re.search(r"^(get|list|read|search|find|fetch|view|show|describe|info|status|ping|echo|health|version)", t["name"], re.I))
+        candidates.append((0 if read_like else 1, t))
+    candidates.sort(key=lambda x: x[0])
+    return candidates[0][1] if candidates else None
+
+
 @register_test(
     id="dynamic.rate_limit",
+    level=2,
     name="Prueba de rate limiting / DoS básico",
     category=Category.DYNAMIC,
-    description="Envía ráfagas de llamadas concurrentes al primer tool disponible para verificar si hay throttling.",
+    description="Ráfaga concurrente contra un tool de solo lectura (nunca uno destructivo/de envío) de un server "
+                 "expuesto por red (http/sse). La AUSENCIA de throttling en una ráfaga corta es una observación "
+                 "de baja confianza -- no prueba que el server sea explotable por agotamiento -- así que se "
+                 "reporta con severidad baja y solo si la ráfaga fue medible (el tool respondió bien).",
     default_enabled=False,  # puede ser intrusivo, off por default
 )
 async def rate_limit_test(target, ctx) -> list[Finding]:
-    tools = ctx.get("tools") or await target.list_tools()
-    if not tools:
-        return []
-    tool = tools[0]
-    schema = tool.get("input_schema") or {}
-    args = {p: "test" for p in (schema.get("required") or [])}
+    def na(msg: str, title: str = "Rate limiting: no aplicable / no medible") -> list[Finding]:
+        return [Finding(test_id="dynamic.rate_limit", title=title, category=Category.DYNAMIC,
+                        target="server", description=msg, passed=True)]
 
-    N = 50
+    if getattr(target, "transport", "") == "stdio":
+        return na("Transporte stdio: el server es un subproceso con UN solo cliente (el proceso que lo lanzó); "
+                  "no existe 'otro cliente' al que limitar. El throttling lo aplica el cliente/agente, no el "
+                  "server -- reportar su ausencia sería un falso positivo.", "Rate limiting: no aplica a stdio")
+
+    tools = ctx.get("tools") or await target.list_tools()
+    tool = _pick_burst_tool(tools)
+    if tool is None:
+        return na("Todos los tools tienen nombre destructivo/de envío/escritura; no se hizo ráfaga para no "
+                  "causar efectos laterales reales en el target.")
+    args = minimal_valid_args(tool.get("input_schema") or {})
+
+    # calibración: si UNA llamada secuencial ya falla, la ráfaga solo mediría errores de validación.
+    probe = await target.call_tool(tool["name"], args)
+    if not probe.get("ok") or probe.get("is_error"):
+        return na(f"La llamada de calibración a '{tool['name']}' con argumentos mínimos válidos ya falló "
+                  f"({str(probe.get('raw_error') or probe.get('content'))[:120]!r}); una ráfaga mediría "
+                  f"rechazos de validación, no throttling.")
+
+    N = 30
     t0 = time.monotonic()
     results = await asyncio.gather(*[target.call_tool(tool["name"], args) for _ in range(N)], return_exceptions=True)
     elapsed = time.monotonic() - t0
 
-    errors = sum(1 for r in results if isinstance(r, Exception) or (isinstance(r, dict) and not r.get("ok")))
-    throttled = any(
-        isinstance(r, dict) and "rate" in str(r.get("raw_error", "")).lower()
-        for r in results
-    )
+    dicts = [r for r in results if isinstance(r, dict)]
+    ok_count = sum(1 for r in dicts if r.get("ok") and not r.get("is_error"))
+    throttled = any(_THROTTLE_SIGNALS.search(str(r.get("raw_error") or "") + " " + str(r.get("content") or "")[:300])
+                    for r in dicts if not (r.get("ok") and not r.get("is_error")))
 
-    finding = Finding(
+    if throttled:
+        return [Finding(test_id="dynamic.rate_limit",
+                        title=f"Rate limiting detectado en '{tool['name']}'", category=Category.DYNAMIC,
+                        target=tool["name"], passed=True,
+                        description=f"{N} llamadas concurrentes en {elapsed:.2f}s; el server aplicó throttling "
+                                     f"({ok_count} OK).")]
+    if ok_count < N * 0.9:
+        return na(f"Solo {ok_count}/{N} llamadas de la ráfaga tuvieron éxito, sin señal de throttling "
+                  f"(429/rate/quota): el resultado no es concluyente (errores de otra naturaleza).")
+
+    return [Finding(
         test_id="dynamic.rate_limit",
-        title=f"Rate limiting {'detectado' if throttled else 'NO detectado'} en '{tool['name']}'",
-        category=Category.DYNAMIC,
-        target=tool["name"],
-        description=f"{N} llamadas concurrentes en {elapsed:.2f}s, {errors} fallaron. "
-                     f"{'El servidor aplicó throttling.' if throttled else 'No se observó throttling explícito — posible vector de DoS.'}",
-        evidence=Evidence(notes=f"{N} requests, {errors} errores, {elapsed:.2f}s totales"),
-        passed=throttled,
-        remediation="Implementar rate limiting por sesión/cliente en el servidor MCP.",
-    )
-    return [finding]
+        title=f"Sin throttling observable en una ráfaga de {N} llamadas a '{tool['name']}'",
+        category=Category.DYNAMIC, target=tool["name"],
+        # ausencia de evidencia en una ráfaga corta: heurístico y de impacto acotado (AC:H, A:L)
+        confidence_override="heuristic",
+        cvss_vector_override=build_vector(base_vector_for("dynamic.rate_limit"), AC="H"),
+        description=(f"{N} llamadas concurrentes en {elapsed:.2f}s, las {ok_count} respondieron OK sin ninguna "
+                      f"señal de límite. Esto NO prueba que el server sea agotable (puede haber un límite más "
+                      f"alto, o aplicarse en un gateway/WAF delante de él): es una señal para revisar la "
+                      f"configuración de throttling real del despliegue."),
+        evidence=Evidence(notes=f"{N} requests, {ok_count} OK, {elapsed:.2f}s totales"),
+        passed=False,
+        remediation="Verificar/implementar rate limiting por sesión/cliente (en el server o en el gateway delante).",
+    )]
 
 
 def _string_params(schema: dict) -> list[str]:
@@ -161,6 +232,7 @@ def _string_params(schema: dict) -> list[str]:
 
 @register_test(
     id="dynamic.command_injection_confirmed",
+    level=2,
     name="Command injection confirmado por canario",
     category=Category.DYNAMIC,
     description="Inyecta payloads de command injection con un canario único aleatorio y busca que el "
@@ -217,6 +289,7 @@ async def command_injection_confirmed(target, ctx) -> list[Finding]:
 
 @register_test(
     id="dynamic.path_traversal_confirmed",
+    level=2,
     name="Path traversal confirmado por contenido de /etc/passwd",
     category=Category.DYNAMIC,
     description="Envía payloads de path traversal y confirma explotación real buscando firmas de contenido "
@@ -269,6 +342,7 @@ async def path_traversal_confirmed(target, ctx) -> list[Finding]:
 
 @register_test(
     id="dynamic.credential_harvest_paths",
+    level=2,
     name="Path traversal dirigido a credenciales conocidas (SSH, cloud, configs MCP)",
     category=Category.DYNAMIC,
     description="A diferencia de dynamic.path_traversal_confirmed (que prueba SI hay traversal, apuntando "
@@ -342,6 +416,7 @@ def _resource_uri_mutations(uri: str) -> list[str]:
 
 @register_test(
     id="dynamic.fuzz_resources",
+    level=2,
     name="Fuzzing de URIs de resources (estáticos y templates)",
     category=Category.DYNAMIC,
     description="Prueba variantes mutadas (path traversal, encoding, null byte) de las URIs de resources "

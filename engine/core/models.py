@@ -35,6 +35,27 @@ class Category(str, Enum):
     AUTH = "auth"
     EXPOSURE = "exposure"
     SUPPLYCHAIN = "supplychain"
+    API = "api"            # módulo de APIs (REST/GraphQL), ver engine/api/
+    PROTOCOL = "protocol"  # sampling/elicitation/roots -- primitivas del protocolo en sí,
+                            # no de un tool particular (ver engine/protocol/tests.py)
+
+
+# Nombres/descripciones de los 4 niveles de TestMeta.level -- única fuente de verdad,
+# leída por la CLI (list-tests, --max-level) y por el webui (selector de nivel).
+LEVEL_NAMES: dict[int, str] = {
+    1: "Básico",
+    2: "Intermedio",
+    3: "Avanzado",
+    4: "Crítico",
+}
+LEVEL_DESCRIPTIONS: dict[int, str] = {
+    1: "Pasivo -- metadata y análisis estático. Nunca invoca un tool/resource real.",
+    2: "Sondeo activo -- invoca tools/resources reales con payloads, una sola identidad.",
+    3: "Impacto confirmado -- cruza un límite real (BOLA entre identidades, cadena "
+       "multi-step, SSRF con red real). Suele requerir autorización/opt-in.",
+    4: "Agente real (LLM) en el loop decidiendo si obedece la inyección. Requiere "
+       "credenciales de proveedor y red de salida.",
+}
 
 
 @dataclass
@@ -166,6 +187,18 @@ class TestMeta:
     description: str
     default_enabled: bool = True
     requires_network: bool = False   # si el test puede hacer llamadas externas reales (SSRF, exfil, etc.)
+    # Nivel de complejidad/agresividad REAL del ataque contra el target -- no es lo mismo
+    # que default_enabled (eso es "¿corre sin pedir nada?") ni que requires_network (eso es
+    # "¿sale a internet?"): esto clasifica qué tan lejos llega la prueba en el target mismo.
+    #   1 Básico    -- metadata/análisis estático, nunca invoca un tool ni lee un resource
+    #                  real (enumeración, heurísticas, diffs contra baseline/semgrep/OSV).
+    #   2 Intermedio-- invoca tools/resources reales con payloads/fuzzing, una sola
+    #                  identidad, sin impacto confirmado más allá de la respuesta misma.
+    #   3 Avanzado  -- impacto confirmado cruzando un límite (BOLA entre identidades,
+    #                  cadena multi-step lector->emisor, SSRF con red real).
+    #   4 Crítico   -- agente real (LLM) en el loop decidiendo si obedece la inyección.
+    # Usado por LEVEL_NAMES/LEVEL_TOOLTIPS de abajo y por el filtro --max-level de la CLI.
+    level: int = 1
 
 
 @dataclass

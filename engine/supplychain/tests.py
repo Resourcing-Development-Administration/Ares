@@ -18,7 +18,7 @@ import re
 from engine.core.models import Finding, Evidence, Category
 from engine.core.risk import build_vector, base_vector_for
 from engine.core.registry import register_test
-from engine.supplychain.similarity import jaro_winkler
+from engine.supplychain.similarity import jaro_winkler, squat_kind
 from engine.supplychain.rule_sources import load_secret_patterns
 from engine.core.limits import cap_text
 
@@ -57,12 +57,135 @@ def _all_text_blobs(tools, resources, prompts, server_info) -> list[tuple[str, s
     return blobs
 
 
+# --- escaneo del código FUENTE del server (no solo lo que expone el protocolo) -----
+#
+# Gap real encontrado probando Ares contra vulnerable-mcp-server-secrets-pii (campo de
+# tiro): ese server embebe el email de un admin (PII) en su propio index.js, en base64
+# -- la vulnerabilidad completa vive en el código, nunca en una descripción/schema que
+# el protocolo expone. secret_exposure (de arriba) solo mira tools/resources/prompts
+# devueltos por list_tools/list_resources/list_prompts -- nunca el --source-path que
+# supplychain.dependency_vulnerabilities/source_sast ya reciben. Confirmado: corriendo
+# ambos tests con --source-path apuntado a ese server, NINGUNO de los dos lo detectaba
+# -- ni siquiera un secreto en texto plano, porque secret_exposure nunca mira archivos.
+#
+# Esto agrega esa superficie al MISMO test (no uno nuevo) -- conceptualmente es la
+# misma pregunta ("¿hay un secreto expuesto?"), solo que ahora también mira dónde
+# vulnerable-mcp-server-secrets-pii de verdad lo esconde.
+
+_SOURCE_SCAN_SKIP_DIRS = {
+    "node_modules", ".git", ".venv", "venv", "__pycache__", "dist", "build",
+    ".mypy_cache", ".pytest_cache", "egg-info",
+}
+_SOURCE_SCAN_TEXT_EXTS = {
+    ".py", ".js", ".mjs", ".cjs", ".ts", ".json", ".yml", ".yaml", ".env",
+    ".txt", ".cfg", ".ini", ".toml", ".ts", ".jsx", ".tsx",
+}
+_SOURCE_SCAN_MAX_FILES = 500       # tope de archivos recorridos -- "atacar al atacante"
+_SOURCE_SCAN_MAX_FILE_BYTES = 2_000_000  # por archivo, mismo criterio que MAX_RESPONSE_CONTENT
+# base64 "clásico" de 16+ chars -- lo bastante largo para no matchear basura corta al
+# azar, generoso para no perderse un email/token mediano codificado.
+_BASE64_TOKEN_RE = re.compile(r"[A-Za-z0-9+/]{16,}={0,2}")
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+
+
+def _iter_source_files(source_path: str):
+    import os
+    for root, dirs, files in os.walk(source_path):
+        dirs[:] = [d for d in dirs if d not in _SOURCE_SCAN_SKIP_DIRS and not d.startswith(".")]
+        for fn in files:
+            if os.path.splitext(fn)[1].lower() not in _SOURCE_SCAN_TEXT_EXTS:
+                continue
+            yield os.path.join(root, fn)
+
+
+def _decode_base64_candidate(token: str) -> str | None:
+    """Intenta decodear un token base64 a texto imprimible -- None si no decodea limpio
+    o el resultado es binario/ruido (evita que CUALQUIER string larga alfanumérica del
+    código, que por azar es base64-válida, genere ruido sin un decode plausible atrás)."""
+    import base64
+    try:
+        raw = base64.b64decode(token, validate=True)
+        text = raw.decode("utf-8")
+    except Exception:
+        return None
+    if not text or not text.isprintable():
+        return None
+    return text
+
+
+def _scan_source_tree_for_secrets(source_path: str, patterns: list[tuple[str, str]]) -> list[Finding]:
+    import os
+    findings = []
+    scanned = 0
+    for path in _iter_source_files(source_path):
+        if scanned >= _SOURCE_SCAN_MAX_FILES:
+            break
+        scanned += 1
+        try:
+            if os.path.getsize(path) > _SOURCE_SCAN_MAX_FILE_BYTES:
+                continue
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                content = cap_text(f.read())
+        except OSError:
+            continue
+        rel = os.path.relpath(path, source_path)
+
+        for pattern, label in patterns:
+            m = re.search(pattern, content)
+            if m:
+                sample = m.group(0)
+                sample = sample[:6] + "…" + sample[-4:] if len(sample) > 12 else "…"
+                findings.append(Finding(
+                    test_id="supplychain.secret_exposure",
+                    title=f"{label} expuesto en el código fuente ({rel})",
+                    category=Category.SUPPLYCHAIN,
+                    target=rel,
+                    description=f"Se detectó un patrón de {label} directamente en el código fuente del "
+                                 f"server, no solo en lo que expone el protocolo. Muestra: {sample}",
+                    passed=False,
+                    remediation="Nunca embeber secretos/PII en el código fuente, ni siquiera 'ofuscados' "
+                                 "(base64/rot13/etc. no son cifrado -- cualquiera con el repo/tarball los "
+                                 "recupera). Usar variables de entorno o un vault, y rotar cualquier "
+                                 "credencial expuesta inmediatamente.",
+                ))
+
+        # tokens base64 embebidos (el patrón exacto de vulnerable-mcp-server-secrets-pii:
+        # PII/secretos "ofuscados" en base64 adentro de un array de strings en el código)
+        # -- decodear cada candidato y re-pasar los mismos patrones + un chequeo de email
+        # sobre el texto YA decodeado.
+        for tok in set(_BASE64_TOKEN_RE.findall(content)):
+            decoded = _decode_base64_candidate(tok)
+            if decoded is None:
+                continue
+            email_match = _EMAIL_RE.search(decoded)
+            secret_hit = next(((p, l) for p, l in patterns if re.search(p, decoded)), None)
+            if not email_match and not secret_hit:
+                continue
+            label = secret_hit[1] if secret_hit else "email/PII"
+            findings.append(Finding(
+                test_id="supplychain.secret_exposure",
+                title=f"{label} expuesto en base64 dentro del código fuente ({rel})",
+                category=Category.SUPPLYCHAIN,
+                target=rel,
+                description=f"Un string en base64 del código fuente decodea a {label}: "
+                             f"'{decoded[:60]}{'…' if len(decoded) > 60 else ''}'. La 'ofuscación' base64 "
+                             f"no protege nada -- cualquiera con el código lo decodea en una línea.",
+                passed=False,
+                remediation="Nunca embeber secretos/PII en el código fuente, ni siquiera 'ofuscados' "
+                             "(base64/rot13/etc. no son cifrado). Usar variables de entorno o un vault.",
+            ))
+    return findings
+
+
 @register_test(
     id="supplychain.secret_exposure",
+    level=1,
     name="Secretos expuestos en definiciones",
     category=Category.SUPPLYCHAIN,
-    description="Escanea nombre/descripción/schema de tools, resources y prompts en busca de API keys, "
-                 "tokens, private keys, o URLs de DB con credenciales embebidas.",
+    description="Escanea nombre/descripción/schema de tools, resources y prompts (siempre) y, si se dio "
+                 "--source-path, también el código fuente del server -- incluidos tokens base64 embebidos, "
+                 "'ofuscación' habitual para secretos/PII -- en busca de API keys, tokens, private keys, "
+                 "URLs de DB con credenciales embebidas, o emails.",
 )
 async def secret_exposure(target, ctx) -> list[Finding]:
     tools = ctx.get("tools") or await target.list_tools()
@@ -88,11 +211,16 @@ async def secret_exposure(target, ctx) -> list[Finding]:
                                  "entorno o un vault, y rotar cualquier credencial expuesta inmediatamente.",
                 ))
 
+    source_path = ctx.get("source_path")
+    if source_path:
+        findings.extend(_scan_source_tree_for_secrets(source_path, patterns))
+
     if not findings:
         findings.append(Finding(
             test_id="supplychain.secret_exposure", title="Sin secretos detectados",
             category=Category.SUPPLYCHAIN, target="server",
-            description="No se encontraron patrones de secretos conocidos en las definiciones analizadas.",
+            description="No se encontraron patrones de secretos conocidos en las definiciones analizadas"
+                         + (" ni en el código fuente (--source-path)." if source_path else "."),
             passed=True,
         ))
     return findings
@@ -107,6 +235,7 @@ NAME_SIMILARITY_THRESHOLD = 0.82
 
 @register_test(
     id="supplychain.tool_squatting",
+    level=1,
     name="Tool squatting / confused deputy",
     category=Category.SUPPLYCHAIN,
     description="Compara nombres de tools por similitud Jaro-Winkler (umbral 0.82). Pares muy similares "
@@ -126,6 +255,12 @@ async def tool_squatting(target, ctx) -> list[Finding]:
             sim = jaro_winkler(a.lower(), b.lower())
             if sim < NAME_SIMILARITY_THRESHOLD:
                 continue
+            # Jaro-Winkler solo da falsos positivos con prefijos compartidos (get_x/set_x,
+            # mcpgoat_*): exigimos además que sea una edición mínima del mismo nombre
+            # (typo / separador / homoglifo) -- ver similarity.squat_kind.
+            kind = squat_kind(a, b)
+            if kind is None:
+                continue
 
             a_destructive = any(k in a.lower() for k in DESTRUCTIVE_KEYWORDS)
             b_destructive = any(k in b.lower() for k in DESTRUCTIVE_KEYWORDS)
@@ -143,7 +278,8 @@ async def tool_squatting(target, ctx) -> list[Finding]:
                 cvss_vector_override=(build_vector(base_vector_for("supplychain.tool_squatting"), I="H")
                                         if cross_intent else None),
                 description=(
-                    f"Similitud Jaro-Winkler {sim:.3f} (umbral {NAME_SIMILARITY_THRESHOLD}). "
+                    f"Similitud Jaro-Winkler {sim:.3f} (umbral {NAME_SIMILARITY_THRESHOLD}); patrón: "
+                    f"{ {'typo': 'una edición/transposición de distancia', 'separator': 'mismo nombre con otra grafía', 'homoglyph': 'caracteres no-ASCII que imitan al otro nombre'}[kind] }. "
                     + ("Intención cruzada detectada: uno destructivo y el otro de lectura — riesgo real de "
                        "que el agente invoque el tool equivocado." if cross_intent else
                        "Revisar si ambos nombres son intencionales o uno es un typo-squat.")
@@ -171,6 +307,7 @@ SENDER_RE = re.compile(r"send|post|http|request|webhook|email|upload|exfil|trans
 
 @register_test(
     id="supplychain.exfiltration_chain",
+    level=1,
     name="Cadena de exfiltración lector -> emisor",
     category=Category.SUPPLYCHAIN,
     description="Detecta si el servidor expone simultáneamente tools que leen datos sensibles (archivos, "
@@ -218,6 +355,7 @@ MALICIOUS_PATTERN_RULES = [
 
 @register_test(
     id="supplychain.malicious_patterns",
+    level=1,
     name="Patrones de contenido malicioso (heurística tipo YARA)",
     category=Category.SUPPLYCHAIN,
     description="Banco de regex por categoría (tool poisoning, ejecución de código, robo de credenciales, "
@@ -262,6 +400,7 @@ async def malicious_patterns(target, ctx) -> list[Finding]:
 
 @register_test(
     id="supplychain.dependency_vulnerabilities",
+    level=1,
     name="Dependencias vulnerables (OSV.dev)",
     category=Category.SUPPLYCHAIN,
     description="Si se pasó --source-path, detecta requirements.txt/package.json/package-lock.json y "
@@ -355,6 +494,7 @@ _SAST_SEVERITY = {"ERROR": "high", "WARNING": "medium", "INFO": "low"}
 
 @register_test(
     id="supplychain.source_sast",
+    level=1,
     name="Análisis estático del código fuente (semgrep, ruleset propio)",
     category=Category.SUPPLYCHAIN,
     description="Si se pasó --source-path, corre un ruleset semgrep propio y curado a mano "
