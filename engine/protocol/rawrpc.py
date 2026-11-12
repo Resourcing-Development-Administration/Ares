@@ -77,13 +77,14 @@ class RawStdio:
         command = self.connection["command"]
         args = list(self.connection.get("args", []))
         sb = self.connection.get("sandbox") or {}
+        env = {**get_default_environment(), **(self.connection.get("env") or {})}
         if sb.get("enabled", True):
             command, args = wrap_command(
                 command, args, mem_mb=sb.get("mem_mb", DEFAULT_MEM_MB), cpu_s=sb.get("cpu_s", DEFAULT_CPU_S),
                 nproc=sb.get("nproc"), nofile=sb.get("nofile", DEFAULT_NOFILE),
                 allow_network=sb.get("allow_network", False),
+                home=env.get("HOME"), mask_credentials=sb.get("mask_credentials", True),
             )
-        env = {**get_default_environment(), **(self.connection.get("env") or {})}
         self.proc = await asyncio.create_subprocess_exec(
             command, *args, env=env, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE, start_new_session=True, limit=MAX_READ_BYTES,

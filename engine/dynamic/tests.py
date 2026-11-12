@@ -352,6 +352,16 @@ async def path_traversal_confirmed(target, ctx) -> list[Finding]:
                  "por firma de contenido real, nunca por inferencia.",
 )
 async def credential_harvest_paths(target, ctx) -> list[Finding]:
+    from engine.core.sandbox import CREDENTIAL_CANARY
+
+    # Las rutas de mayor valor (SSH/cloud/configs de otros MCP) viven, para un target stdio
+    # sandboxeado, con contenido FALSO con este canario (ver engine/core/sandbox.py) -- el
+    # canario en la respuesta es una confirmación tan fuerte como la firma real de antes, sin
+    # arriesgar exfiltrar un secreto REAL del host donde corre Ares. Un target http/sse (no hay
+    # subprocess de Ares, nada que enmascarar) o uno sandboxeado con --no-sandbox sigue
+    # dependiendo de la firma real de contenido, igual que antes de este cambio.
+    sandboxed_stdio = ctx.get("transport") == "stdio" and getattr(target, "sandboxed", False)
+
     tools = ctx.get("tools") or await target.list_tools()
     findings = []
 
@@ -371,6 +381,28 @@ async def credential_harvest_paths(target, ctx) -> list[Finding]:
                 result = await target.call_tool(tool["name"], args)
                 content = str(result.get("content", ""))
 
+                if CREDENTIAL_CANARY in content:
+                    findings.append(Finding(
+                        test_id="dynamic.credential_harvest_paths",
+                        title=f"Path traversal CONFIRMADO en '{tool['name']}' vía '{param}' (canario sintético de Ares)",
+                        category=Category.DYNAMIC,
+                        target=tool["name"],
+                        confidence_override="verified",
+                        description=f"La respuesta a '{payload}' como '{param}' contiene el canario sintético "
+                                     f"que Ares plantó en esa ruta (ver engine/core/sandbox.py) -- confirma que "
+                                     f"'{tool['name']}' lee y devuelve el contenido de esa ruta sensible SIN "
+                                     f"validar que quede dentro de un directorio permitido. Contra un target real "
+                                     f"(sin este enmascarado) esto leería la credencial real.",
+                        evidence=Evidence(request={"tool": tool["name"], "arguments": args}, notes="canario sintético, no una credencial real"),
+                        passed=False,
+                        remediation="Resolver y validar la ruta contra un directorio base permitido "
+                                     "(allowlist); nunca permitir que un parámetro de tool alcance "
+                                     "directorios de configuración/credenciales del usuario o del sistema.",
+                        references=["https://owasp.org/www-community/attacks/Path_Traversal"],
+                    ))
+                    hit_for_tool = True
+                    break
+
                 for sig, label in CREDENTIAL_CONTENT_SIGNATURES:
                     if sig in content:
                         findings.append(Finding(
@@ -378,8 +410,14 @@ async def credential_harvest_paths(target, ctx) -> list[Finding]:
                             title=f"Credencial real expuesta en '{tool['name']}' vía '{param}': {label}",
                             category=Category.DYNAMIC,
                             target=tool["name"],
-                            description=f"La respuesta contiene {label} real tras enviar '{payload}' como "
-                                         f"'{param}' -- no una inferencia, la firma de contenido matcheó.",
+                            description=(
+                                f"La respuesta contiene {label} real tras enviar '{payload}' como '{param}'"
+                                + (" -- esta ruta no está entre las que Ares enmascara con un canario sintético "
+                                   "(ver engine/core/sandbox.py); el secreto filtrado podría ser REAL del host "
+                                   "donde corrió este scan." if sandboxed_stdio else
+                                   " -- target http/sse o sandbox desactivado (--no-sandbox): sin enmascarado, "
+                                   "esto puede ser un secreto REAL.")
+                            ),
                             evidence=Evidence(request={"tool": tool["name"], "arguments": args}, notes=f"firma: {label}"),
                             passed=False,
                             remediation="Resolver y validar la ruta contra un directorio base permitido "
@@ -396,8 +434,10 @@ async def credential_harvest_paths(target, ctx) -> list[Finding]:
         findings.append(Finding(
             test_id="dynamic.credential_harvest_paths", title="Sin credenciales reales expuestas por path traversal",
             category=Category.DYNAMIC, target="server",
-            description="Ninguna respuesta contuvo firmas de contenido real de claves SSH, credenciales "
-                         "cloud, o configs de clientes MCP.",
+            description="Ninguna respuesta contuvo el canario sintético de Ares ni una firma de contenido "
+                         "real de claves SSH, credenciales cloud, o configs de clientes MCP."
+                         + (" (stdio sandboxeado: SSH/cloud/configs de otros MCP quedaron enmascaradas con "
+                            "canario -- ver engine/core/sandbox.py)" if sandboxed_stdio else ""),
             passed=True,
         ))
     return findings

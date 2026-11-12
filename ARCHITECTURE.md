@@ -293,7 +293,14 @@ manejan ese caso con su propio cliente HTTP en vez de `target`).
 - **`sandbox.py`** — `wrap_command()`, aislamiento real del subprocess
   stdio (`prlimit` + `bwrap`, ver sección 2 más arriba). Distinto de
   `limits.py`: eso acota lo que Ares LEE de un target hostil, esto acota lo
-  que el PROCESO del target puede CONSUMIR/ALCANZAR del host.
+  que el PROCESO del target puede CONSUMIR/ALCANZAR del host. `--ro-bind /
+  /` deja TODA la escritura cerrada; `credential_mask_bind_args()` además
+  enmascara con un canario sintético las rutas de mayor valor (SSH, cloud,
+  configs de otros clientes MCP) que SÍ existan en el host real -- solo
+  actúa sobre subcarpetas ya existentes (bwrap no puede crear un punto de
+  montaje bajo la raíz ya read-only), así que no hay riesgo de romper el
+  sandbox si faltan. `dynamic.credential_harvest_paths` confirma por ese
+  canario en vez de depender de que el host tenga secretos reales.
 
 Ver sección 7 del MANUAL para el detalle completo de la metodología.
 

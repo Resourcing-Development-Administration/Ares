@@ -6,6 +6,7 @@ los módulos de test.
 from __future__ import annotations
 import asyncio
 import contextlib
+import os
 import time
 from typing import Any, Optional
 
@@ -101,6 +102,12 @@ class MCPTarget:
                         # levantar el --unshare-net del sandbox cuando el usuario ya aceptó
                         # ese riesgo, en vez de inventar un flag nuevo para lo mismo.
                         allow_network=sandbox_cfg.get("allow_network", False),
+                        # HOME EFECTIVO del subprocess (el mismo que calcula el SDK en
+                        # stdio_client: get_default_environment() salvo que connection['env']
+                        # lo pise) -- credential_mask_bind_args() lo necesita para saber dónde
+                        # buscar ~/.ssh, ~/.aws, etc. del lado del target.
+                        home=(self.connection.get("env") or {}).get("HOME") or os.path.expanduser("~"),
+                        mask_credentials=sandbox_cfg.get("mask_credentials", True),
                     )
                     self.sandboxed = sandbox_available()
                     self.sandbox_layers = sandbox_status()

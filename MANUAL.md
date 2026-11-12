@@ -185,7 +185,7 @@ para cómo se calcula el riesgo).
 | `dynamic.fuzz_resources` | Igual que arriba pero contra URIs de resources (estáticos y **resource templates**, ej. `file:///{path}`) | ✅ | | verified |
 | `dynamic.command_injection_confirmed` | Canario aleatorio en payloads de shell (`; echo`, backticks, PowerShell, etc.) — **confirma ejecución real**, no solo reflejo | ✅ | | verified |
 | `dynamic.path_traversal_confirmed` | Payloads de traversal, confirma leyendo contenido real de `/etc/passwd` | ✅ | | verified |
-| `dynamic.credential_harvest_paths` | Traversal dirigido a rutas de alto valor real (claves SSH, credenciales AWS/GCP/Azure, `.netrc`, configs de clientes MCP) — confirma por firma de contenido, no por inferencia | ✅ | | verified |
+| `dynamic.credential_harvest_paths` | Traversal dirigido a rutas de alto valor real (claves SSH, credenciales AWS/GCP/Azure, `.netrc`, configs de clientes MCP). En un target **stdio sandboxeado**, SSH/cloud/configs de otros MCP están enmascaradas con un canario sintético (`engine/core/sandbox.py::credential_mask_bind_args`) — confirma por ese canario, nunca arriesga exfiltrar un secreto REAL del host donde corre Ares. Sin sandbox o en http/sse, sigue confirmando por firma de contenido real | ✅ | | verified |
 | `dynamic.rate_limit` | Ráfaga de 30 llamadas concurrentes contra un tool de SOLO LECTURA (nunca uno destructivo/de envío) de un server **http/sse**: ¿hay throttling? **No aplica a stdio** (un solo cliente). Solo reporta si la ráfaga fue medible; la ausencia de límite es una señal de baja severidad y confianza `heuristic`, no una vulnerabilidad probada | ❌ | | heuristic |
 
 **`adversarial` — simula intención real de atacante:**

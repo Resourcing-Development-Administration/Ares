@@ -294,9 +294,12 @@ intenta colgar, mentirle o atacar al escáner. Confirmado empíricamente
 - **Reset de sesión tras timeout**: la sesión (y el subprocess, si es stdio)
   que acaba de colgar un test se cierra y se reabre antes del siguiente test,
   para no arrastrar estado envenenado ni dejar un proceso hostil vivo.
-- Deliberadamente **sin aislar todavía**: el filesystem. El subprocess sigue
-  con lectura/escritura real del disco con el mismo usuario que Ares —
-  ver Roadmap.
+- **Filesystem**: la ESCRITURA ya estaba cerrada (`--ro-bind / /` deja todo
+  de solo lectura, confirmado contra el host real) pero el comentario viejo
+  acá decía lo contrario -- corregido. La LECTURA general sigue abierta
+  (ver Roadmap para el porqué), salvo un puñado de rutas de alto valor
+  (SSH/cloud/configs de otros MCP) que se enmascaran con un canario
+  sintético -- ver `engine/core/sandbox.py::credential_mask_bind_args`.
 
 ## Confiabilidad
 
@@ -317,11 +320,19 @@ Ordenado por impacto real, no por lo vistoso — ver la sección 12 del manual
 para el detalle completo de qué se evaluó y por qué.
 
 **Lo más importante, pendiente a propósito (no por descuido):**
-- **Jail de filesystem para el subprocess stdio** — la pieza que falta de la
-  trilogía proceso/red/filesystem (las otras dos ya están, ver arriba). No
-  se improvisó porque un jail mal calibrado (qué rutas exponer depende del
-  `command`/runtime específico) genera falsos negativos silenciosos, peor
-  que no tenerlo. Necesita un diseño propio, no un parche.
+- **Jail de LECTURA general para el subprocess stdio** — la escritura ya
+  está cerrada (ver arriba); lo que falta es la lectura arbitraria del
+  resto del filesystem. No se improvisó un allowlist general porque qué
+  rutas de lectura hacen falta depende del `command`/runtime específico, y
+  calcularlo mal genera falsos negativos silenciosos, peor que no tenerlo.
+  Lo que SÍ se cerró, sin ese riesgo (diseño propio, no un parche): el
+  enmascarado por canario sintético de las rutas de MAYOR valor conocido
+  (SSH, cloud, configs de otros clientes MCP) — ver
+  `engine/core/sandbox.py::credential_mask_bind_args` y el rediseño de
+  `dynamic.credential_harvest_paths`, que ahora confirma por el canario
+  propio de Ares en vez de depender de que el HOST donde corre el scan
+  tenga secretos reales (antes: falso negativo si no los tenía, y un
+  riesgo real de exfiltrar un secreto REAL del auditor si sí los tenía).
 
 **Plataforma — decisión de alcance: por ahora Ares es Linux-only.** El
 aislamiento de proceso (`prlimit` + `bwrap`) depende de Linux, y es parte de

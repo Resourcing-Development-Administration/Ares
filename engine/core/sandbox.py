@@ -37,15 +37,26 @@ dentro y sí funciona):
     MISMA decisión para levantar el corte de red del sandbox, en vez de
     inventar un flag nuevo para lo mismo.
 
-Qué NO hace esto (alcance deliberado, no descuido): el filesystem queda
-READ-WRITE, igual que antes de esta ronda. Un jail de filesystem bien hecho
-(exponer solo lo que el command/runtime específico necesita) depende de
-cada caso -- un command="python3"/"node"/cualquier intérprete con args
-arbitrarios no permite adivinar con seguridad qué rutas hacen falta, y
-romper eso en falso (un server legítimo que necesita escribir su propia
-DB/cache/logs) sería peor que no tenerlo. Namespace de proceso + red es la
-mitigación de mayor impacto con menor riesgo de falso negativo -- un jail
-de filesystem queda deliberadamente afuera de esta ronda.
+Filesystem (actualizado -- el párrafo viejo de esta sección quedó
+desactualizado y decía lo contrario): `--ro-bind / /` deja TODO el
+filesystem real de solo lectura para el target, así que la ESCRITURA ya
+está cerrada (confirmado: un intento de escribir en $HOME del host da
+"Read-only file system"). `--tmpfs /tmp` descarta cualquier escritura ahí
+al terminar el proceso. Lo que se consideró "depende de cada caso" (y por
+eso no se adivinó un allowlist de lectura general -- un command="python3"/
+"node" con args arbitrarios no permite saber con seguridad qué rutas de
+lectura hacen falta, y romper eso en falso sería peor que no tenerlo) sigue
+sin resolverse PARA LECTURA EN GENERAL. Lo que SÍ se cerró, sin ese riesgo,
+es la lectura de un puñado de rutas de ALTO VALOR y bien conocidas
+(credenciales SSH/cloud, configs de otros clientes MCP) -- ver
+`credential_mask_bind_args()` más abajo: en vez de intentar adivinar qué
+necesita el runtime (el problema real de un jail de lectura general), se
+REEMPLAZA el contenido de esas rutas puntuales por un canario sintético
+antes de que el target pueda leerlas. Esto cierra el filo más afilado
+(que dynamic.credential_harvest_paths exfiltre una credencial REAL del
+host de Ares) sin el riesgo de falso negativo de enmascarar de más: el
+propio test ahora confirma la vulnerabilidad por el canario, no por la
+presencia casual de un secreto real en el host donde corre Ares.
 """
 from __future__ import annotations
 import os
@@ -179,13 +190,18 @@ def _paths_under_tmp_to_restore(command: str, args: list[str]) -> list[str]:
     return binds
 
 
-def _wrap_bwrap(command: str, args: list[str], *, allow_network: bool) -> tuple[str, list[str]]:
+def _wrap_bwrap(command: str, args: list[str], *, allow_network: bool, home: str | None,
+                mask_credentials: bool) -> tuple[str, list[str]]:
     bwrap_args = [
         "--ro-bind", "/", "/",
         "--dev", "/dev",
         "--proc", "/proc",
         "--tmpfs", "/tmp",
         *_paths_under_tmp_to_restore(command, args),
+        # DESPUÉS de --tmpfs /tmp + sus restores: así gana sin importar si $HOME cae bajo /tmp
+        # (poco común en producción, pero así no hace falta pensarlo -- mismo principio de
+        # "capa posterior pisa a la anterior en la misma ruta" que ya usa el bloque de arriba).
+        *(credential_mask_bind_args(home) if mask_credentials and home else []),
         "--unshare-pid", "--unshare-ipc", "--unshare-uts",
         "--die-with-parent",   # si Ares muere/es matado, el target no queda huérfano vivo
         "--new-session",       # sin control de terminal -- ni ioctls raros ni señales de sesión
@@ -199,7 +215,7 @@ def wrap_command(
     command: str, args: list[str], *,
     mem_mb: int = DEFAULT_MEM_MB, cpu_s: int = DEFAULT_CPU_S,
     nproc: int | None = None, nofile: int = DEFAULT_NOFILE,
-    allow_network: bool = False,
+    allow_network: bool = False, home: str | None = None, mask_credentials: bool = True,
 ) -> tuple[str, list[str]]:
     """Devuelve (command, args) envueltos con las capas disponibles. El caller debe
     chequear sandbox_status() aparte para decidir si avisar cuando falta alguna --
@@ -209,9 +225,98 @@ def wrap_command(
     `allow_network`: si True (mismo flag que ScanConfig.allow_network_side_effects),
     el subprocess SÍ tiene red real -- necesario para servers que legítimamente la
     usan, y para que adv.ssrf_exfil pueda confirmar una llamada saliente real. Si
-    False (default), bwrap corta la red del todo, incluido loopback hacia el host."""
+    False (default), bwrap corta la red del todo, incluido loopback hacia el host.
+
+    `home`: el HOME efectivo del subprocess (el que realmente va a usar -- ver
+    get_default_environment()/connection['env'] en engine/core/client.py), para saber
+    dónde buscar ~/.ssh, ~/.aws, etc. `mask_credentials` (default True) gatea si se
+    aplica credential_mask_bind_args() sobre esas rutas -- ver docstring del módulo."""
     if prlimit_available():
         command, args = _wrap_prlimit(command, args, mem_mb=mem_mb, cpu_s=cpu_s, nproc=nproc, nofile=nofile)
     if bwrap_available():
-        command, args = _wrap_bwrap(command, args, allow_network=allow_network)
+        command, args = _wrap_bwrap(command, args, allow_network=allow_network, home=home,
+                                     mask_credentials=mask_credentials)
     return command, args
+
+
+# ---------------------------------------------------------------------------------------------
+# Enmascarado de credenciales reales del host (ver docstring del módulo) -- aplica SOLO a las
+# rutas de mayor valor que viven en su propia subcarpeta bajo $HOME (SSH, cloud, otros clientes
+# MCP): se les monta un tmpfs y se les pone contenido FALSO con un canario fijo. Deliberadamente
+# NO cubre los archivos sueltos directo en $HOME (.netrc/.npmrc/.gitconfig/.bash_history) de
+# CREDENTIAL_HARVEST_PATHS -- enmascarar esos necesitaría tocar $HOME entero (bwrap no puede
+# crear un nodo de bind nuevo bajo una ruta que ya quedó read-only) y el intento más agresivo
+# (tmpfs en $HOME completo) rompería cualquier target real cuyo código/proyecto viva bajo $HOME
+# -- menor severidad (no son claves/credenciales), queda documentado como gap conocido.
+
+import secrets
+import tempfile
+import atexit
+
+CREDENTIAL_CANARY = "ARES_SYNTHETIC_CREDENTIAL_" + "DO_NOT_USE_c7f1a4"  # fijo: no necesita ser
+                                                                          # único por scan, ver sandbox.py
+
+# subdir relativo a $HOME -> {nombre de archivo: contenido falso (con el canario embebido)}
+# cada contenido imita la firma real que dynamic.credential_harvest_paths ya reconoce
+# (payloads.canary.CREDENTIAL_CONTENT_SIGNATURES), para que un target que SÍ tiene el bug de
+# traversal sigua devolviendo algo con pinta de credencial real -- solo que es la nuestra.
+_MASKED_SUBDIRS: dict[str, dict[str, str]] = {
+    ".ssh": {
+        "id_rsa": f"-----BEGIN RSA PRIVATE KEY-----\n{CREDENTIAL_CANARY}\n-----END RSA PRIVATE KEY-----\n",
+        "id_ed25519": f"-----BEGIN OPENSSH PRIVATE KEY-----\n{CREDENTIAL_CANARY}\n-----END OPENSSH PRIVATE KEY-----\n",
+        "id_ecdsa": f"-----BEGIN EC PRIVATE KEY-----\n{CREDENTIAL_CANARY}\n-----END EC PRIVATE KEY-----\n",
+    },
+    ".aws": {
+        "credentials": f"[default]\naws_access_key_id = {CREDENTIAL_CANARY}\naws_secret_access_key = {CREDENTIAL_CANARY}\n",
+        "config": f"[default]\nregion = us-east-1\n# {CREDENTIAL_CANARY}\n",
+    },
+    os.path.join(".config", "gcloud"): {
+        "credentials.db": CREDENTIAL_CANARY,
+    },
+    ".azure": {
+        "credentials": f"# {CREDENTIAL_CANARY}\n",
+    },
+    ".docker": {
+        "config.json": f'{{"auths": {{"canary.invalid": {{"auth": "{CREDENTIAL_CANARY}"}}}}}}\n',
+    },
+    ".cursor": {
+        "mcp.json": f'{{"mcpServers": {{"ares-canary": {{"command": "{CREDENTIAL_CANARY}"}}}}}}\n',
+    },
+    os.path.join(".config", "claude"): {
+        "claude_desktop_config.json": f'{{"mcpServers": {{"ares-canary": {{"command": "{CREDENTIAL_CANARY}"}}}}}}\n',
+    },
+}
+
+_staging_dirs: list[str] = []  # cleanup best-effort al salir del proceso de Ares
+
+
+def _cleanup_staging():
+    for d in _staging_dirs:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+atexit.register(_cleanup_staging)
+
+
+def credential_mask_bind_args(home: str) -> list[str]:
+    """Args de bwrap para reemplazar el contenido de las rutas de alto valor por el canario
+    (ver arriba). Solo actúa sobre una subcarpeta si YA EXISTE en el host real -- si no existe,
+    bwrap no puede crear el punto de montaje bajo la raíz ya read-only (confirmado: falla con
+    "Read-only file system"), y de todos modos no hay nada real que proteger ahí. Debe ir DESPUÉS
+    de `--ro-bind / /` y ANTES de `--tmpfs /tmp` en la lista de bwrap args (mismo orden que
+    _paths_under_tmp_to_restore: una capa posterior pisa a la anterior en la MISMA ruta)."""
+    staging = tempfile.mkdtemp(prefix="ares-credmask-")
+    _staging_dirs.append(staging)
+    args: list[str] = []
+    for subdir, files in _MASKED_SUBDIRS.items():
+        real_dir = os.path.join(home, subdir)
+        if not os.path.isdir(real_dir):
+            continue
+        args += ["--tmpfs", real_dir]
+        for name, content in files.items():
+            fake = os.path.join(staging, subdir.replace(os.sep, "_") + "_" + name)
+            os.makedirs(os.path.dirname(fake), exist_ok=True)
+            with open(fake, "w") as f:
+                f.write(content)
+            args += ["--ro-bind", fake, os.path.join(real_dir, name)]
+    return args
