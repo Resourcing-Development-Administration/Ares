@@ -322,6 +322,16 @@ async def method_tampering(target, ctx) -> list[Finding]:
     return findings
 
 
+_RATE_LIMIT_UNSAFE_RE = re.compile(
+    r"delete|drop|remove|destroy|wipe|purge|logout|sign.?out|reset|restart|shutdown|cancel|"
+    r"deactivate|disable|revoke|unsubscribe", re.I)
+
+
+def _na_rate_limit(tid, msg):
+    return [Finding(test_id=tid, title="Rate limiting: no concluyente", category=Category.API,
+                    target="server", passed=True, description=msg)]
+
+
 @api_test("api.rate_limit", "Rate limiting / lockout de login ausente", level=2,
           description="Ráfaga de requests a un endpoint de SOLO LECTURA (nunca a uno que muta estado) y mide "
                        "si aparece 429/Retry-After. Severidad baja y heurística si no aparece: la ausencia en "
@@ -330,20 +340,37 @@ async def method_tampering(target, ctx) -> list[Finding]:
 async def rate_limit(target, ctx) -> list[Finding]:
     import asyncio
     tid = "api.rate_limit"
-    eps = [e for e in (ctx.get("endpoints") or []) if e.method == "GET"]
+    # mismo criterio que dynamic.rate_limit del lado MCP: nunca una ráfaga contra un endpoint de
+    # nombre destructivo/de sesión, y CALIBRAR con una llamada sola antes de lanzar 30 -- sin
+    # esto, un eps[0] que 404 para todos (porque el id de muestra no es válido) hacía "sin rate
+    # limiting" sobre una ráfaga que en realidad nunca tocó una respuesta real.
+    eps = [e for e in (ctx.get("endpoints") or []) if e.method == "GET" and not _RATE_LIMIT_UNSAFE_RE.search(e.path)]
     if not eps:
-        return [Finding(test_id=tid, title="Sin endpoint GET para probar", category=Category.API, target="server", passed=True, description="")]
-    path = _fill_path(eps[0].path, _args_from(eps[0]))
+        return _na_rate_limit(tid, "Sin endpoint GET de nombre seguro para probar (todos parecían destructivos/de sesión, o no hay spec).")
+
+    for ep in eps[:5]:
+        path = _fill_path(ep.path, _args_from(ep))
+        probe = await target.request("GET", path, auth="a" if ctx.get("auth_a") else None)
+        if probe["status"] and 200 <= probe["status"] < 300:
+            break
+    else:
+        return _na_rate_limit(tid, f"Ninguno de los primeros {min(5, len(eps))} endpoint(s) GET probados respondió 2xx "
+                                     f"con los valores de muestra; una ráfaga mediría rechazos de validación, no throttling.")
+
     results = await asyncio.gather(*[target.request("GET", path, auth="a" if ctx.get("auth_a") else None) for _ in range(30)])
+    ok_count = sum(1 for r in results if r["status"] and 200 <= r["status"] < 300)
     throttled = any(r["status"] == 429 for r in results)
     if throttled:
         return [Finding(test_id=tid, title="Rate limiting detectado", category=Category.API, target=path,
                         passed=True, description="Al menos una respuesta de la ráfaga fue 429.")]
+    if ok_count < 30 * 0.9:
+        return _na_rate_limit(tid, f"Solo {ok_count}/30 llamadas de la ráfaga tuvieron éxito, sin señal de throttling "
+                                     f"(429): el resultado no es concluyente (errores de otra naturaleza).")
     return [Finding(test_id=tid, title="Sin rate limiting observable", category=Category.API, target=path,
                     passed=False, confidence_override="heuristic",
-                    description=f"30 llamadas concurrentes a {path}, ninguna devolvió 429/Retry-After. No prueba "
-                                 f"explotabilidad por sí solo (puede limitarse en un WAF delante), pero es una "
-                                 f"señal a revisar.",
+                    description=f"30 llamadas concurrentes a {path}, las {ok_count} respondieron OK sin ninguna "
+                                 f"señal de límite (429). No prueba explotabilidad por sí solo (puede limitarse en "
+                                 f"un WAF delante), pero es una señal a revisar.",
                     remediation="Rate limiting por API key/IP/usuario, y lockout progresivo en endpoints de login.")]
 
 
