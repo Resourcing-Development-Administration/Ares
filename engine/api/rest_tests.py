@@ -39,10 +39,6 @@ def _fill_path(path: str, args: dict) -> str:
     return re.sub(r"\{(\w+)\}", rep, path)
 
 
-def _ok(result) -> list[Finding]:
-    return [Finding(test_id="_", title="placeholder", category=Category.API, target="api", passed=True, description="")]
-
-
 @api_test("api.sensitive_paths", "Rutas/archivos sensibles expuestos", level=1,
           description="Prueba un set de rutas clásicas (.env, .git/config, backups, actuator sin auth...) "
                        "sin credenciales; reporta las que devuelven 200 con contenido real (no una página de "

@@ -93,9 +93,18 @@ def path_traversal_payloads() -> list[str]:
 # servers) -- el objetivo real de un atacante no es "leer /etc/passwd", es
 # robar credenciales reusables. Portado del patrón "credential_harvest" de
 # qsag-core (7 categorías de tool poisoning/exfiltración).
+#
+# "/home/{user}/.ssh/id_rsa": en un host/contenedor multi-usuario, el proceso del target puede
+# correr como un usuario DISTINTO al dueño de la sesión que lo lanzó -- {user} se sustituye por
+# el usuario real de Ares (mismo caso que "~") MÁS una lista chica de usuarios de despliegue
+# comunes (root, servicio, cloud), no un placeholder literal sin sustituir (confirmado: así como
+# estaba antes, "{user}" nunca puede matchear ningún path real, payload muerto).
+_COMMON_DEPLOY_USERS = ["root", "ubuntu", "ec2-user", "admin", "deploy", "app", "www-data", "centos"]
+
 CREDENTIAL_HARVEST_PATHS = [
     "~/.ssh/id_rsa", "~/.ssh/id_ed25519", "~/.ssh/id_ecdsa",
-    "/root/.ssh/id_rsa", "/home/{user}/.ssh/id_rsa",
+    "/root/.ssh/id_rsa",
+    *(f"/home/{u}/.ssh/id_rsa" for u in _COMMON_DEPLOY_USERS if u != "root"),
     "~/.aws/credentials", "~/.aws/config",
     "~/.config/gcloud/credentials.db", "~/.azure/credentials",
     "~/.cursor/mcp.json",
