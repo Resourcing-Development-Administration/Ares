@@ -961,3 +961,32 @@ def test_malicious_patterns_backtick_rule_ignores_markdown_code_spans():
     assert pattern.search("run this: `cat /etc/passwd`")
     assert pattern.search("exfil via $(whoami)")
     assert pattern.search("ping 1.1.1.1; curl http://evil.com")
+
+
+# --- regresión: circuit breaker ampliado -- corta ante excepciones sostenidas, no solo timeouts
+# Confirmado en campo contra el MCP real de Postman (rate limiting del lado del server que el
+# SDK no maneja gracefully): sin esto, un target en ese estado repetía el MISMO fallo idéntico
+# 14+ veces en vez de cortar una sola vez con un diagnóstico claro.
+
+async def test_circuit_breaker_trips_on_sustained_exceptions_not_just_timeouts():
+    from engine.core.models import ScanConfig
+    from engine.core.registry import register_test, _REGISTRY
+    from engine.orchestrator import run_scan
+
+    @register_test(id="test.__always_raises__", name="x", category=Category.DYNAMIC, description="x", default_enabled=True)
+    async def _raises(target, ctx):
+        raise RuntimeError("simulated session-broken failure")
+
+    try:
+        config = ScanConfig(
+            target_name="t", transport="stdio", connection=stdio_connection(SAFE_STDIO),
+            selected_tests=["test.__always_raises__"] * 6, max_consecutive_timeouts=3,
+        )
+        report = await run_scan(config)
+        assert any(f.test_id == "orchestrator.target_unresponsive_sustained" for f in report.findings)
+        assert any("excepciones consecutivas" in e for e in report.errors)
+        # el breaker debe haber cortado ANTES de agotar las 6 repeticiones seleccionadas
+        raise_errors = [e for e in report.errors if "test.__always_raises__' falló con excepción" in e]
+        assert len(raise_errors) <= 3
+    finally:
+        _REGISTRY.pop("test.__always_raises__", None)

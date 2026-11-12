@@ -6,6 +6,8 @@ import traceback
 import uuid
 from datetime import datetime, timezone
 
+import anyio
+
 from engine import __version__ as ARES_VERSION
 from engine.core.models import ScanConfig, ScanReport, Finding, Evidence, Category
 from engine.core.client import MCPTarget
@@ -209,6 +211,7 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
             emit({"type": "connection_failed_finding", "kind": kind})
 
         consecutive_timeouts = 0
+        consecutive_session_errors = 0  # ver circuit breaker ampliado más abajo
         for test_id in selected:
             meta, func = registry[test_id]
             if meta.requires_network and not config.allow_network_side_effects:
@@ -223,13 +226,27 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
             # 4 tests ya se habían comido 4 minutos reales contra el mismo target antes de
             # este fix. A partir de max_consecutive_timeouts, el resto se salta de una sola
             # vez (queda como error + un Finding agregado, no se pierde silenciosamente).
-            if config.max_consecutive_timeouts and consecutive_timeouts >= config.max_consecutive_timeouts:
+            # circuit breaker ampliado: además de timeouts sostenidos, corta ante una racha de
+            # EXCEPCIONES sostenidas (sesión rota tras timeout+reconexión, o -- confirmado en
+            # campo contra un server real detrás de rate limiting, ver Postman -- un rate limit
+            # del lado del server que el SDK no maneja gracefully y deja la tarea en un estado
+            # donde cualquier await posterior falla igual). Sin esto, un target en ese estado
+            # repetía el MISMO fallo idéntico test tras test (14+ veces en una corrida real) en
+            # vez de cortar una sola vez con un diagnóstico claro.
+            breaker_hit = config.max_consecutive_timeouts and (
+                consecutive_timeouts >= config.max_consecutive_timeouts
+                or consecutive_session_errors >= config.max_consecutive_timeouts
+            )
+            if breaker_hit:
                 remaining = selected[selected.index(test_id):]
+                by_errors = consecutive_session_errors >= consecutive_timeouts
+                reason = (f"{consecutive_session_errors} excepciones consecutivas (sesión rota o server "
+                          f"cortando la conexión, ej. rate limiting del lado del server que el cliente no "
+                          f"maneja)" if by_errors else f"{consecutive_timeouts} timeouts consecutivos")
                 report.errors.append(
-                    f"circuit breaker: {consecutive_timeouts} timeouts consecutivos -- se saltearon "
-                    f"{len(remaining)} tests restantes ({', '.join(remaining)}) sin intentarlos. El "
-                    f"target parece no responder de forma sostenida (colgado, deadlock, o resistiendo "
-                    f"el análisis a propósito). Ajustable con ScanConfig.max_consecutive_timeouts (0 = sin límite)."
+                    f"circuit breaker: {reason} -- se saltearon {len(remaining)} tests restantes "
+                    f"({', '.join(remaining)}) sin intentarlos. Ajustable con "
+                    f"ScanConfig.max_consecutive_timeouts (0 = sin límite)."
                 )
                 report.findings.append(Finding(
                     test_id="orchestrator.target_unresponsive_sustained",
@@ -237,16 +254,19 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
                     category=Category.DYNAMIC,
                     target="server",
                     description=(
-                        f"{consecutive_timeouts} tests seguidos no terminaron en {config.test_timeout_s}s "
-                        f"cada uno. En vez de seguir pagando el timeout completo test por test, el resto "
+                        f"{reason}. En vez de seguir repitiendo el mismo fallo test por test, el resto "
                         f"de la batería ({len(remaining)} tests) se saltó de una. Esta corrida está "
-                        f"INCOMPLETA -- no es un veredicto de 'limpio' sobre lo que no se llegó a probar."
+                        f"INCOMPLETA -- no es un veredicto de 'limpio' sobre lo que no se llegó a probar. "
+                        + ("Si el server aplica rate limiting (ver headers RateLimit-*/429), es probable "
+                           "que el volumen de esta auditoría lo haya disparado -- correr con "
+                           "--request-delay-ms y/o --tests acotado a un subconjunto más chico." if by_errors else "")
                     ),
                     evidence=Evidence(notes=f"tests saltados: {remaining}"),
                     passed=False,
                     remediation="Investigar por qué el server dejó de responder de forma sostenida antes "
                                  "de confiar en cualquier score de esta corrida. Re-ejecutar aislado con "
-                                 "--test-timeout-s más alto, o contra una instancia fresca del server.",
+                                 "--test-timeout-s más alto y/o --request-delay-ms, o contra una instancia "
+                                 "fresca del server.",
                 ))
                 emit({"type": "circuit_breaker", "skipped": remaining})
                 break
@@ -268,8 +288,17 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
             test_timed_out = False
             test_exc: BaseException | None = None
             try:
-                findings = await asyncio.wait_for(func(target, ctx), timeout=config.test_timeout_s)
-            except* asyncio.TimeoutError:
+                # anyio.fail_after, NO asyncio.wait_for: el SDK de MCP (y httpx) usan anyio por
+                # debajo -- confirmado en campo contra un target real (streamable-http remoto vía
+                # Cloudflare, con streaming SSE): asyncio.wait_for cancela el scope de cancelación
+                # interno de anyio de una forma que NO siempre se resetea, y deja TODO await
+                # posterior en esa misma task (de cualquier test, no solo el que usó MCPTarget)
+                # fallando con el mismo CancelledError -- la batería entera se arruinaba después
+                # de un solo timeout. anyio.fail_after() integra con el cancel scope de anyio en
+                # vez de pelear contra él.
+                with anyio.fail_after(config.test_timeout_s):
+                    findings = await func(target, ctx)
+            except* TimeoutError:
                 test_timed_out = True
             except* Exception as eg:
                 test_exc = eg.exceptions[0]
@@ -278,6 +307,7 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
                 test_exc = test_exc or eg.exceptions[0]
             else:
                 consecutive_timeouts = 0
+                consecutive_session_errors = 0
                 report.findings.extend(findings)
                 emit({
                     "type": "test_finished", "test_id": test_id,
@@ -348,7 +378,8 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
                         # timeout anterior) -- sin este chequeo, el resto de la batería entera
                         # (a veces 15+ tests) se gastaba repitiendo el MISMO fallo idéntico en vez
                         # de cortar una vez con un error claro.
-                        await asyncio.wait_for(target.list_tools(), timeout=min(10.0, config.test_timeout_s))
+                        with anyio.fail_after(min(10.0, config.test_timeout_s)):
+                            await target.list_tools()
                         report.errors.append(f"sesión reconectada tras el timeout de '{test_id}'.")
                     except* Exception as eg:
                         target = None
@@ -365,6 +396,7 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
                         )
             elif test_exc is not None:
                 e = test_exc
+                consecutive_session_errors += 1
                 # caso especial y MUY común: la conexión inicial falló (target is None) y este
                 # test, a diferencia de auth.*/exposure.* (que chequean `target is None` antes de
                 # tocarlo), asume una sesión viva -- explota con un AttributeError genérico
