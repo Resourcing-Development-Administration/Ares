@@ -651,6 +651,15 @@ def cmd_vet(args):
         webhook_on_regression=args.webhook_on_regression,
         package_name=args.package_name, test_timeout_s=args.test_timeout_s,
         verbose=args.verbose,
+        no_sandbox=getattr(args, "no_sandbox", False),
+        sandbox_mem_mb=getattr(args, "sandbox_mem_mb", DEFAULT_SANDBOX_MEM_MB),
+        sandbox_cpu_s=getattr(args, "sandbox_cpu_s", 120),
+        sandbox_nproc=getattr(args, "sandbox_nproc", None),
+        sandbox_nofile=getattr(args, "sandbox_nofile", 256),
+        max_consecutive_timeouts=getattr(args, "max_consecutive_timeouts", 3),
+        max_text_for_analysis=getattr(args, "max_text_for_analysis", None),
+        max_response_content=getattr(args, "max_response_content", None),
+        no_session_reset=getattr(args, "no_session_reset", False),
     )
 
     console.print(f"[bold]Auditoría de máxima cobertura[/bold] — {len(all_tests())} tests, "
@@ -1107,6 +1116,21 @@ def main():
     p_vet.add_argument("--test-timeout-s", dest="test_timeout_s", type=float, default=60.0, help="segundos máximos por test (default 60)")
     p_vet.add_argument("--verbose", action="store_true", help="imprime cada llamada real en vivo (ver 'scan --help')")
     p_vet.add_argument("--webhook-on-regression", dest="webhook_on_regression", default=None, help="requiere --baseline: UN POST JSON a esta URL solo si aparecen hallazgos NUEVOS (ver 'scan --help')")
+    # Los flags de sandbox/recursos NO son sobre cobertura (eso vet ya lo fuerza al máximo) sino
+    # sobre si el PROCESO del target arranca siquiera en este host -- confirmado contra un target
+    # real con 200+ módulos: 256 FDs default no alcanza para cargarlos todos (EMFILE) y el default
+    # de memoria no alcanza para la reserva de WASM de Node/undici (WebAssembly OOM). Antes 'vet'
+    # no exponía ninguno de estos, así que un target legítimo pero pesado no tenía forma de pasar
+    # por acá -- mismos flags que 'scan', mismo default.
+    p_vet.add_argument("--no-sandbox", dest="no_sandbox", action="store_true", help="desactiva el aislamiento de proceso (prlimit) del subprocess stdio del target (ver 'scan --help')")
+    p_vet.add_argument("--sandbox-mem-mb", dest="sandbox_mem_mb", type=int, default=DEFAULT_SANDBOX_MEM_MB, help="tope de memoria VIRTUAL (MB) del proceso del target vía prlimit --as (ver 'scan --help')")
+    p_vet.add_argument("--sandbox-cpu-s", dest="sandbox_cpu_s", type=int, default=120, help="tope de tiempo de CPU (segundos) del proceso del target vía prlimit (default 120)")
+    p_vet.add_argument("--sandbox-nproc", dest="sandbox_nproc", type=int, default=None, help="tope de procesos/threads del target vía prlimit (ver 'scan --help')")
+    p_vet.add_argument("--sandbox-nofile", dest="sandbox_nofile", type=int, default=256, help="tope de file descriptors abiertos del target vía prlimit (default 256)")
+    p_vet.add_argument("--max-consecutive-timeouts", dest="max_consecutive_timeouts", type=int, default=3, help="circuit breaker: tras N timeouts/excepciones seguidas, se saltea el resto de la batería de una (0 = sin límite)")
+    p_vet.add_argument("--max-text-for-analysis", dest="max_text_for_analysis", type=int, default=None, help="override del cap de chars analizados con regex (ver 'scan --help')")
+    p_vet.add_argument("--max-response-content", dest="max_response_content", type=int, default=None, help="override del cap de chars de una respuesta de call_tool/read_resource (ver 'scan --help')")
+    p_vet.add_argument("--no-session-reset", dest="no_session_reset", action="store_true", help="no cerrar/reabrir la sesión tras un timeout (ver 'scan --help')")
     p_vet.set_defaults(func=cmd_vet)
 
     p_full = sub.add_parser(
