@@ -351,7 +351,8 @@ async def test_http_secret_exposure_finds_fake_api_key(http_fixture_url):
 
 import shutil
 
-_HAS_SEMGREP = shutil.which("semgrep") is not None
+from engine.supplychain.sast import semgrep_available as _semgrep_available
+_HAS_SEMGREP = _semgrep_available()  # no solo PATH -- ver engine/supplychain/sast.py::_semgrep_bin
 
 
 @pytest.mark.skipif(not _HAS_SEMGREP, reason="semgrep no instalado (pip install -e \".[sast]\")")

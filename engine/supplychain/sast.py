@@ -22,22 +22,38 @@ _RULES_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
                             "rules", "semgrep_mcp.yml")
 
 
+def _semgrep_bin() -> str | None:
+    """Ruta al binario 'semgrep' -- PATH primero, y si no está ahí, al lado del propio intérprete
+    Python que está corriendo Ares (sys.executable). shutil.which("semgrep") sobre el PATH
+    heredado NO alcanza cuando Ares se invoca como `.venv/bin/python cli/main.py` directo (sin
+    pasar por ares.sh, que sí activa el venv y ahí SÍ mete .venv/bin en el PATH) -- confirmado:
+    semgrep estaba instalado en el venv (pip install -e ".[sast]") pero se reportaba "no
+    instalado" por buscar solo en un PATH que no lo incluía."""
+    found = shutil.which("semgrep")
+    if found:
+        return found
+    import sys
+    candidate = os.path.join(os.path.dirname(sys.executable), "semgrep")
+    return candidate if os.path.isfile(candidate) and os.access(candidate, os.X_OK) else None
+
+
 def semgrep_available() -> bool:
-    return shutil.which("semgrep") is not None
+    return _semgrep_bin() is not None
 
 
 async def run_semgrep(source_path: str, timeout: float = 60.0) -> dict:
     """Devuelve {"ok": True, "results": [...]} o {"ok": False, "error": "..."}.
     Nunca levanta excepción -- errores del proceso/timeout/json inválido se
     normalizan para que el test los convierta en un finding informativo."""
-    if not semgrep_available():
-        return {"ok": False, "error": "binario 'semgrep' no encontrado en PATH"}
+    semgrep_bin = _semgrep_bin()
+    if not semgrep_bin:
+        return {"ok": False, "error": "binario 'semgrep' no encontrado (ni en PATH ni junto al intérprete)"}
     if not os.path.isdir(source_path) and not os.path.isfile(source_path):
         return {"ok": False, "error": f"'{source_path}' no existe"}
 
     try:
         proc = await asyncio.create_subprocess_exec(
-            "semgrep", "--config", _RULES_PATH, "--json", "--quiet", "--no-git-ignore", source_path,
+            semgrep_bin, "--config", _RULES_PATH, "--json", "--quiet", "--no-git-ignore", source_path,
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
         )
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
