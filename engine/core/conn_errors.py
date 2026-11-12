@@ -25,6 +25,7 @@ from __future__ import annotations
 TLS = "tls"
 AUTH = "auth"
 NETWORK = "network"
+RESOURCE_LIMIT = "resource_limit"
 OTHER = "other"
 
 # Marcadores en el texto del error (lowercased). Orden de chequeo: TLS primero
@@ -49,6 +50,17 @@ _NETWORK_MARKERS = (
     "connection reset", "connecterror", "connecttimeout",
     "all connection attempts failed", "failed to establish", "name resolution",
 )
+# El proceso del target arrancó y murió por chocar con el límite del SANDBOX de Ares (RLIMIT_AS/
+# nofile), no por nada del target en sí -- confirmado en campo contra un runtime Node.js/V8 real
+# con muchos módulos cargados: "Failed to reserve virtual memory for CodeRange" (memoria virtual
+# insuficiente para la reserva WASM de V8) y EMFILE (menos FDs que módulos a cargar). Sin esta
+# categoría, estos casos caían en "other" con un mensaje genérico que no sugiere la solución real
+# (subir --sandbox-mem-mb/--sandbox-nofile) -- ver stderr_tail en engine/core/client.py, que es
+# donde esta clasificación encuentra el texto (antes invisible, solo iba a sys.stderr).
+_RESOURCE_LIMIT_MARKERS = (
+    "failed to reserve virtual memory", "coderange", "emfile", "too many open files",
+    "cannot allocate memory", "out of memory", "enomem",
+)
 
 
 def classify_connection_error(err: str | None) -> str:
@@ -63,6 +75,8 @@ def classify_connection_error(err: str | None) -> str:
         return TLS
     if any(m in low for m in _AUTH_MARKERS):
         return AUTH
+    if any(m in low for m in _RESOURCE_LIMIT_MARKERS):
+        return RESOURCE_LIMIT
     if any(m in low for m in _NETWORK_MARKERS):
         return NETWORK
     return OTHER

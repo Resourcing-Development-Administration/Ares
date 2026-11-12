@@ -197,6 +197,14 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
                 why = "no se pudo alcanzar el endpoint (DNS, conexión rechazada o timeout)"
                 fix = ("Verificá URL/host/puerto y que el server esté levantado y accesible desde donde "
                        "corre Ares, y re-ejecutá.")
+            elif kind == "resource_limit":
+                why = ("el proceso del target arrancó y murió al chocar con el LÍMITE DEL SANDBOX de "
+                       "Ares (memoria virtual o file descriptors), no por nada del target en sí -- "
+                       "común en runtimes JIT (Node.js/V8, JVM, .NET) con muchos módulos cargados")
+                fix = ("Subí --sandbox-mem-mb (RLIMIT_AS limita memoria VIRTUAL, no física -- un valor "
+                       "generoso como 4096-8192 no tiene costo real) y/o --sandbox-nofile (algunos "
+                       "servers con cientos de módulos necesitan más que el default de 256). Ver el "
+                       "stderr real del subprocess más abajo para confirmar cuál de los dos.")
             else:
                 why = "la conexión inicial con el target falló antes de establecer una sesión"
                 fix = ("Revisá el error de conexión reportado y re-ejecutá una vez que el target sea "

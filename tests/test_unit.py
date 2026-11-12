@@ -726,6 +726,10 @@ def test_classify_connection_error_buckets():
     assert C("ReadTimeout: timed out") == "network"
     assert C("algo raro") == "other"
     assert C(None) == "other"
+    # resource_limit: el proceso del TARGET murió por chocar con el sandbox de Ares (memoria
+    # virtual/FDs), no por nada del target -- confirmado en campo contra Node.js/V8 real.
+    assert C("Fatal process OOM in Failed to reserve virtual memory for CodeRange") == "resource_limit"
+    assert C("EMFILE: too many open files, open '/app/dist/tools/foo.js'") == "resource_limit"
 
 
 def test_is_expected_auth_rejection_only_for_401_without_creds():
