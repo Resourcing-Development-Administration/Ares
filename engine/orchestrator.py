@@ -339,6 +339,16 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
                         pass  # best-effort -- lo que importa es no REUSAR la sesión vieja, no que el cierre sea prolijo
                     try:
                         target = await stack.enter_async_context(MCPTarget(config.transport, connection))
+                        # Confirmar que la sesión NUEVA de verdad sirve, no solo que `initialize`
+                        # completó -- confirmado en campo (streamable-http remoto, vía Cloudflare,
+                        # contra un server real): la reconexión podía "completar" pero dejar al
+                        # SDK en un estado donde TODA llamada posterior sobre esa sesión falla de
+                        # inmediato con el mismo CancelledError ("Cancelled via cancel scope ...",
+                        # un cancel scope de anyio que quedó colgando de la tarea cancelada del
+                        # timeout anterior) -- sin este chequeo, el resto de la batería entera
+                        # (a veces 15+ tests) se gastaba repitiendo el MISMO fallo idéntico en vez
+                        # de cortar una vez con un error claro.
+                        await asyncio.wait_for(target.list_tools(), timeout=min(10.0, config.test_timeout_s))
                         report.errors.append(f"sesión reconectada tras el timeout de '{test_id}'.")
                     except* Exception as eg:
                         target = None
@@ -348,6 +358,11 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
                         target = None
                         if connect_error is None:
                             connect_error = str(eg.exceptions[0])
+                        report.errors.append(
+                            f"la sesión reconectada tras el timeout de '{test_id}' no pasó el chequeo de salud "
+                            f"(list_tools): {connect_error}. Se trata como reconexión fallida -- el resto de la "
+                            f"batería se saltea en vez de reusar una sesión rota."
+                        )
             elif test_exc is not None:
                 e = test_exc
                 # caso especial y MUY común: la conexión inicial falló (target is None) y este

@@ -349,7 +349,12 @@ MALICIOUS_PATTERN_RULES = [
     ("credential_harvesting", r"(?i)send (your|the) (password|api[_ ]?key|token|credentials)"),
     ("data_exfiltration", r"(?i)(upload|post|send) .{0,30}(to|at) https?://"),
     ("sql_injection_marker", r"(?i)(\bor\b\s+['\"]?1['\"]?\s*=\s*['\"]?1|union\s+select)"),
-    ("command_injection_marker", r";\s*(cat|ls|rm|curl|wget)\s|\$\(.*\)|`[^`]+`"),
+    # el backtick-par genérico (`[^`]+`) matcheaba CUALQUIER code-span de markdown
+    # ("`workspace`", "`202 Accepted`", nombres de propiedad entre backticks) -- confirmado en
+    # campo contra el MCP real de Postman: 30 de 41 tools salían marcados por esto solo porque
+    # sus descripciones usan markdown normal. Un backtick de verdad peligroso (command
+    # substitution estilo shell) tiene un COMANDO adentro, no cualquier texto -- se exige eso.
+    ("command_injection_marker", r";\s*(cat|ls|rm|curl|wget)\s|\$\(.*\)|`\s*(cat|ls|rm|curl|wget|bash|sh|whoami|id|nc|python3?|perl|eval|exec)\b[^`]*`"),
 ]
 
 

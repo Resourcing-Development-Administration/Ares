@@ -175,6 +175,32 @@ async def audit_logging(target, ctx) -> list[Finding]:
     )]
 
 
+_EXCESSIVE_PERMISSIONS_KEYWORDS = [
+    "exec", "shell", "eval", "run_command", "system", "subprocess", "delete", "rm", "write_file", "sql", "admin",
+]
+# conjugaciones de verbo que SÍ deben matchear (deletes/deleting/deleted...) sin absorber de
+# paso una pluralización de sustantivo no relacionada (admin -> "Admins", un rol, no una
+# conjugación) -- por eso esto es una lista explícita por keyword, no un \w* genérico al final.
+_VERB_SUFFIXES = {"delete": ("s", "d", "ing"), "exec": ("s", "d", "ing", "ute", "utes", "uted", "uting"),
+                   "eval": ("s", "d", "uate", "uates", "uated", "uating")}
+
+# \b sin esto, "rm" matcheaba dentro de "confirm" ("confi-RM-another"), "exec" dentro del campo
+# LEGÍTIMO de Postman `script.exec` (un array de líneas de script, no "este tool ejecuta algo"),
+# y "system"/"admin" dentro de prosa normal de documentación de API ("the system creates...",
+# "Admins and Super Admins") -- confirmado en campo contra el MCP real de Postman, donde 7 de 41
+# tools (API wrappers de alto nivel, sin ejecución real) salían marcados por esto. (?<!\.)\b...\b
+# elimina ambos bugs de substring sin perder las conjugaciones reales ("Deletes ALL notes
+# permanently" sigue matcheando 'delete'). Sigue sin eliminar el ruido semántico de
+# "system"/"admin" como palabra SUELTA en prosa -- por eso ese test_id sigue siendo heuristic,
+# nunca 'verified'.
+_EXCESSIVE_PERMISSIONS_RE = [
+    (re.compile(r"(?<!\.)\b" + re.escape(k) + r"(" + "|".join(_VERB_SUFFIXES[k]) + r")?\b" if k in _VERB_SUFFIXES
+               else r"(?<!\.)\b" + re.escape(k) + r"\b"), k)
+    for k in _EXCESSIVE_PERMISSIONS_KEYWORDS
+]
+
+
+
 @register_test(
     id="recon.excessive_permissions",
     level=1,
@@ -184,11 +210,10 @@ async def audit_logging(target, ctx) -> list[Finding]:
 )
 async def excessive_permissions(target, ctx) -> list[Finding]:
     tools = ctx.get("tools") or await target.list_tools()
-    risky_kw = ["exec", "shell", "eval", "run_command", "system", "subprocess", "delete", "rm ", "write_file", "sql", "admin"]
     findings = []
     for tool in tools:
         blob = (tool["name"] + " " + tool.get("description", "")).lower()
-        matched = [k for k in risky_kw if k in blob]
+        matched = [k for rx, k in _EXCESSIVE_PERMISSIONS_RE if rx.search(blob)]
         if matched:
             findings.append(Finding(
                 test_id="recon.excessive_permissions",
