@@ -947,6 +947,16 @@ SSRF, command injection) — pensado para correr **antes** de poner el MCP en
 producción, no contra algo que ya sirve tráfico real sin que lo sepas.
 Confirmá que tenés autorización para el target antes de correrlo.
 
+**Flags de sandbox/recursos**: `vet` expone los mismos `--no-sandbox`/
+`--sandbox-mem-mb`/`--sandbox-cpu-s`/`--sandbox-nproc`/`--sandbox-nofile`/
+`--max-consecutive-timeouts`/`--max-text-for-analysis`/`--max-response-
+content`/`--no-session-reset` que `scan` (antes no los tenía -- forzaba
+siempre los defaults, que no alcanzan para un server Node.js real con
+muchos módulos cargados: `EMFILE` por FDs insuficientes, o V8 sin memoria
+virtual suficiente para reservar su WASM/CodeRange). Contra un target
+pesado real, subir `--sandbox-nofile` y `--sandbox-mem-mb` bien por encima
+del default puede ser necesario para que el proceso siquiera arranque.
+
 **Salida** (mismos flags que `scan`, sección 3.6): `--out` (default
 `reporte_vet.html` + `.json`, siempre agrega `.sarif`), `--print` (agrega la
 tabla de hallazgos en terminal) y `--no-file` (solo terminal, no escribe

@@ -7,5 +7,6 @@ dist/
 .pytest_cache/
 reports/*
 !reports/.gitkeep
+!reports/*.md
 *.log
 node_modules/

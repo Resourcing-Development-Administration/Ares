@@ -293,7 +293,20 @@ intenta colgar, mentirle o atacar al escáner. Confirmado empíricamente
   una señal de riesgo.
 - **Reset de sesión tras timeout**: la sesión (y el subprocess, si es stdio)
   que acaba de colgar un test se cierra y se reabre antes del siguiente test,
-  para no arrastrar estado envenenado ni dejar un proceso hostil vivo.
+  para no arrastrar estado envenenado ni dejar un proceso hostil vivo. Tras
+  reconectar, se confirma con un chequeo de salud real (`list_tools()`) antes
+  de confiar en la sesión nueva -- contra un target remoto real (streamable-
+  http vía Cloudflare, con streaming SSE) una reconexión podía "completar" y
+  quedar igual de rota, arrastrando 15+ tests con el mismo fallo idéntico.
+- **Circuit breaker ampliado**: corta no solo ante timeouts sostenidos sino
+  ante CUALQUIER excepción sostenida (sesión rota, server que corta la
+  conexión bajo rate limiting) -- confirmado en campo contra un MCP real de
+  producción con rate limiting real (`RateLimit-Limit`).
+- **Diagnóstico real de fallas de conexión**: el stderr crudo del subprocess
+  stdio (antes solo iba a `sys.stderr`, invisible en el reporte) ahora se
+  incluye en el mensaje de error -- confirmado un caso real donde
+  "Connection closed" escondía la causa real ("Failed to reserve virtual
+  memory for CodeRange" de V8, RLIMIT_AS insuficiente para un runtime JIT).
 - **Filesystem**: la ESCRITURA ya estaba cerrada (`--ro-bind / /` deja todo
   de solo lectura, confirmado contra el host real) pero el comentario viejo
   acá decía lo contrario -- corregido. La LECTURA general sigue abierta
