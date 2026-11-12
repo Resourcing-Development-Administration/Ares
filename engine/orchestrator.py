@@ -131,8 +131,13 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
     connect_error = None
     stack = contextlib.AsyncExitStack()
     async with stack:
+        # instancia (no entrada aún) ANTES del try: si __aenter__ explota, igual queda la
+        # referencia para leer _pending_target.stderr_tail -- lo que haya escrito el subprocess
+        # ANTES de morir (ej. el V8 "Failed to reserve virtual memory for CodeRange" real que
+        # motivó esto) es la causa real, y "Connection closed" solo no la dice.
+        _pending_target = MCPTarget(config.transport, connection)
         try:
-            target = await stack.enter_async_context(MCPTarget(config.transport, connection))
+            target = await stack.enter_async_context(_pending_target)
         except* Exception as eg:
             # falla de conexión/DNS/TLS real (no un 401 limpio del server) -- el SDK mcp la
             # propaga desde un anyio TaskGroup interno como BaseExceptionGroup (mezclada con
@@ -142,13 +147,17 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
             # de quedar como error de conexión, como promete el comentario de arriba.
             e = eg.exceptions[0]
             connect_error = str(e)
-            report.errors.append(f"conexión inicial rechazada/fallida (no aborta el scan): {e}")
-            emit({"type": "connection_error", "error": str(e)})
+            if _pending_target.stderr_tail:
+                connect_error += f"\nstderr del subprocess: {_pending_target.stderr_tail}"
+            report.errors.append(f"conexión inicial rechazada/fallida (no aborta el scan): {connect_error}")
+            emit({"type": "connection_error", "error": connect_error})
         except* BaseException as eg:
             # red de seguridad: lo que sobra del mismo grupo (CancelledError/GeneratorExit
             # del cleanup interno de la tarea cancelada) tampoco debe escapar.
             if connect_error is None:
                 connect_error = str(eg.exceptions[0])
+                if _pending_target.stderr_tail:
+                    connect_error += f"\nstderr del subprocess: {_pending_target.stderr_tail}"
                 report.errors.append(f"conexión inicial rechazada/fallida (no aborta el scan): {connect_error}")
                 emit({"type": "connection_error", "error": connect_error})
 
@@ -367,8 +376,9 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
                         await old_target.__aexit__(None, None, None)
                     except Exception:
                         pass  # best-effort -- lo que importa es no REUSAR la sesión vieja, no que el cierre sea prolijo
+                    _pending_target = MCPTarget(config.transport, connection)
                     try:
-                        target = await stack.enter_async_context(MCPTarget(config.transport, connection))
+                        target = await stack.enter_async_context(_pending_target)
                         # Confirmar que la sesión NUEVA de verdad sirve, no solo que `initialize`
                         # completó -- confirmado en campo (streamable-http remoto, vía Cloudflare,
                         # contra un server real): la reconexión podía "completar" pero dejar al
@@ -384,11 +394,15 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
                     except* Exception as eg:
                         target = None
                         connect_error = str(eg.exceptions[0])
+                        if _pending_target.stderr_tail:
+                            connect_error += f"\nstderr del subprocess: {_pending_target.stderr_tail}"
                         report.errors.append(f"no se pudo reconectar tras el timeout de '{test_id}': {connect_error}")
                     except* BaseException as eg:
                         target = None
                         if connect_error is None:
                             connect_error = str(eg.exceptions[0])
+                            if _pending_target.stderr_tail:
+                                connect_error += f"\nstderr del subprocess: {_pending_target.stderr_tail}"
                         report.errors.append(
                             f"la sesión reconectada tras el timeout de '{test_id}' no pasó el chequeo de salud "
                             f"(list_tools): {connect_error}. Se trata como reconexión fallida -- el resto de la "

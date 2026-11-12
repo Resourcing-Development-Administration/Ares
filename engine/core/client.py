@@ -31,6 +31,38 @@ except ImportError:
     HAS_HTTP = False
 
 
+class _StderrTail:
+    """errlog= de stdio_client. OJO: el SDK no le hace .write() línea a línea -- en POSIX lo
+    pasa TAL CUAL como stderr= de asyncio.create_subprocess_exec, que necesita un file real con
+    .fileno() (confirmado: un objeto Python de solo-.write() revienta con "AttributeError:
+    '_StderrTail' object has no attribute 'fileno'" al spawnear). Por eso esto envuelve un
+    tempfile real (fd real) y lee su cola a pedido -- ver MCPTarget.stderr_tail."""
+
+    def __init__(self, keep: int = 4000):
+        import tempfile
+        self._keep = keep
+        self._file = tempfile.TemporaryFile(mode="w+b")
+
+    def fileno(self) -> int:
+        return self._file.fileno()
+
+    def tail(self) -> str:
+        try:
+            self._file.flush()
+            self._file.seek(0, 2)  # fin, para saber el tamaño total
+            size = self._file.tell()
+            self._file.seek(max(0, size - self._keep))
+            return self._file.read().decode("utf-8", "replace")
+        except (ValueError, OSError):
+            return ""  # ya cerrado -- best-effort, nunca levantar desde acá
+
+    def close(self) -> None:
+        try:
+            self._file.close()
+        except OSError:
+            pass
+
+
 class MCPTarget:
     """
     Representa la conexión activa contra el servidor MCP bajo prueba.
@@ -69,6 +101,12 @@ class MCPTarget:
         # observar qué pide y con qué prompt, no completar nada en su nombre.
         self.sampling_requests: list[dict] = []
         self.elicitation_requests: list[dict] = []
+        # último stderr del subprocess stdio -- ver _StderrTail/stderr_tail más abajo. El SDK de
+        # MCP solo vuelca esto a sys.stderr por default (se pierde en --no-file / ni llega al
+        # reporte); confirmado en campo que ESTO es justo donde queda la causa real de un
+        # "Connection closed" (ej. V8 "Failed to reserve virtual memory for CodeRange" --
+        # RLIMIT_AS insuficiente para un runtime JIT real -- en vez de un problema del target).
+        self._errlog: Optional[_StderrTail] = None
 
     async def __aenter__(self) -> "MCPTarget":
         # Si algo falla a mitad de camino (ej. session.initialize() con un DNS que no
@@ -119,7 +157,13 @@ class MCPTarget:
                     args=args,
                     env=self.connection.get("env"),
                 )
-                read, write = await self._stack.enter_async_context(stdio_client(params))
+                # errlog propio (no sys.stderr, el default del SDK): si stdio_client() mismo
+                # revienta (el subprocess crashea apenas arranca -- ej. V8 sin memoria virtual
+                # suficiente para su CodeRange), self._errlog YA tiene lo que el proceso llegó a
+                # escribir antes de morir -- se lee vía self.stderr_tail (property) desde el
+                # `except` de más abajo, no solo en el camino feliz.
+                self._errlog = _StderrTail()
+                read, write = await self._stack.enter_async_context(stdio_client(params, errlog=self._errlog))
             elif self.transport == "sse":
                 if not HAS_SSE:
                     raise RuntimeError("mcp sse client no disponible en esta versión del SDK")
@@ -152,6 +196,12 @@ class MCPTarget:
             await self._stack.aclose()
             raise
 
+    @property
+    def stderr_tail(self) -> str:
+        """Últimos ~4000 chars que el subprocess stdio escribió a stderr (solo transporte
+        stdio; "" en http/sse). Disponible aunque la conexión haya fallado."""
+        return self._errlog.tail() if self._errlog else ""
+
     def get_session_id(self) -> Optional[str]:
         """Mcp-Session-Id devuelto por el server, solo disponible en transporte http."""
         return self._get_session_id() if self._get_session_id else None
@@ -174,6 +224,10 @@ class MCPTarget:
             await self._stack.aclose()
         except* BaseException:
             pass
+        if self._errlog is not None:
+            self._errlog.close()  # best-effort; si __aenter__ nunca completó, el tempfile
+                                    # queda para que el GC/el SO lo recicle -- no vale la pena
+                                    # tracking extra para ese caso, corto-vivido por diseño (CLI)
 
     async def _on_sampling_request(
         self, context: RequestContext, params: mcp_types.CreateMessageRequestParams,

@@ -1,6 +1,8 @@
 """Tests unitarios de funciones puras -- rápidos, sin levantar ningún server."""
 import asyncio
+import os
 import shutil
+import sys
 import pytest
 from engine.supplychain.similarity import jaro_winkler
 from payloads.canary import strip_reflections, new_canary
@@ -990,3 +992,24 @@ async def test_circuit_breaker_trips_on_sustained_exceptions_not_just_timeouts()
         assert len(raise_errors) <= 3
     finally:
         _REGISTRY.pop("test.__always_raises__", None)
+
+
+# --- regresión: Ares debe exponer el stderr REAL del subprocess cuando la conexión falla --
+# Confirmado en campo: "Connection closed" solo no dice NADA de por qué (ej. V8 "Failed to
+# reserve virtual memory for CodeRange" por RLIMIT_AS insuficiente para un runtime JIT real).
+
+async def test_connection_failure_includes_real_subprocess_stderr():
+    from engine.core.models import ScanConfig
+    from engine.orchestrator import run_scan
+
+    broken = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "_broken_import.py")
+    with open(broken, "w") as f:
+        f.write("import this_module_does_not_exist_at_all\n")
+    try:
+        config = ScanConfig(target_name="t", transport="stdio",
+                            connection={"command": sys.executable, "args": [broken]},
+                            selected_tests=["recon.enumerate"], test_timeout_s=20)
+        report = await run_scan(config)
+        assert any("this_module_does_not_exist_at_all" in e for e in report.errors), report.errors
+    finally:
+        os.remove(broken)
