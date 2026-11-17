@@ -71,10 +71,13 @@ async def run_api_scan(*, base_url: str, spec_source: str | None = None, selecte
                        jwt: str | None = None, verify=True, delay_ms: int = 0, max_fuzz: int = 40,
                        test_timeout_s: float = 60.0, graphql_path: str | None = None,
                        allowlist_path: str | None = None, min_confidence: str = "heuristic",
-                       environment: str = "production", progress_cb=None) -> ScanReport:
+                       environment: str = "production", progress_cb=None, proxy: str | None = None,
+                       client_cert: str | None = None, client_key: str | None = None) -> ScanReport:
     """progress_cb: callable opcional (event: dict) -> None -- mismo vocabulario de eventos que
     engine/orchestrator.py::run_scan (scan_started/test_started/test_finished/test_error/log), para
-    que el dashboard (webui/app.py::ws_api_scan) reuse el mismo JS de progreso que ya tiene para MCP."""
+    que el dashboard (webui/app.py::ws_api_scan) reuse el mismo JS de progreso que ya tiene para MCP.
+    proxy/client_cert/client_key: mismo soporte que el lado MCP (ver engine/core/client.py) --
+    proxy HTTP/HTTPS/SOCKS para todo el tráfico, y certificado de cliente para mTLS."""
     import asyncio
 
     def emit(event: dict):
@@ -83,11 +86,15 @@ async def run_api_scan(*, base_url: str, spec_source: str | None = None, selecte
 
     report = ScanReport(scan_id=str(uuid.uuid4())[:8], target_name=base_url,
                         started_at=datetime.now(timezone.utc).isoformat(), ares_version=ARES_VERSION)
-    target = ApiTarget(base_url, headers=headers, auth_a=auth_a, auth_b=auth_b, verify=verify, delay_ms=delay_ms)
+    target = ApiTarget(base_url, headers=headers, auth_a=auth_a, auth_b=auth_b, verify=verify, delay_ms=delay_ms,
+                       proxy=proxy, client_cert=client_cert, client_key=client_key)
     try:
         emit({"type": "log", "message": f"Cargando endpoints/spec de {base_url} ..."})
         endpoints, origin = await load_endpoints(target, spec_source)
-        report.errors.append(f"endpoints: {origin} ({len(endpoints)} encontrados)")
+        # NO va a report.errors: es informativo (incluso en el camino feliz, "openapi spec,
+        # 44 encontrados"), y la sección "Errores/skips" del reporte HTML/summary lo mostraría
+        # como si algo hubiera fallado en el 100% de los scans. El caso real de fallo (ni
+        # endpoints ni GraphQL) ya tiene su propio Finding (api.no_spec) más abajo.
         emit({"type": "log", "message": f"endpoints: {origin} ({len(endpoints)} encontrados)"})
         gql = await _probe_graphql(target, graphql_path)
         if gql.get("graphql_path"):
@@ -125,6 +132,28 @@ async def run_api_scan(*, base_url: str, spec_source: str | None = None, selecte
                 emit({"type": "test_error", "test_id": test_id, "error": str(e)})
 
         report.tools_enumerated = [{"name": e.key, "description": e.summary, "input_schema": {}} for e in endpoints]
+
+        # Mismo problema que orchestrator.connection_failed del lado MCP: un spec local (OpenAPI/
+        # Postman) puede listar endpoints sin que el target esté arriba -- load_endpoints no
+        # requiere una conexión viva si vino de archivo/URL de spec. Si CADA request HTTP real
+        # (de cualquier test) nunca llegó a tener status (timeout/refused/DNS/TLS), el scan no
+        # probó nada real: "sin findings" es "no se pudo mirar", no "está limpio".
+        if target.request_count > 0 and target.error_count == target.request_count:
+            sample_err = next((c.get("error") for c in reversed(target.call_log) if c.get("error")), None)
+            report.findings.append(Finding(
+                test_id="api.connection_failed",
+                title="No se pudo conectar al target -- scan INCOMPLETO (score/veredicto no válidos)",
+                category=Category.API, target="server", passed=False,
+                description=(
+                    f"Los {target.request_count} requests HTTP de esta corrida fallaron sin obtener "
+                    f"respuesta (timeout/connection refused/DNS/TLS) contra {base_url}. El spec se pudo "
+                    f"cargar ({origin}), pero eso NO confirma que el target esté arriba -- el score y el "
+                    f"veredicto de esta corrida no representan una postura de seguridad probada."
+                ),
+                remediation="Confirmar que la API está corriendo y accesible desde donde se corre Ares "
+                            "(red, puerto, TLS/--ca-bundle) y re-ejecutar.",
+            ))
+            emit({"type": "connection_failed_finding"})
     finally:
         await target.close()
 

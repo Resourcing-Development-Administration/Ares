@@ -15,7 +15,7 @@ from mcp.client.stdio import stdio_client
 from mcp.shared.context import RequestContext
 from mcp import types as mcp_types
 from mcp.types import SamplingCapability
-from engine.core.limits import cap_text, MAX_TEXT_FOR_ANALYSIS, MAX_RESPONSE_CONTENT
+from engine.core.limits import cap_text, MAX_TEXT_FOR_ANALYSIS, MAX_RESPONSE_CONTENT, MAX_TOOLS_LISTED
 from engine.core.sandbox import wrap_command, sandbox_available, sandbox_status, DEFAULT_MEM_MB, DEFAULT_CPU_S, DEFAULT_NOFILE
 
 try:
@@ -281,7 +281,11 @@ class MCPTarget:
         """
         from engine.core.tls import verify_source
         verify = verify_source(self.connection)
-        if verify is True:  # trust store por defecto -> el SDK ya lo usa, no hace falta factory
+        proxy = self.connection.get("proxy")
+        client_cert = self.connection.get("client_cert")
+        client_key = self.connection.get("client_key")
+        # trust store por defecto Y sin proxy/mTLS -> el SDK ya basta, no hace falta factory
+        if verify is True and not proxy and not client_cert:
             return {}
         try:
             import inspect
@@ -292,8 +296,17 @@ class MCPTarget:
 
         import httpx
 
+        cert = ((client_cert, client_key) if client_key else client_cert) if client_cert else None
+
         def _factory(headers=None, timeout=None, auth=None):
-            kwargs: dict = {"follow_redirects": True, "verify": verify}
+            # follow_redirects=False: el target es hostil por definición (mismo criterio que
+            # engine/api/client.py) -- un 302 a otro host no debe sacar headers/credenciales
+            # del scope auditado.
+            kwargs: dict = {"follow_redirects": False, "verify": verify}
+            if proxy:
+                kwargs["proxy"] = proxy
+            if cert:
+                kwargs["cert"] = cert
             if headers is not None:
                 kwargs["headers"] = headers
             kwargs["timeout"] = timeout if timeout is not None else httpx.Timeout(30.0)
@@ -318,6 +331,10 @@ class MCPTarget:
                     headers["Authorization"] = f"Bearer {auth['token']}"
                 elif auth.get("type") in ("apikey", "custom") and auth.get("token"):
                     headers[auth.get("header_name") or "X-API-Key"] = auth["token"]
+                elif auth.get("type") == "basic" and auth.get("token"):
+                    import base64
+                    user_pass = auth["token"] if ":" in auth["token"] else f"{auth['token']}:"
+                    headers["Authorization"] = f"Basic {base64.b64encode(user_pass.encode()).decode()}"
         return headers
 
     def _log(self, kind: str, request: Any, response: Any = None, error: str = None, elapsed_ms: float = None):
@@ -337,8 +354,21 @@ class MCPTarget:
 
     async def list_tools(self) -> list[dict]:
         t0 = time.monotonic()
-        result = await self.session.list_tools()
+        try:
+            result = await self.session.list_tools()
+        except Exception as e:
+            self._log("list_tools", {}, None, error=str(e))
+            return []
         elapsed = (time.monotonic() - t0) * 1000
+        raw_tools = result.tools
+        max_tools = self.connection.get("max_tools_listed", MAX_TOOLS_LISTED)
+        truncated = len(raw_tools) > max_tools
+        if truncated:
+            # Un target hostil puede declarar millones de tools con descripciones cortas
+            # (cada una pasa el cap de texto individual de abajo) para agotar RAM antes de
+            # que cualquier timeout por-test tenga chance de cortar algo, ya que list_tools
+            # corre una sola vez al conectar. Se corta la cantidad, no solo el texto.
+            raw_tools = raw_tools[:max_tools]
         tools = [
             {
                 "name": t.name,
@@ -349,9 +379,12 @@ class MCPTarget:
                 "description": cap_text(t.description or "", self.connection.get("max_text_for_analysis", MAX_TEXT_FOR_ANALYSIS)),
                 "input_schema": t.inputSchema or {},
             }
-            for t in result.tools
+            for t in raw_tools
         ]
-        self._log("list_tools", {}, tools, elapsed_ms=elapsed)
+        self._log(
+            "list_tools", {}, tools, elapsed_ms=elapsed,
+            error=f"truncado por Ares: el server declaró {len(result.tools)} tools, excede el límite de {max_tools} -- posible intento de agotar recursos del escáner" if truncated else None,
+        )
         return tools
 
     async def list_resources(self) -> list[dict]:

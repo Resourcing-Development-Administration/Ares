@@ -93,16 +93,40 @@
   .cat-group { margin-bottom:.9rem; }
   .cat-group h4 { margin:0 0 .4rem; color:var(--accent-light); font-size:.74rem; text-transform:uppercase; letter-spacing:.07em; padding-bottom:.25rem; border-bottom:1px solid var(--border); }
 
-  /* Mode tabs — bigger, clearer cards */
-  .mode-tabs { display:flex; gap:.6rem; margin-bottom: 1.1rem; }
+  /* Mode selector — 5-category layout */
+  .mode-selector { display:flex; flex-direction:column; gap:.75rem; margin-bottom:1.3rem; }
+  .mode-category { background:var(--bg-raised); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+  .mode-category-header {
+    display:flex; align-items:center; gap:.6rem;
+    padding:.55rem .9rem; border-bottom:1px solid var(--border);
+    background:rgba(255,255,255,.018);
+  }
+  .mode-category-label {
+    font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.09em;
+    padding:.15rem .55rem; border-radius:5px; flex-shrink:0;
+  }
+  /* ── Colores por categoría ───────────────────────────────────────── */
+  .mode-category.cat-mcp    .mode-category-label { background:rgba(37,99,235,.18);  color:#93c5fd; }
+  .mode-category.cat-api    .mode-category-label { background:rgba(16,185,129,.15); color:#6ee7b7; }
+  .mode-category.cat-req-ai .mode-category-label { background:rgba(245,158,11,.15); color:#fcd34d; }
+  .mode-category.cat-no-ai  .mode-category-label { background:rgba(100,116,139,.18);color:#94a3b8; }
+  .mode-category.cat-opt-ai .mode-category-label { background:rgba(13,148,136,.15); color:#5eead4; }
+
+  .mode-category-desc { color:var(--text-faint); font-size:.77rem; }
+  .mode-tabs { display:flex; gap:.5rem; padding:.6rem .7rem; flex-wrap:wrap; }
   .mode-tabs button {
-    flex:1; background:var(--bg-raised); color:var(--text-dim); border:1px solid var(--border);
-    border-radius:12px; padding:.75rem .9rem; cursor:pointer; text-align:left; transition:border-color .12s, box-shadow .12s, transform .08s;
+    flex:1; min-width:140px; background:var(--bg-sunken); color:var(--text-dim); border:1px solid var(--border);
+    border-radius:10px; padding:.65rem .85rem; cursor:pointer; text-align:left; transition:border-color .12s, box-shadow .12s, transform .08s;
   }
   .mode-tabs button:hover { border-color:var(--border-strong); transform:translateY(-1px); }
-  .mode-tabs button b { display:block; color:var(--text); font-size:.95rem; margin-bottom:.15rem; }
-  .mode-tabs button span { font-size:.76rem; display:block; }
-  .mode-tabs button.active { border-color:var(--accent); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px rgba(37,99,235,.12); background:#121a2b; }
+  .mode-tabs button b { display:block; color:var(--text); font-size:.88rem; margin-bottom:.12rem; }
+  .mode-tabs button span { font-size:.72rem; display:block; line-height:1.3; color:var(--text-faint); }
+  .cat-mcp    .mode-tabs button.active { border-color:#3b82f6; box-shadow:inset 0 0 0 1px #3b82f6, 0 0 0 3px rgba(59,130,246,.13);  background:#0e1830; }
+  .cat-api    .mode-tabs button.active { border-color:#10b981; box-shadow:inset 0 0 0 1px #10b981, 0 0 0 3px rgba(16,185,129,.13);  background:#051a12; }
+  .cat-req-ai .mode-tabs button.active { border-color:#f59e0b; box-shadow:inset 0 0 0 1px #f59e0b, 0 0 0 3px rgba(245,158,11,.15); background:#1a1000; }
+  .cat-no-ai  .mode-tabs button.active { border-color:#64748b; box-shadow:inset 0 0 0 1px #64748b, 0 0 0 3px rgba(100,116,139,.15);background:#0d1117; }
+  .cat-opt-ai .mode-tabs button.active { border-color:#0d9488; box-shadow:inset 0 0 0 1px #0d9488, 0 0 0 3px rgba(13,148,136,.15); background:#021a18; }
+  .mode-tabs button[data-mode] {}
 
   button.primary {
     background:var(--accent); color:white; border:none; border-radius:9px; padding:.7rem 1.6rem; font-size:1rem;
@@ -186,10 +210,35 @@
   .net-tag { color:#fbbf24; font-size:.72rem; margin-left:.3rem; border:1px solid #fbbf24; border-radius:4px; padding:0 .3rem; }
   .lvl-tag { font-size:.68rem; margin-left:.3rem; color:var(--text-faint); border:1px solid var(--border-strong); border-radius:4px; padding:0 .3rem; }
 
+  /* Herramientas grid (NETRECON) */
+  .tools-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:.35rem; margin:.5rem 0; }
+  .tool-item { display:flex; align-items:center; gap:.3rem; padding:.3rem .55rem; border-radius:7px; font-size:.8rem; border:1px solid var(--border); }
+  .tool-item.tool-ok { background:rgba(16,185,129,.07); border-color:rgba(16,185,129,.22); }
+  .tool-item.tool-missing { background:rgba(248,113,113,.05); border-color:rgba(248,113,113,.18); }
+  .tool-icon { font-weight:700; flex-shrink:0; font-size:.82rem; }
+  .tool-item.tool-ok .tool-icon { color:#34d399; }
+  .tool-item.tool-missing .tool-icon { color:#f87171; }
+  .tool-name { font-weight:600; color:var(--text); flex:1; }
+  .tool-ver { color:var(--text-faint); font-size:.72rem; }
+
+  /* Agent scan — sección cat-req-ai */
+  .agent-thinking-box { background:rgba(139,92,246,.07); border:1px solid rgba(139,92,246,.25); border-left:3px solid #8b5cf6; border-radius:8px; padding:.5rem .75rem; margin:.3rem 0; font-size:.8rem; }
+  .agent-round-label { color:#a78bfa; font-weight:600; font-size:.8rem; margin:.5rem 0 .2rem; }
+  .gate-denied-box { background:rgba(251,191,36,.06); border:1px solid rgba(251,191,36,.22); border-left:3px solid #fbbf24; border-radius:8px; padding:.4rem .75rem; font-size:.8rem; }
+
+  /* Severity pills en resultados */
+  .sev-pill { display:inline-flex; align-items:center; gap:.3rem; padding:.2rem .6rem; border-radius:6px; font-size:.8rem; font-weight:600; margin-right:.4rem; margin-bottom:.3rem; }
+  .sev-pill.critical { background:rgba(239,68,68,.15); color:#f87171; }
+  .sev-pill.high { background:rgba(252,165,165,.1); color:#fca5a5; }
+  .sev-pill.medium { background:rgba(251,191,36,.1); color:#fbbf24; }
+  .sev-pill.low { background:rgba(147,197,253,.1); color:#93c5fd; }
+  .sev-pill.info { background:rgba(107,114,128,.12); color:#9ca3af; }
+
   /* Reportes: toolbar de retención + acciones por fila ------------------ */
   .reports-toolbar { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin-bottom:1rem;
     padding:.7rem .9rem; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,.015); }
   .reports-toolbar input[type=number] { width:5rem; display:inline-block; }
+  .maintenance-group { display:flex; gap:.6rem; flex-wrap:wrap; margin-bottom:1rem; }
   .btn-row-action {
     background:transparent; border:1px solid var(--border-strong); color:var(--text-dim); border-radius:6px;
     padding:.25rem .55rem; font-size:.74rem; cursor:pointer; margin-right:.3rem; transition:border-color .12s, color .12s;
@@ -224,7 +273,7 @@
   <header class="top">
     <h1>ARES <span class="brand-sub">Dashboard</span></h1>
   </header>
-  <p class="sub">MCP Red Team Tool — corré <code>scan</code>/<code>vet</code>/<code>full</code> desde el navegador o revisá reportes anteriores.</p>
+  <p class="sub">Red Team Platform — MCP Tests · API Audit · Network Recon · Agent autónomo. Elegí categoría y modo, o revisá reportes anteriores.</p>
 
   <div class="warn">
     <span class="warn-label">Atención</span>
@@ -233,27 +282,282 @@
     no confiables sin auth/proxy encima.</span>
   </div>
 
-  <div class="tabs">
+  <div class="tabs" style="overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px">
     <button class="active" onclick="showPanel('scan')">Nuevo scan</button>
     <button onclick="showPanel('reports')">Reportes</button>
+    <button onclick="showPanel('tasks')">Tasks</button>
+    <button onclick="showPanel('findings')">Findings</button>
+    <button onclick="showPanel('assets')">Assets</button>
+    <button onclick="showPanel('intercept')">Intercept</button>
+    <button onclick="showPanel('skills')">Skills</button>
+    <button onclick="showPanel('llmrec')">LLM Records</button>
+    <button onclick="showPanel('agents')">Agents</button>
+    <button onclick="showPanel('notify')">Notify</button>
+    <button onclick="showPanel('schedules')">Schedules</button>
+    <button onclick="showPanel('maintenance')">Mantenimiento</button>
+    <button onclick="showPanel('settings')">Settings</button>
+    <button onclick="showPanel('chat')">IA Chat</button>
   </div>
 
   <div id="panel-scan" class="panel active">
 
-    <div class="mode-tabs">
-      <button class="active" data-mode="scan" onclick="setMode('scan')">
-        <b>SCAN</b><span>Tests seleccionados (o los default) contra UN target</span>
-      </button>
-      <button data-mode="vet" onclick="setMode('vet')">
-        <b>VET</b><span>TODOS los tests (incl. opt-in) contra UN target — intrusivo</span>
-      </button>
-      <button data-mode="full" onclick="setMode('full')">
-        <b>FULL</b><span>Varios targets en paralelo + correlación cross-server</span>
-      </button>
-      <button data-mode="api" onclick="setMode('api')">
-        <b>API</b><span>Audita una API REST/GraphQL (OWASP API Security Top 10)</span>
-      </button>
+    <div class="mode-selector">
+
+      <!-- ── Categoría 1: MCP ──────────────────────────────────────── -->
+      <div class="mode-category cat-mcp">
+        <div class="mode-category-header">
+          <span class="mode-category-label">MCP Tests</span>
+          <span class="mode-category-desc">Tests de seguridad para servidores MCP — OWASP LLM, prompt injection, tool poisoning, scope leakage</span>
+        </div>
+        <div class="mode-tabs">
+          <button class="active" data-mode="scan" onclick="setMode('scan')">
+            <b>SCAN</b>
+            <span>Tests elegidos (o los default) contra un servidor MCP</span>
+          </button>
+          <button data-mode="vet" onclick="setMode('vet')">
+            <b>VET</b>
+            <span>TODOS los tests MCP (incl. opt-in) — cobertura completa, intrusivo</span>
+          </button>
+          <button data-mode="full" onclick="setMode('full')">
+            <b>FULL</b>
+            <span>Varios servidores MCP en paralelo + correlación cross-server</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Categoría 2: API ──────────────────────────────────────── -->
+      <div class="mode-category cat-api">
+        <div class="mode-category-header">
+          <span class="mode-category-label">API Audit</span>
+          <span class="mode-category-desc">Auditoría de APIs REST / GraphQL — OWASP API Security Top 10, autenticación, autorización, rate limiting</span>
+        </div>
+        <div class="mode-tabs">
+          <button data-mode="api" onclick="setMode('api')">
+            <b>API SCAN</b>
+            <span>Audita endpoints REST o GraphQL (Auth, BOLA, mass assignment, injection…)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Categoría 3: Requiere IA ─────────────────────────────── -->
+      <div class="mode-category cat-req-ai">
+        <div class="mode-category-header">
+          <span class="mode-category-label">Requiere IA</span>
+          <span class="mode-category-desc">Necesitan una API key LLM activa — el agente razona sobre hallazgos y decide autónomamente qué probar</span>
+        </div>
+        <div class="mode-tabs">
+          <button data-mode="agent" onclick="setMode('agent')">
+            <b>AGENT</b>
+            <span>LLM autónomo — decide iterativamente qué tests correr según hallazgos acumulados</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Categoría 4: Sin IA ────────────────────────────────────── -->
+      <div class="mode-category cat-no-ai">
+        <div class="mode-category-header">
+          <span class="mode-category-label">Sin IA</span>
+          <span class="mode-category-desc">Solo herramientas — sin LLM, sin API key, funciona offline con los binarios instalados</span>
+        </div>
+        <div class="mode-tabs">
+          <button data-mode="netrecon" onclick="setMode('netrecon')">
+            <b>NETRECON</b>
+            <span>Reconocimiento activo: httpx · subfinder · nuclei · katana · nmap</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Categoría 5: IA Opcional ───────────────────────────────── -->
+      <div class="mode-category cat-opt-ai">
+        <div class="mode-category-header">
+          <span class="mode-category-label">IA Opcional</span>
+          <span class="mode-category-desc">Corren solos con sus herramientas propias; activar IA añade orquestación, correlación y análisis profundo</span>
+        </div>
+        <div class="mode-tabs">
+          <button data-mode="skills" onclick="setMode('skills')">
+            <b>SKILLS</b>
+            <span>Skill ofensivo directo (api-recon, bbot, php2shell…) — solo herramientas o dirigido por IA</span>
+          </button>
+        </div>
+      </div>
+
     </div>
+
+    <fieldset id="netrecon-fieldset" style="display:none">
+      <legend>Target de red
+        <span class="tip" tabindex="0" data-tip="URL o dominio a reconocer. Requiere nuclei, httpx, subfinder y katana instalados (ares install-tools). Solo sobre targets con autorización explícita.">?</span>
+      </legend>
+      <div class="warn" style="margin-bottom:.8rem">
+        <span class="warn-label">Aviso</span>
+        <span>Este modo envía tráfico real al target. Usalo <b>solo con autorización explícita</b>. Requiere binarios instalados: <code>ares install-tools</code></span>
+      </div>
+      <div class="row">
+        <div style="flex:2">
+          <label>URL o dominio del target
+            <span class="tip" tabindex="0" data-tip="Ej: https://example.com o example.com. Se añade https:// si no tiene esquema.">?</span>
+          </label>
+          <input type="url" id="net_target" placeholder="https://ejemplo.com" autocomplete="off">
+        </div>
+        <div style="flex:2">
+          <label>Scope (dominios en scope, separados por coma)
+            <span class="tip" tabindex="0" data-tip="Ej: example.com,sub.example.com. Los subdominios descubiertos fuera de este scope se ignoran. Vacío = sin restricción.">?</span>
+          </label>
+          <input type="text" id="net_scope" placeholder="example.com,sub.example.com">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Severidades nuclei
+            <span class="tip" tabindex="0" data-tip="Severidades de templates nuclei a incluir. Default: critical,high,medium.">?</span>
+          </label>
+          <input type="text" id="net_nuclei_severity" value="critical,high,medium">
+        </div>
+        <div>
+          <label>Timeout por test (s)
+            <span class="tip" tabindex="0" data-tip="Tiempo máximo por herramienta antes de interrumpirla. Default 180s.">?</span>
+          </label>
+          <input type="number" id="net_timeout_s" value="180" min="30" max="600">
+        </div>
+        <div>
+          <label>Rate limit (req/s)
+            <span class="tip" tabindex="0" data-tip="Peticiones por segundo máximas hacia el target. Default 150.">?</span>
+          </label>
+          <input type="number" id="net_rate_limit" value="150" min="1" max="1000">
+        </div>
+      </div>
+      <div id="net-tools-status" style="margin-top:.6rem;font-size:.82rem;color:var(--text-dim)">cargando estado de herramientas…</div>
+      <div style="margin-top:.6rem">
+        <button type="button" class="secondary" id="install-tools-btn" onclick="installTools()">Instalar herramientas faltantes</button>
+        <label style="margin-left:.8rem;font-size:.82rem">
+          <input type="checkbox" id="install_force"> Forzar reinstalación (--force)
+        </label>
+        <div id="install-tools-result" style="font-size:.82rem;margin-top:.4rem"></div>
+      </div>
+    </fieldset>
+
+    <fieldset id="agent-fieldset" style="display:none">
+      <legend>Agente autónomo
+        <span class="tip" tabindex="0" data-tip="Scan dirigido por Claude — el LLM decide iterativamente qué tests correr basándose en hallazgos acumulados. Equivalente a ARTEX's Planner+Worker. Requiere ANTHROPIC_API_KEY en el entorno del servidor donde corre ares.sh serve.">?</span>
+      </legend>
+      <div class="warn" style="margin-bottom:.8rem">
+        <span class="warn-label">Aviso</span>
+        <span>Este modo envía tráfico real al target <b>y</b> llama a la API de Claude. Requiere <code>ANTHROPIC_API_KEY</code> en el servidor. Solo sobre targets con autorización explícita.</span>
+      </div>
+      <div class="row">
+        <div style="flex:2">
+          <label>URL o dominio del target
+            <span class="tip" tabindex="0" data-tip="El target que el agente va a explorar. Las IPs privadas/loopback están bloqueadas por el gate por default.">?</span>
+          </label>
+          <input type="url" id="agent_target" placeholder="https://ejemplo.com" autocomplete="off">
+        </div>
+        <div style="flex:2">
+          <label>Scope (dominios en scope, separados por coma)
+            <span class="tip" tabindex="0" data-tip="El agente solo toca hosts dentro de este scope. Sin esto el gate no limita scope (peligroso en targets con muchos subdominios externos).">?</span>
+          </label>
+          <input type="text" id="agent_scope" placeholder="example.com,sub.example.com">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Provider LLM
+            <span class="tip" tabindex="0" data-tip="'auto' detecta qué API keys están configuradas en el servidor y elige automáticamente. Configurá las keys como env vars del proceso ares serve.">?</span>
+          </label>
+          <select id="agent_provider" onchange="updateAgentModelHints()">
+            <option value="auto">auto (detecta keys disponibles)</option>
+            <option value="anthropic">Anthropic — Claude</option>
+            <option value="openai">OpenAI — GPT-4o / o1</option>
+            <option value="deepseek">DeepSeek — DeepSeek-V3 / R1</option>
+            <option value="nvidia">NVIDIA NIM — Llama3 / Mistral</option>
+            <option value="mistral">Mistral AI — Large / Codestral</option>
+            <option value="groq">Groq — Llama3 (ultra rápido)</option>
+            <option value="together">Together AI — Llama3 / Qwen</option>
+            <option value="openrouter">OpenRouter — cualquier modelo</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="xai">xAI — Grok</option>
+            <option value="ollama">Ollama — local</option>
+            <option value="custom">Custom endpoint (CUSTOM_LLM_URL)</option>
+          </select>
+        </div>
+        <div>
+          <label>Modelo
+            <span class="tip" tabindex="0" data-tip="Nombre del modelo para el provider seleccionado. Vacío = default del provider. Ej: gpt-4o, deepseek-chat, llama-3.1-70b-versatile, llama3.2 (Ollama)">?</span>
+          </label>
+          <input type="text" id="agent_model" placeholder="(default del provider)"></div>
+        <div>
+          <label>Rondas máximas
+            <span class="tip" tabindex="0" data-tip="Cuántas veces el agente puede llamar herramientas (cada ronda puede incluir múltiples tool calls). Default 8.">?</span>
+          </label>
+          <input type="number" id="agent_max_rounds" value="8" min="1" max="20">
+        </div>
+        <div>
+          <label>Timeout por test (s)
+            <span class="tip" tabindex="0" data-tip="Timeout por herramienta, igual que en NETRECON.">?</span>
+          </label>
+          <input type="number" id="agent_timeout_s" value="180" min="30" max="600">
+        </div>
+      </div>
+      <label>Objetivo / instrucción al agente
+        <span class="tip" tabindex="0" data-tip="Describe qué querés que el agente busque o enfatice. Vacío = cobertura general.">?</span>
+      </label>
+      <textarea id="agent_goal" rows="2" placeholder="Ej: Encontrar vulnerabilidades de inyección y paneles admin expuestos"></textarea>
+      <div class="row" style="margin-top:.6rem">
+        <div>
+          <label>Denylist (hosts siempre bloqueados, separados por coma)
+            <span class="tip" tabindex="0" data-tip="El gate siempre bloquea IPs privadas/loopback. Podés agregar hosts extra a no tocar.">?</span>
+          </label>
+          <input type="text" id="agent_denylist" placeholder="internal.example.com,legacy.example.com">
+        </div>
+      </div>
+      <div class="checkline" style="margin-top:.6rem">
+        <input type="checkbox" id="agent_allow_level3">
+        <label for="agent_allow_level3">Permitir tests nivel 3 (net.sqlmap_sqli — intrusivo, solo con autorización explícita)</label>
+        <span class="tip" tabindex="0" data-tip="Por default el gate bloquea todos los tests nivel 3. Tildá esto solo si tenés autorización explícita para tests de inyección SQL.">?</span>
+      </div>
+      <div class="checkline" style="margin-top:.4rem">
+        <input type="checkbox" id="agent_enable_proxy">
+        <label for="agent_enable_proxy">Grabar tráfico HTTP via proxy (:8788)</label>
+      </div>
+      <div>
+        <input type="checkbox" id="agent_use_v2">
+        <label for="agent_use_v2">Planner+Worker v2 (arquitectura multi-agente experimental)</label>
+        <span class="tip" tabindex="0" data-tip="Arranca un proxy HTTP en localhost:8788 que graba todas las peticiones del agente. El tráfico queda en reports/traffic/{scan_id}/traffic.jsonl">?</span>
+      </div>
+    </fieldset>
+
+    <fieldset id="skills-fieldset" style="display:none">
+      <legend>Skill ofensivo
+        <span class="tip" tabindex="0" data-tip="Ejecuta un skill específico contra el target. Sin IA: corre el script del skill directamente. Con IA: el agente usa el skill como herramienta dentro de su loop de razonamiento.">?</span>
+      </legend>
+      <label>Target
+        <span class="tip" tabindex="0" data-tip="Host, URL o dominio sobre el que correr el skill. Puede ser el mismo target global de arriba o uno específico para esta corrida.">?</span>
+      </label>
+      <input type="text" id="skills_target" placeholder="api.ejemplo.com / https://ejemplo.com / 10.0.0.1">
+      <div style="margin-top:.7rem">
+        <label>Skill a ejecutar
+          <span class="tip" tabindex="0" data-tip="Elegí un skill de la lista. Cada skill tiene sus propias herramientas (bbot, nuclei, httpx, etc.). Si activás IA, el agente decide cuándo y cómo invocar el skill.">?</span>
+        </label>
+        <select id="skills_name">
+          <option value="">— seleccionar skill —</option>
+          <option value="api-recon">api-recon — descubrimiento de endpoints REST/GraphQL</option>
+          <option value="bbot-recon">bbot-recon — reconocimiento OSINT con bbot</option>
+          <option value="nuclei-scan">nuclei-scan — detección de CVEs y misconfiguraciones</option>
+          <option value="php2shell">php2shell — detección de upload → ejecución PHP</option>
+          <option value="subdomain-enum">subdomain-enum — enumeración de subdominios</option>
+          <option value="port-scan">port-scan — escaneo de puertos con nmap</option>
+        </select>
+      </div>
+      <div style="margin-top:.7rem">
+        <label>Args extra (opcional)
+          <span class="tip" tabindex="0" data-tip="Argumentos adicionales pasados al script del skill, ej. --rate 50 o --wordlist /path/lista.txt. Depende de cada skill.">?</span>
+        </label>
+        <input type="text" id="skills_args" placeholder="--rate 50 --wordlist /usr/share/wordlists/common.txt">
+      </div>
+      <div class="checkline" style="margin-top:.7rem">
+        <input type="checkbox" id="skills_use_ai">
+        <label for="skills_use_ai">Usar IA para orquestar el skill (requiere API key configurada)</label>
+        <span class="tip" tabindex="0" data-tip="Si está tildado, el agente LLM usa el skill como herramienta dentro de su loop — puede re-correrlo, ajustar args según hallazgos, y correlacionar resultados. Sin tildar, corre el script directamente sin ningún LLM.">?</span>
+      </div>
+    </fieldset>
 
     <fieldset id="api-fieldset" style="display:none">
       <legend>Target de la API
@@ -287,6 +591,13 @@
           <input type="text" id="api_jwt" placeholder="eyJhbGciOi...">
         </div>
       </div>
+      <div class="row">
+        <div>
+          <label><input type="checkbox" id="api_all_tests" onchange="onApiAllTestsToggle()"> Todos los tests (incluye opt-in)
+            <span class="tip" tabindex="0" data-tip="Equivalente a --all-tests de la CLI: corre también api.bola, api.mass_assignment, api.injection_probe, api.rate_limit, gql.alias_batching y gql.depth_limit -- sin esto, por defecto SOLO corren los tests default_enabled de la lista de abajo (cobertura parcial).">?</span>
+          </label>
+        </div>
+      </div>
     </fieldset>
 
     <fieldset id="target-fieldset">
@@ -296,12 +607,12 @@
       <div class="row">
         <div>
           <label>Transporte
-            <span class="tip" tabindex="0" data-tip="Cómo se conecta Ares al MCP. stdio = proceso local que vos lanzás (comando+args). http/sse = URL remota o local por red. Cambia qué campos aparecen abajo.">?</span>
+            <span class="tip" tabindex="0" data-tip="Cómo se conecta Ares al MCP. stdio = proceso local que vos lanzás (comando+args). http/sse = URL remota o local por red. Cambia qué campos aparecen abajo. Nota sobre sse: los tests de fuzzing de protocolo crudo (protocol.jsonrpc_malformed_fuzz y similares) no corren con este transporte -- el canal RPC crudo solo soporta stdio/http.">?</span>
           </label>
           <select id="transport" onchange="toggleTransport()">
             <option value="stdio">stdio (proceso local)</option>
             <option value="http">http (streamable-http)</option>
-            <option value="sse">sse</option>
+            <option value="sse">sse (sin canal RPC crudo -- ver tooltip)</option>
           </select>
         </div>
         <div>
@@ -375,7 +686,7 @@
       </legend>
       <div class="checkline" id="use-auth-line">
         <input type="checkbox" id="use_auth" onchange="toggleAuthFields()">
-        <label for="use_auth">Autenticar el scan (bearer/apikey/custom)</label>
+        <label for="use_auth">Autenticar el scan (bearer/apikey/custom/basic/OAuth2)</label>
         <span class="tip" tabindex="0" data-tip="Destildado (default) = el scan corre SIN ninguna credencial — es intencional, no un error: así respondés «¿qué puede hacer un atacante externo sin nada?». Tildalo solo si vas a probar CON una credencial real; ahí aparecen los campos de token/header.">?</span>
       </div>
 
@@ -389,13 +700,14 @@
               <option value="bearer">bearer</option>
               <option value="apikey">apikey</option>
               <option value="custom">custom</option>
+              <option value="basic">basic</option>
             </select>
           </div>
           <div>
             <label>Token / credencial
-              <span class="tip" tabindex="0" data-tip="Tu token/API key real para esta corrida autenticada.">?</span>
+              <span class="tip" tabindex="0" data-tip="Tu token/API key real para esta corrida autenticada. Para Tipo=basic: 'usuario:contraseña'. Se ignora si completás OAuth2 client-credentials más abajo.">?</span>
             </label>
-            <input type="text" id="auth_token" placeholder="eyJhbGciOi... / tu token">
+            <input type="text" id="auth_token" placeholder="eyJhbGciOi... / tu token / usuario:contraseña">
           </div>
           <div>
             <label>Nombre de header (apikey/custom)
@@ -408,6 +720,41 @@
           <span class="tip" tabindex="0" data-tip="Headers HTTP crudos adicionales, uno por línea, formato Clave: Valor (ej. Cookie: sesion=abc123). Para credenciales que no son ni Bearer ni API key.">?</span>
         </label>
         <textarea id="headers_raw" rows="2"></textarea>
+
+        <details class="adv">
+          <summary>Avanzado: OAuth2 client-credentials <span class="pill">en vez de pegar un token a mano</span></summary>
+          <p class="hint">Si completás esto, Ares pide un access_token real contra el token endpoint
+          del proveedor (grant client_credentials) ANTES de arrancar el scan, y lo usa como Bearer --
+          ignora el Token/credencial de arriba. Solo grant client_credentials (sin humano en el loop);
+          sin refresh automático (se pide una vez al arrancar).</p>
+          <div class="row" style="margin-top:.4rem">
+            <div>
+              <label>Token endpoint URL
+                <span class="tip" tabindex="0" data-tip="URL del token endpoint OAuth2 del proveedor, ej. https://auth.miempresa.com/oauth/token. Vacío = OAuth2 desactivado, se usa Token/credencial de arriba tal cual.">?</span>
+              </label>
+              <input type="text" id="oauth2_token_url" placeholder="https://auth.miempresa.com/oauth/token">
+            </div>
+            <div>
+              <label>Client ID
+                <span class="tip" tabindex="0" data-tip="client_id registrado contra el proveedor OAuth2.">?</span>
+              </label>
+              <input type="text" id="oauth2_client_id" placeholder="mi-client-id">
+            </div>
+            <div>
+              <label>Client secret
+                <span class="tip" tabindex="0" data-tip="client_secret registrado contra el proveedor OAuth2.">?</span>
+              </label>
+              <input type="text" id="oauth2_client_secret" placeholder="••••••••">
+            </div>
+            <div>
+              <label>Scope (opcional)
+                <span class="tip" tabindex="0" data-tip="Scope a pedir en el token, si el proveedor lo requiere.">?</span>
+              </label>
+              <input type="text" id="oauth2_scope" placeholder="read:api">
+            </div>
+          </div>
+        </details>
+
         <div class="checkline" id="compare-auth-line">
           <input type="checkbox" id="compare_auth">
           <label for="compare_auth">--compare-auth: correr con y sin credenciales, y diffear qué mitiga la auth (solo scan/vet, no full)</label>
@@ -430,6 +777,7 @@
                 <option value="bearer">bearer</option>
                 <option value="apikey">apikey</option>
                 <option value="custom">custom</option>
+                <option value="basic">basic</option>
               </select>
             </div>
             <div>
@@ -499,6 +847,26 @@
             <span class="tip" tabindex="0" data-tip="Ruta LOCAL (en la máquina donde corre ares.sh serve) a un bundle de CA en PEM, para validar el certificado TLS del server (http/sse) contra una CA interna/corporativa SIN desactivar la verificación. Si se omite, usa el trust store por defecto (certifi) con fallback a la variable de entorno SSL_CERT_FILE. El tipo de certificado detectado queda anotado en el reporte (exposure.certificate_type).">?</span>
           </label>
           <input type="text" id="ca_bundle" placeholder="/ruta/a/ca-interna.pem">
+        </div>
+        <div>
+          <label>--proxy <span class="pill">Burp / mitmproxy / SOCKS</span>
+            <span class="tip" tabindex="0" data-tip="Proxy HTTP/HTTPS/SOCKS para TODO el tráfico hacia el target http/sse. Ej. http://127.0.0.1:8080 para interceptar con Burp/mitmproxy, o socks5://host:1080 (SOCKS requiere 'pip install httpx[socks]' en el servidor donde corre ares.sh serve). Vacío = conexión directa.">?</span>
+          </label>
+          <input type="text" id="proxy" placeholder="http://127.0.0.1:8080">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>--client-cert <span class="pill">mTLS</span>
+            <span class="tip" tabindex="0" data-tip="Ruta LOCAL a un certificado de cliente (PEM) para mTLS -- el server exige que ARES mismo se autentique con un cert, no solo que valide el del server (eso es --ca-bundle).">?</span>
+          </label>
+          <input type="text" id="client_cert" placeholder="/ruta/a/cliente.pem">
+        </div>
+        <div>
+          <label>--client-key <span class="pill">mTLS</span>
+            <span class="tip" tabindex="0" data-tip="Clave privada (PEM) de --client-cert, si no está en el mismo archivo.">?</span>
+          </label>
+          <input type="text" id="client_key" placeholder="/ruta/a/cliente.key">
         </div>
       </div>
       <div class="checkline">
@@ -667,6 +1035,285 @@
     </div>
     <div id="reports-list">cargando…</div>
   </div>
+
+  <div id="panel-schedules" class="panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem">
+      <span style="font-weight:600">Scans programados (cron-style)</span>
+      <button class="secondary" onclick="loadSchedules()">↺ Actualizar</button>
+    </div>
+    <div id="schedules-list" style="margin-bottom:1rem"><p class="hint">cargando…</p></div>
+
+    <fieldset>
+      <legend>Agregar schedule</legend>
+      <div class="row">
+        <div>
+          <label>Expresión cron
+            <span class="tip" tabindex="0" data-tip="5 campos: minuto hora dom mes dow. Ej: '0 2 * * *' = diariamente a las 02:00">?</span>
+          </label>
+          <input type="text" id="sched_cron" placeholder="0 2 * * *">
+        </div>
+        <div>
+          <label>Tipo de scan</label>
+          <select id="sched_type">
+            <option value="netrecon">netrecon</option>
+            <option value="agent-scan">agent-scan</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div style="flex:2">
+          <label>Target URL</label>
+          <input type="url" id="sched_target" placeholder="https://example.com">
+        </div>
+        <div>
+          <label>Scope</label>
+          <input type="text" id="sched_scope" placeholder="example.com">
+        </div>
+      </div>
+      <div class="row" style="margin-top:.4rem">
+        <div>
+          <label>Webhook notificación (opcional)</label>
+          <input type="url" id="sched_webhook" placeholder="https://hooks.slack.com/...">
+        </div>
+      </div>
+      <div style="margin-top:.7rem;display:flex;gap:.6rem;align-items:center">
+        <button onclick="addSchedule()">Agregar schedule</button>
+        <div id="sched-result" style="font-size:.82rem"></div>
+      </div>
+    </fieldset>
+  </div>
+
+  <div id="panel-maintenance" class="panel">
+    <fieldset>
+      <legend>Herramientas de red <small>(netrecon · agent-scan)</small></legend>
+      <p class="hint">Estado de los binarios usados por NETRECON y AGENT-SCAN. Instalá los que falten para que los tests puedan correr.</p>
+      <div id="maint-tools-status" style="font-size:.82rem;color:var(--text-dim);margin:.5rem 0">cargando…</div>
+      <div style="margin-top:.6rem;display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
+        <button type="button" class="secondary" onclick="maintInstallTools(false)">Instalar herramientas faltantes</button>
+        <button type="button" class="secondary" onclick="maintInstallTools(true)">Forzar reinstalación (--force)</button>
+        <div id="maint-install-result" style="font-size:.82rem"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Reglas y frameworks</legend>
+      <p class="hint">Ninguno corre solo durante un scan; hay que dispararlos de tanto en tanto para no quedar con patrones/mapeos desactualizados.</p>
+      <div class="maintenance-group">
+        <button type="button" class="secondary" onclick="runMaintenance('update-rules')">Actualizar patrones de secretos (gitleaks)</button>
+        <button type="button" class="secondary" onclick="runMaintenance('check-frameworks')">Chequear versión de frameworks (OWASP/MITRE)</button>
+        <button type="button" class="secondary" onclick="runMaintenance('check-lists')">Chequear listas curadas (CVEs/paquetes/secretos)</button>
+      </div>
+      <div id="maintenance-result"></div>
+    </fieldset>
+  </div>
+
+  <!-- Tasks panel -->
+  <div id="panel-tasks" class="panel">
+    <fieldset><legend>Tasks activas</legend>
+      <div style="display:flex;gap:.6rem;margin-bottom:1rem">
+        <button type="button" class="secondary" onclick="loadTasks()">Actualizar</button>
+        <input id="task-filter" placeholder="Filtrar por ID o target..." style="flex:1;background:var(--bg-sunken);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.35rem .6rem;font-size:.85rem">
+      </div>
+      <div id="tasks-list"><p class="text-dim">Cargando...</p></div>
+    </fieldset>
+  </div>
+
+  <!-- Findings panel -->
+  <div id="panel-findings" class="panel">
+    <fieldset><legend>Búsqueda de hallazgos</legend>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem">
+        <input id="findings-q" placeholder="Buscar en título/descripción..." style="flex:2;min-width:180px;background:var(--bg-sunken);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.35rem .6rem;font-size:.85rem">
+        <select id="findings-sev" style="background:var(--bg-sunken);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.35rem .5rem;font-size:.85rem">
+          <option value="">Todas las severidades</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        <button type="button" class="secondary" onclick="searchFindings()">Buscar</button>
+      </div>
+      <div id="findings-results"></div>
+    </fieldset>
+  </div>
+
+  <!-- Assets panel -->
+  <div id="panel-assets" class="panel">
+    <fieldset><legend>Assets descubiertos</legend>
+      <div style="display:flex;gap:.6rem;margin-bottom:1rem">
+        <button type="button" class="secondary" onclick="loadAssets()">Actualizar</button>
+        <input id="assets-filter" placeholder="Filtrar por dominio o IP..." style="flex:1;background:var(--bg-sunken);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.35rem .6rem;font-size:.85rem">
+      </div>
+      <div id="assets-list"><p style="color:var(--text-dim)">Clic en Actualizar para cargar assets del knowledge graph.</p></div>
+    </fieldset>
+  </div>
+
+  <!-- Intercept HITL panel -->
+  <div id="panel-intercept" class="panel">
+    <fieldset><legend>Intercept — Human-in-the-loop</legend>
+      <p style="color:var(--text-dim);font-size:.88rem">Las tool calls de riesgo alto esperan aprobación manual aquí. Actualiza periódicamente para ver nuevas solicitudes.</p>
+      <div style="display:flex;gap:.6rem;margin-bottom:1rem">
+        <button type="button" class="secondary" onclick="loadIntercepts()">Actualizar</button>
+      </div>
+      <div id="intercept-pending"><p style="color:var(--text-dim)">Sin solicitudes pendientes.</p></div>
+    </fieldset>
+    <fieldset><legend>Side question</legend>
+      <p style="color:var(--text-dim);font-size:.88rem">Pregunta al agente en curso sin interrumpir el loop.</p>
+      <textarea id="side-q" rows="2" placeholder="Ej: ¿Encontraste algún endpoint de admin expuesto?" style="width:100%;background:var(--bg-sunken);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.5rem;font-size:.88rem;margin-bottom:.5rem;resize:vertical"></textarea>
+      <input id="side-q-task" placeholder="task_id (opcional)" style="background:var(--bg-sunken);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.35rem .6rem;font-size:.85rem;margin-bottom:.5rem;width:220px">
+      <br>
+      <button type="button" onclick="askSideQuestion()">Enviar pregunta</button>
+      <div id="side-q-result" style="margin-top:.8rem"></div>
+    </fieldset>
+  </div>
+
+  <!-- Skills panel -->
+  <div id="panel-skills" class="panel">
+    <fieldset><legend>Skills disponibles</legend>
+      <div style="display:flex;gap:.6rem;margin-bottom:1rem">
+        <button type="button" class="secondary" onclick="loadSkills()">Actualizar</button>
+      </div>
+      <div id="skills-list"><p style="color:var(--text-dim)">Cargando...</p></div>
+    </fieldset>
+    <fieldset id="skill-detail-box" style="display:none"><legend id="skill-detail-title">Skill</legend>
+      <pre id="skill-detail-content" style="max-height:500px;overflow-y:auto;font-size:.8rem;white-space:pre-wrap;word-break:break-word"></pre>
+    </fieldset>
+  </div>
+
+  <!-- LLM Records panel -->
+  <div id="panel-llmrec" class="panel">
+    <fieldset><legend>LLM call records</legend>
+      <div style="display:flex;gap:.6rem;align-items:center;margin-bottom:1rem">
+        <label style="font-size:.85rem">Últimos:</label>
+        <select id="llmrec-limit" style="background:var(--bg-sunken);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.3rem .5rem;font-size:.85rem">
+          <option value="20">20</option>
+          <option value="50" selected>50</option>
+          <option value="100">100</option>
+        </select>
+        <button type="button" class="secondary" onclick="loadLlmRecords()">Cargar</button>
+      </div>
+      <div id="llmrec-list"></div>
+    </fieldset>
+  </div>
+
+  <!-- Agents panel -->
+  <div id="panel-agents" class="panel">
+    <fieldset><legend>Estado de agentes</legend>
+      <button type="button" class="secondary" onclick="loadAgentStatus()">Actualizar</button>
+      <div id="agent-status" style="margin-top:.8rem"></div>
+    </fieldset>
+    <fieldset><legend>Goals &amp; Constraints</legend>
+      <div style="display:flex;gap:1rem;flex-wrap:wrap">
+        <div style="flex:1;min-width:220px">
+          <label style="font-size:.85rem;display:block;margin-bottom:.3rem;color:var(--text-dim)">Goals activos</label>
+          <div id="goals-display" style="font-size:.85rem;color:var(--text-dim);margin-bottom:.5rem">—</div>
+          <textarea id="goals-input" rows="3" placeholder='["Encontrar SSRF en API externa","Mapear superficie admin"]' style="width:100%;background:var(--bg-sunken);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.5rem;font-size:.82rem;resize:vertical"></textarea>
+          <button type="button" onclick="setGoals()" style="margin-top:.4rem">Guardar goals</button>
+        </div>
+        <div style="flex:1;min-width:220px">
+          <label style="font-size:.85rem;display:block;margin-bottom:.3rem;color:var(--text-dim)">Constraints</label>
+          <div id="constraints-display" style="font-size:.82rem;color:var(--text-dim);margin-bottom:.5rem">—</div>
+          <button type="button" class="secondary" onclick="loadGoals()">Cargar</button>
+        </div>
+      </div>
+    </fieldset>
+  </div>
+
+  <!-- Notify panel -->
+  <div id="panel-notify" class="panel">
+    <fieldset><legend>Configuración de notificaciones</legend>
+      <p style="color:var(--text-dim);font-size:.88rem">Las notificaciones se configuran via variables de entorno en el servidor. Los canales soportados son Slack, Discord, PagerDuty, DingTalk, WeCom, Telegram y Email.</p>
+      <table style="width:100%;border-collapse:collapse;font-size:.85rem;margin-top:.5rem">
+        <thead><tr style="color:var(--text-dim);border-bottom:1px solid var(--border)"><th align="left" style="padding:.4rem .6rem">Canal</th><th align="left" style="padding:.4rem .6rem">Variable de entorno</th><th align="left" style="padding:.4rem .6rem">Estado</th></tr></thead>
+        <tbody>
+          <tr><td style="padding:.35rem .6rem">Slack</td><td style="padding:.35rem .6rem;color:var(--text-dim);font-family:monospace;font-size:.78rem">ARES_SLACK_WEBHOOK</td><td id="notify-slack" style="padding:.35rem .6rem;color:var(--text-faint)">—</td></tr>
+          <tr><td style="padding:.35rem .6rem">Discord</td><td style="padding:.35rem .6rem;color:var(--text-dim);font-family:monospace;font-size:.78rem">ARES_DISCORD_WEBHOOK</td><td id="notify-discord" style="padding:.35rem .6rem;color:var(--text-faint)">—</td></tr>
+          <tr><td style="padding:.35rem .6rem">PagerDuty</td><td style="padding:.35rem .6rem;color:var(--text-dim);font-family:monospace;font-size:.78rem">ARES_PAGERDUTY_KEY</td><td id="notify-pd" style="padding:.35rem .6rem;color:var(--text-faint)">—</td></tr>
+          <tr><td style="padding:.35rem .6rem">Telegram</td><td style="padding:.35rem .6rem;color:var(--text-dim);font-family:monospace;font-size:.78rem">ARES_TELEGRAM_BOT_TOKEN</td><td id="notify-tg" style="padding:.35rem .6rem;color:var(--text-faint)">—</td></tr>
+          <tr><td style="padding:.35rem .6rem">Email</td><td style="padding:.35rem .6rem;color:var(--text-dim);font-family:monospace;font-size:.78rem">ARES_EMAIL_SMTP_HOST</td><td id="notify-email" style="padding:.35rem .6rem;color:var(--text-faint)">—</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:1rem">
+        <label style="font-size:.85rem">Severidad mínima para notificar:</label>
+        <select id="notify-min-sev" style="background:var(--bg-sunken);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.3rem .5rem;font-size:.85rem;margin-left:.5rem">
+          <option value="info">Info (todo)</option>
+          <option value="low">Low+</option>
+          <option value="medium" selected>Medium+</option>
+          <option value="high">High+</option>
+          <option value="critical">Solo Critical</option>
+        </select>
+      </div>
+      <button type="button" onclick="checkNotifyStatus()" style="margin-top:.8rem" class="secondary">Verificar estado</button>
+      <div id="notify-status-result" style="margin-top:.6rem"></div>
+    </fieldset>
+  </div>
+
+  <!-- Settings panel -->
+  <div id="panel-settings" class="panel">
+    <fieldset><legend>Noise profile</legend>
+      <p style="color:var(--text-dim);font-size:.88rem">Controla la agresividad del agente: requests por segundo, concurrencia, jitter y TTL de caché de egress.</p>
+      <div class="level-selector" style="gap:.5rem">
+        <button data-np="off" class="active" onclick="setNoiseProfile('off',this)"><b>Off</b><span>Sin pacing, máx velocidad (dev/lab)</span></button>
+        <button data-np="quiet" onclick="setNoiseProfile('quiet',this)"><b>Quiet</b><span>2 rps/host, caché 60s, heavy jitter</span></button>
+        <button data-np="balanced" onclick="setNoiseProfile('balanced',this)"><b>Balanced</b><span>5 rps/host, caché 30s, jitter moderado</span></button>
+        <button data-np="aggressive" onclick="setNoiseProfile('aggressive',this)"><b>Aggressive</b><span>20 rps/host, caché 10s, jitter ligero</span></button>
+      </div>
+      <div id="noise-profile-result" style="margin-top:.6rem;font-size:.82rem;color:var(--text-dim)"></div>
+    </fieldset>
+    <fieldset><legend>Versión &amp; updates</legend>
+      <button type="button" class="secondary" onclick="checkUpdate()">Verificar actualizaciones</button>
+      <div id="update-result" style="margin-top:.6rem;font-size:.85rem"></div>
+    </fieldset>
+    <fieldset><legend>Sesión</legend>
+      <button type="button" class="secondary" onclick="logout()">Cerrar sesión</button>
+    </fieldset>
+  </div>
+
+  <!-- IA Chat panel -->
+  <div id="panel-chat" class="panel">
+    <style>
+      #chat-wrap { display:flex; flex-direction:column; height:calc(100vh - 220px); min-height:400px; gap:.7rem; }
+      #chat-toolbar { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+      #chat-toolbar select, #chat-toolbar input { font-size:.82rem; padding:.28rem .5rem; }
+      #chat-messages { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:.6rem;
+        background:var(--bg-raised); border:1px solid var(--border); border-radius:10px; padding:.8rem 1rem; }
+      .chat-msg { max-width:88%; padding:.55rem .8rem; border-radius:10px; font-size:.88rem; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
+      .chat-msg.user { align-self:flex-end; background:rgba(59,130,246,.18); color:#bfdbfe; border-bottom-right-radius:3px; }
+      .chat-msg.assistant { align-self:flex-start; background:var(--bg-card,#1e2535); color:var(--text-main,#e2e8f0); border-bottom-left-radius:3px; }
+      .chat-msg.assistant .chat-meta { font-size:.72rem; color:var(--text-faint); margin-top:.35rem; }
+      .chat-msg.typing { opacity:.6; font-style:italic; }
+      #chat-input-row { display:flex; gap:.5rem; }
+      #chat-input { flex:1; min-height:44px; max-height:160px; resize:vertical; font-size:.9rem; }
+      #chat-ctx-bar { font-size:.77rem; color:var(--text-faint); padding:.25rem 0; }
+      #chat-ctx-bar span { background:rgba(139,92,246,.18); color:#c4b5fd; border-radius:5px; padding:.1rem .45rem; margin-right:.4rem; }
+    </style>
+    <div id="chat-wrap">
+      <div id="chat-toolbar">
+        <label style="font-size:.82rem">Provider:
+          <select id="chat-provider">
+            <option value="auto">auto</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="openai">OpenAI</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="groq">Groq</option>
+            <option value="ollama">Ollama</option>
+          </select>
+        </label>
+        <label style="font-size:.82rem">Modelo:
+          <input id="chat-model" type="text" placeholder="default" style="width:160px">
+        </label>
+        <button class="secondary" style="font-size:.8rem;padding:.28rem .7rem" onclick="chatClear()">Limpiar</button>
+        <label style="font-size:.8rem;display:flex;align-items:center;gap:.3rem;cursor:pointer">
+          <input type="checkbox" id="chat-use-scan-ctx" checked> Incluir contexto del scan activo
+        </label>
+      </div>
+      <div id="chat-ctx-bar"></div>
+      <div id="chat-messages"><p style="color:var(--text-faint);font-size:.85rem;text-align:center;margin:auto">Enviá un mensaje para empezar.</p></div>
+      <div id="chat-input-row">
+        <textarea id="chat-input" class="input" placeholder="Preguntá algo sobre el scan, hallazgos, próximos pasos…" rows="2"></textarea>
+        <button id="chat-send-btn" onclick="chatSend()" style="align-self:flex-end">Enviar</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -680,41 +1327,520 @@ function esc(s) {
   return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+function authedFetch(url, opts) {
+  opts = opts || {};
+  const token = (() => { try { return localStorage.getItem('ares_token') || ''; } catch(e) { return ''; } })();
+  if (token) {
+    const h = new Headers(opts.headers || {});
+    h.set('X-Ares-Token', token);
+    if (opts.body && !h.has('Content-Type')) h.set('Content-Type', 'application/json');
+    opts = {...opts, headers: h};
+  }
+  return fetch(url, opts);
+}
+
 function showPanel(name) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
   event.target.classList.add('active');
   if (name === 'reports') loadReports();
+  if (name === 'maintenance') loadMaintToolsStatus();
+  if (name === 'schedules') loadSchedules();
+  if (name === 'chat') chatUpdateCtxBar();
+  if (name === 'tasks') loadTasks();
+  if (name === 'findings') searchFindings();
+  if (name === 'assets') loadAssets();
+  if (name === 'intercept') loadIntercepts();
+  if (name === 'skills') loadSkills();
+  if (name === 'llmrec') loadLlmRecords();
+  if (name === 'agents') { loadAgentStatus(); loadGoals(); }
 }
 
-let testsLoadedFor = null;  // 'mcp' | 'api' -- para no refetchear /api/tests o /api/api-tests en cada click
+// ── Tasks ────────────────────────────────────────────────────────────────────
+async function loadTasks() {
+  const box = document.getElementById('tasks-list');
+  const filter = (document.getElementById('task-filter') || {}).value || '';
+  try {
+    const res = await authedFetch('/api/reports');
+    const data = await res.json();
+    let items = Array.isArray(data) ? data : (data.reports || []);
+    if (filter) items = items.filter(e =>
+      (e.scan_id||'').includes(filter) || (e.target_name||'').includes(filter));
+    if (!items.length) { box.innerHTML = '<p style="color:var(--text-dim)">Sin tasks.</p>'; return; }
+    box.innerHTML = items.slice(0,50).map(e => {
+      const st = e.status || (e.finished_at ? 'done' : 'running');
+      const color = st === 'done' ? 'var(--ok)' : st === 'error' ? '#b91c1c' : 'var(--accent)';
+      return `<div class="scan-row" style="margin:.3rem 0;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+        <span style="color:${color};font-size:.8rem">●</span>
+        <b style="font-size:.85rem">${esc(e.scan_id||'?')}</b>
+        <span style="color:var(--text-dim);font-size:.82rem">${esc(e.target_name||'')}</span>
+        <span class="pill">${esc(st)}</span>
+        <span style="margin-left:auto;font-size:.75rem;color:var(--text-faint)">${(e.started_at||'').slice(0,16)}</span>
+        <button class="secondary" style="padding:.15rem .5rem;font-size:.75rem"
+          onclick="stopTask('${esc(e.scan_id||'')}')">Stop</button>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    box.innerHTML = `<p style="color:#f87171">${esc(String(e))}</p>`;
+  }
+}
+async function stopTask(id) {
+  await authedFetch(`/api/tasks/${id}/stop`, {method:'POST'});
+  loadTasks();
+}
+
+// ── Findings search ───────────────────────────────────────────────────────────
+async function searchFindings() {
+  const box = document.getElementById('findings-results');
+  const q = (document.getElementById('findings-q') || {}).value || '';
+  const sev = (document.getElementById('findings-sev') || {}).value || '';
+  const params = new URLSearchParams({q, severity:sev, limit:'50'});
+  try {
+    const res = await authedFetch('/api/findings/search?' + params);
+    const data = await res.json();
+    const results = data.results || [];
+    if (!results.length) { box.innerHTML = '<p style="color:var(--text-dim)">Sin resultados.</p>'; return; }
+    const sevColor = {critical:'#7f1d1d',high:'#b91c1c',medium:'#b45309',low:'#1d4ed8',info:'#374151'};
+    box.innerHTML = results.slice(0,50).map(f => {
+      const c = sevColor[f.severity] || '#374151';
+      return `<div class="card" style="margin:.3rem 0;padding:.6rem .9rem">
+        <div style="display:flex;gap:.5rem;align-items:center;font-size:.75rem;margin-bottom:.3rem">
+          <span class="badge" style="background:${c}">${esc(f.severity||'?').toUpperCase()}</span>
+          <span style="color:var(--text-dim)">${esc(f.test_id||'')}</span>
+          <span style="margin-left:auto;color:var(--text-faint)">${esc(f.target||'')}</span>
+        </div>
+        <b style="font-size:.88rem">${esc(f.title||'')}</b>
+        <p style="color:var(--text-dim);font-size:.82rem;margin:.2rem 0 0">${esc((f.description||'').slice(0,160))}${f.description && f.description.length>160?'…':''}</p>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    box.innerHTML = `<p style="color:#f87171">${esc(String(e))}</p>`;
+  }
+}
+
+// ── Assets ────────────────────────────────────────────────────────────────────
+async function loadAssets() {
+  const box = document.getElementById('assets-list');
+  const filter = (document.getElementById('assets-filter') || {}).value || '';
+  try {
+    const res = await authedFetch('/api/reports');
+    const data = await res.json();
+    const reports = Array.isArray(data) ? data : (data.reports || []);
+    const domains = new Map();
+    for (const r of reports.slice(0,30)) {
+      const d = r.target_name || '';
+      if (!d) continue;
+      if (filter && !d.includes(filter)) continue;
+      domains.set(d, (domains.get(d) || 0) + (r.confirmed_findings || 0));
+    }
+    if (!domains.size) { box.innerHTML = '<p style="color:var(--text-dim)">Sin assets. Ejecuta un scan primero.</p>'; return; }
+    box.innerHTML = [...domains.entries()].map(([d,f]) =>
+      `<div style="display:flex;gap:.6rem;align-items:center;padding:.35rem .2rem;border-bottom:1px solid var(--border)">
+        <span style="font-family:monospace;font-size:.85rem">${esc(d)}</span>
+        ${f?`<span class="pill" style="background:var(--bad)">${f} findings</span>`:'<span class="pill">clean</span>'}
+      </div>`
+    ).join('');
+  } catch(e) {
+    box.innerHTML = `<p style="color:#f87171">${esc(String(e))}</p>`;
+  }
+}
+
+// ── Intercept HITL ────────────────────────────────────────────────────────────
+async function loadIntercepts() {
+  const box = document.getElementById('intercept-pending');
+  try {
+    const res = await authedFetch('/api/intercept/pending');
+    const data = await res.json();
+    const pending = data.pending || [];
+    if (!pending.length) { box.innerHTML = '<p style="color:var(--text-dim)">Sin solicitudes pendientes.</p>'; return; }
+    box.innerHTML = pending.map(item =>
+      `<div class="card" style="margin:.4rem 0">
+        <div style="font-size:.82rem;color:var(--text-dim);margin-bottom:.3rem">ID: ${esc(item.id||'')} · tool: <b>${esc(item.tool_name||'')}</b> · riesgo: ${item.risk_score||0}</div>
+        <pre style="font-size:.78rem;max-height:120px;overflow:auto">${esc(JSON.stringify(item.arguments||{},null,2))}</pre>
+        <div style="display:flex;gap:.5rem;margin-top:.5rem">
+          <button onclick="approveIntercept('${esc(item.id)}')">Aprobar</button>
+          <button class="secondary" onclick="denyIntercept('${esc(item.id)}')">Denegar</button>
+        </div>
+      </div>`
+    ).join('');
+  } catch(e) {
+    box.innerHTML = `<p style="color:#f87171">${esc(String(e))}</p>`;
+  }
+}
+async function approveIntercept(id) {
+  await authedFetch('/api/intercept/approve', {method:'POST',body:JSON.stringify({intercept_id:id})});
+  loadIntercepts();
+}
+async function denyIntercept(id) {
+  const reason = prompt('Razón (opcional):') || '';
+  await authedFetch('/api/intercept/deny', {method:'POST',body:JSON.stringify({intercept_id:id,reason})});
+  loadIntercepts();
+}
+async function askSideQuestion() {
+  const q = document.getElementById('side-q').value.trim();
+  const tid = document.getElementById('side-q-task').value.trim();
+  const box = document.getElementById('side-q-result');
+  if (!q) return;
+  box.innerHTML = '<p style="color:var(--text-dim)">Enviando...</p>';
+  try {
+    const res = await authedFetch('/api/sidequestion/ask',{method:'POST',body:JSON.stringify({question:q,task_id:tid})});
+    const data = await res.json();
+    box.innerHTML = `<div class="card"><b>Respuesta:</b><p style="margin:.4rem 0;white-space:pre-wrap">${esc(data.answer||'')}</p></div>`;
+  } catch(e) {
+    box.innerHTML = `<p style="color:#f87171">${esc(String(e))}</p>`;
+  }
+}
+
+// ── Skills ────────────────────────────────────────────────────────────────────
+async function loadSkills() {
+  const box = document.getElementById('skills-list');
+  try {
+    const res = await authedFetch('/api/skills');
+    const data = await res.json();
+    const skills = data.skills || [];
+    if (!skills.length) { box.innerHTML = '<p style="color:var(--text-dim)">Sin skills instaladas.</p>'; return; }
+    box.innerHTML = skills.map(s =>
+      `<div style="display:flex;gap:.6rem;align-items:center;padding:.35rem .2rem;border-bottom:1px solid var(--border)">
+        <span style="font-family:monospace;font-size:.88rem">${esc(s.name)}</span>
+        ${s.has_skill_md?'<span class="pill" style="background:var(--ok)">SKILL.md</span>':'<span class="pill">sin SKILL.md</span>'}
+        <button class="secondary" style="margin-left:auto;padding:.15rem .5rem;font-size:.75rem"
+          onclick="viewSkill('${esc(s.name)}')">Ver</button>
+      </div>`
+    ).join('');
+  } catch(e) {
+    box.innerHTML = `<p style="color:#f87171">${esc(String(e))}</p>`;
+  }
+}
+async function viewSkill(name) {
+  try {
+    const res = await authedFetch(`/api/skill/${encodeURIComponent(name)}/load`);
+    const data = await res.json();
+    document.getElementById('skill-detail-title').textContent = name;
+    document.getElementById('skill-detail-content').textContent = data.content || '(vacío)';
+    document.getElementById('skill-detail-box').style.display = 'block';
+    document.getElementById('skill-detail-box').scrollIntoView({behavior:'smooth'});
+  } catch(e) {}
+}
+
+// ── LLM Records ───────────────────────────────────────────────────────────────
+async function loadLlmRecords() {
+  const box = document.getElementById('llmrec-list');
+  const limit = (document.getElementById('llmrec-limit')||{}).value || 50;
+  try {
+    const res = await authedFetch(`/api/llm-records?limit=${limit}`);
+    const data = await res.json();
+    const recs = data.records || [];
+    if (!recs.length) { box.innerHTML = '<p style="color:var(--text-dim)">Sin registros LLM.</p>'; return; }
+    box.innerHTML = recs.map(r =>
+      `<div class="card" style="margin:.3rem 0;padding:.6rem .9rem;font-size:.82rem">
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.3rem;color:var(--text-dim)">
+          <span>${esc(r.provider||'')} / ${esc(r.model||'')}</span>
+          <span>↑${r.prompt_tokens||0} ↓${r.completion_tokens||0} tok</span>
+          <span>${r.latency_ms ? Math.round(r.latency_ms)+'ms' : ''}</span>
+          <span style="margin-left:auto;color:var(--text-faint)">${(r.recorded_at||'').slice(0,19)}</span>
+        </div>
+        ${r.error?`<span style="color:#f87171">${esc(r.error)}</span>`:''}
+      </div>`
+    ).join('');
+  } catch(e) {
+    box.innerHTML = `<p style="color:#f87171">${esc(String(e))}</p>`;
+  }
+}
+
+// ── Agent status / Goals ──────────────────────────────────────────────────────
+async function loadAgentStatus() {
+  const box = document.getElementById('agent-status');
+  try {
+    const res = await authedFetch('/api/tool-usage');
+    const data = await res.json();
+    const tools = data.tools || [];
+    if (!tools.length) { box.innerHTML = '<p style="color:var(--text-dim)">Sin uso de tools registrado.</p>'; return; }
+    box.innerHTML = '<b style="font-size:.85rem">Top tools usadas:</b>' +
+      tools.slice(0,15).map(t =>
+        `<div style="display:flex;gap:.5rem;padding:.25rem 0;border-bottom:1px solid var(--border);font-size:.83rem">
+          <span style="font-family:monospace">${esc(t.test_id)}</span>
+          <span style="margin-left:auto;color:var(--text-dim)">${t.count}×</span>
+        </div>`
+      ).join('');
+  } catch(e) {
+    box.innerHTML = `<p style="color:#f87171">${esc(String(e))}</p>`;
+  }
+}
+async function loadGoals() {
+  try {
+    const res = await authedFetch('/api/goals');
+    const data = await res.json();
+    const goals = data.goals || [];
+    document.getElementById('goals-display').textContent = goals.length ? goals.join(' · ') : '—';
+    const cr = await authedFetch('/api/constraints');
+    const cons = await cr.json();
+    document.getElementById('constraints-display').textContent =
+      `allow: ${(cons.allow||[]).length} · deny: ${(cons.deny||[]).length} · max_risk: ${cons.max_risk||100}`;
+  } catch(e) {}
+}
+async function setGoals() {
+  try {
+    const raw = document.getElementById('goals-input').value.trim();
+    const goals = raw ? JSON.parse(raw) : [];
+    await authedFetch('/api/goals', {method:'POST', body: JSON.stringify({goals})});
+    loadGoals();
+  } catch(e) {
+    alert('Error al guardar goals: ' + e);
+  }
+}
+
+// ── Settings helpers ──────────────────────────────────────────────────────────
+function setNoiseProfile(name, btn) {
+  document.querySelectorAll('[data-np]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('noise-profile-result').textContent =
+    `Perfil "${name}" seleccionado (se aplica al reiniciar el servidor con ARES_NOISE_PROFILE=${name}).`;
+}
+async function checkUpdate() {
+  const box = document.getElementById('update-result');
+  try {
+    const res = await authedFetch('/api/update-check');
+    const d = await res.json();
+    box.textContent = d.update_available
+      ? `Nueva versión disponible: ${d.latest} (actual: ${d.current_version})`
+      : `Al día — versión ${d.current_version}. ${d.note||''}`;
+  } catch(e) {
+    box.textContent = 'Error al verificar: ' + e;
+  }
+}
+function checkNotifyStatus() {
+  document.getElementById('notify-status-result').textContent =
+    'El estado de notificaciones depende de las variables de entorno configuradas en el servidor. Reinicia con las variables activas para habilitar cada canal.';
+}
+function logout() {
+  localStorage.removeItem('ares_token');
+  location.reload();
+}
+
+let testsLoadedFor = null;  // 'mcp' | 'api' | 'netrecon' -- para no refetchear en cada click
 
 function setMode(mode) {
   currentMode = mode;
-  document.querySelectorAll('.mode-tabs button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  // marcar activo en todos los botones data-mode de cualquier categoría
+  document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
 
   document.getElementById('api-fieldset').style.display = mode === 'api' ? 'block' : 'none';
+  document.getElementById('netrecon-fieldset').style.display = mode === 'netrecon' ? 'block' : 'none';
+  document.getElementById('agent-fieldset').style.display = mode === 'agent' ? 'block' : 'none';
   document.getElementById('full-fieldset').style.display = mode === 'full' ? 'block' : 'none';
-  document.getElementById('target-fieldset').style.display = (mode === 'full' || mode === 'api') ? 'none' : 'block';
-  document.getElementById('compare-auth-line').style.display = (mode === 'full') ? 'none' : 'flex';
+  document.getElementById('skills-fieldset').style.display = mode === 'skills' ? 'block' : 'none';
+  const hideTarget = (mode === 'full' || mode === 'api' || mode === 'netrecon' || mode === 'agent' || mode === 'skills');
+  document.getElementById('target-fieldset').style.display = hideTarget ? 'none' : 'block';
+  document.getElementById('compare-auth-line').style.display = (mode === 'full' || mode === 'netrecon' || mode === 'agent' || mode === 'skills') ? 'none' : 'flex';
 
   const testsFieldset = document.getElementById('tests-fieldset');
   const testsFieldsetList = document.getElementById('tests-fieldset-list');
   const testsHint = document.getElementById('tests-hint');
-  const showTests = (mode !== 'vet' && mode !== 'full');  // vet/full corren TODOS los tests, nivel incluido -- no hay nada que elegir
+  // agent/skills: no mostrar selector de tests
+  const showTests = (mode !== 'vet' && mode !== 'full' && mode !== 'agent' && mode !== 'skills');
   testsFieldset.style.display = showTests ? 'block' : 'none';
   testsFieldsetList.style.display = showTests ? 'block' : 'none';
-  testsHint.textContent = '';
+  testsHint.textContent = mode === 'netrecon' ? 'tests de red (net.*)' : '';
 
-  const wantTests = mode === 'api' ? 'api' : 'mcp';
-  if (testsLoadedFor !== wantTests) { testsLoadedFor = wantTests; loadTests(wantTests); }
+  const wantTests = mode === 'api' ? 'api' : mode === 'netrecon' ? 'netrecon' : 'mcp';
+  if (mode !== 'agent' && mode !== 'skills' && testsLoadedFor !== wantTests) { testsLoadedFor = wantTests; loadTests(wantTests); }
+
+  if (mode === 'netrecon' && !_netreconToolsLoaded) loadNetreconToolsStatus();
 
   const envHint = document.getElementById('environment-hint');
   envHint.textContent = mode === 'vet' ? 'vet fuerza production' : '';
 
   document.getElementById('run-btn').textContent =
-    mode === 'full' ? 'Ejecutar full' : mode === 'vet' ? 'Ejecutar vet' : mode === 'api' ? 'Ejecutar api-scan' : 'Ejecutar scan';
+    mode === 'full' ? 'Ejecutar full'
+    : mode === 'vet' ? 'Ejecutar vet'
+    : mode === 'api' ? 'Ejecutar api-scan'
+    : mode === 'netrecon' ? 'Ejecutar netrecon'
+    : mode === 'agent' ? 'Ejecutar agent-scan'
+    : 'Ejecutar scan';
+}
+
+async function installTools() {
+  const btn = document.getElementById('install-tools-btn');
+  const result = document.getElementById('install-tools-result');
+  const force = document.getElementById('install_force').checked;
+  btn.disabled = true;
+  result.innerHTML = '<span style="color:var(--text-dim)">instalando… (puede tardar varios minutos)</span>';
+  try {
+    const res = await fetch('/api/install-tools', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({force}),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      result.innerHTML = '<span style="color:#34d399">✓ Herramientas instaladas correctamente.</span>';
+    } else {
+      const errs = Object.entries(data.errors || {}).map(([k, v]) => `<b>${esc(k)}</b>: ${esc(v)}`).join('<br>');
+      result.innerHTML = `<span style="color:#f87171">Algunos errores:<br>${errs}</span>`;
+    }
+    _netreconToolsLoaded = false;
+    loadNetreconToolsStatus();
+  } catch(e) {
+    result.innerHTML = `<span style="color:#f87171">Error: ${esc(String(e))}</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+let _netreconToolsLoaded = false;
+async function loadNetreconToolsStatus() {
+  _netreconToolsLoaded = true;
+  const box = document.getElementById('net-tools-status');
+  try {
+    const res = await fetch('/api/tools-status');
+    const data = await res.json();
+    const items = Object.entries(data).map(([name, info]) => {
+      const avail = info.available;
+      const cls = avail ? 'tool-ok' : 'tool-missing';
+      const icon = avail ? '✓' : '✗';
+      return `<div class="tool-item ${cls}">
+        <span class="tool-icon">${icon}</span>
+        <span class="tool-name">${esc(name)}</span>
+        <span class="tool-ver">v${esc(info.pinned_version)}</span>
+      </div>`;
+    }).join('');
+    box.innerHTML = `<div class="tools-grid">${items}</div>
+      <p class="hint" style="margin-top:.3rem">Las no disponibles (✗) emitirán findings informativos. Instalar: <code>ares install-tools</code></p>`;
+  } catch(e) {
+    box.textContent = `No se pudo cargar el estado de herramientas: ${e}`;
+  }
+}
+
+async function loadSchedules() {
+  const box = document.getElementById('schedules-list');
+  if (!box) return;
+  try {
+    const res = await fetch('/api/schedules');
+    const data = await res.json();
+    if (!data.length) { box.innerHTML = '<p class="hint">Sin schedules configurados.</p>'; return; }
+    const rows = data.map(s => {
+      const status = s.enabled
+        ? '<span style="color:#34d399">●</span>'
+        : '<span style="color:var(--text-faint)">○</span>';
+      return `<div class="scan-row" style="margin:.3rem 0">
+        ${status} <b>${esc(s.id)}</b>
+        <code style="font-size:.78rem">${esc(s.cron)}</code>
+        <span class="pill">${esc(s.scan_type)}</span>
+        <span style="font-size:.8rem;color:var(--text-dim)">${esc(s.params?.target_url||'?')}</span>
+        <span style="font-size:.75rem;color:var(--text-faint)">runs=${s.run_count} err=${s.error_count} next=${(s.next_run||'').slice(0,16)}</span>
+        <button class="secondary" style="margin-left:auto;padding:.15rem .5rem;font-size:.75rem"
+          onclick="deleteSchedule('${esc(s.id)}')">✕</button>
+      </div>`;
+    }).join('');
+    box.innerHTML = rows;
+  } catch(e) {
+    box.innerHTML = `<p style="color:#f87171">Error: ${esc(String(e))}</p>`;
+  }
+}
+
+async function addSchedule() {
+  const result = document.getElementById('sched-result');
+  const cron = document.getElementById('sched_cron').value.trim();
+  const target = document.getElementById('sched_target').value.trim();
+  const scope = document.getElementById('sched_scope').value.trim();
+  const type = document.getElementById('sched_type').value;
+  const webhook = document.getElementById('sched_webhook').value.trim();
+  if (!cron || !target) { if(result) result.textContent = 'Falta cron o target'; return; }
+  const params = {target_url: target};
+  if (scope) params.scope = scope.split(',').map(s=>s.trim()).filter(Boolean);
+  try {
+    const res = await fetch('/api/schedules', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({cron, scan_type: type, params,
+                            notify_webhook: webhook||null}),
+    });
+    const data = await res.json();
+    if (data.error) { if(result) result.textContent = data.error; return; }
+    if(result) result.innerHTML = `<span style="color:#34d399">Creado: ${esc(data.id)} — próximo: ${(data.next_run||'').slice(0,16)}</span>`;
+    loadSchedules();
+  } catch(e) {
+    if(result) result.textContent = String(e);
+  }
+}
+
+async function deleteSchedule(id) {
+  try {
+    await fetch(`/api/schedules/${encodeURIComponent(id)}`, {method:'DELETE'});
+    loadSchedules();
+  } catch(e) {}
+}
+
+async function loadMaintToolsStatus() {
+  const box = document.getElementById('maint-tools-status');
+  if (!box) return;
+  try {
+    const res = await fetch('/api/tools-status');
+    const data = await res.json();
+    const items = Object.entries(data).map(([name, info]) => {
+      const avail = info.available;
+      const cls = avail ? 'tool-ok' : 'tool-missing';
+      const icon = avail ? '✓' : '✗';
+      return `<span class="tool-item ${cls}" style="display:inline-flex;margin:.2rem .3rem .2rem 0">
+        <span class="tool-icon">${icon}</span>
+        <span class="tool-name">${esc(name)}</span>
+        <span class="tool-ver">v${esc(info.pinned_version)}</span>
+      </span>`;
+    }).join('');
+    box.innerHTML = `<div style="display:flex;flex-wrap:wrap">${items}</div>`;
+  } catch(e) {
+    if (box) box.textContent = `Error cargando herramientas: ${e}`;
+  }
+}
+
+async function maintInstallTools(force) {
+  const result = document.getElementById('maint-install-result');
+  if (result) result.textContent = 'Instalando…';
+  try {
+    const res = await fetch('/api/install-tools', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({force}),
+    });
+    const data = await res.json();
+    if (result) result.innerHTML = `<span style="color:#34d399">Listo: ${esc(JSON.stringify(data))}</span>`;
+    loadMaintToolsStatus();
+  } catch(e) {
+    if (result) result.innerHTML = `<span style="color:#f87171">Error: ${esc(String(e))}</span>`;
+  }
+}
+
+async function runMaintenance(kind) {
+  const box = document.getElementById('maintenance-result');
+  box.innerHTML = '<p class="sub">corriendo…</p>';
+  try {
+    const method = kind === 'update-rules' ? 'POST' : 'GET';
+    const res = await fetch(`/api/maintenance/${kind}`, {method});
+    const data = await res.json();
+    if (!res.ok || data.error) { box.innerHTML = `<p class="sub" style="color:#c33">Falló: ${esc(data.error || res.status)}</p>`; return; }
+    if (kind === 'update-rules') {
+      box.innerHTML = `<p>Listo: <b>${data.count}</b> patrones de secretos cacheados en <code>${esc(data.path)}</code>.</p>`;
+    } else if (kind === 'check-frameworks') {
+      const rows = data.results.map(r => `<tr><td>${esc(r.label || r.framework || '')}</td><td>${esc(r.status)}</td><td>${esc(r.current_ref || '-')}</td><td>${esc(r.cached_ref || '(ninguna)')}</td></tr>`).join('');
+      box.innerHTML = `<table><tr><th>Framework</th><th>Estado</th><th>Ref. actual</th><th>Ref. cacheada</th></tr>${rows}</table>` +
+        (data.any_alert ? '<p class="sub" style="color:#c33">Al menos un framework cambió de versión -- revisar manualmente (ver CLI: check-frameworks --ack).</p>' : '<p class="sub">Sin novedades.</p>');
+    } else if (kind === 'check-lists') {
+      const rows = data.rows.map(r => `<tr><td>${esc(r.list)}</td><td>${esc(r.check)}</td><td>${esc(r.status)}</td><td>${esc(r.detail)}</td></tr>`).join('');
+      box.innerHTML = `<table><tr><th>Lista</th><th>Chequeo</th><th>Estado</th><th>Detalle</th></tr>${rows}</table>` +
+        (data.bad.length ? `<p class="sub" style="color:#c33">${data.bad.length} chequeo(s) requieren revisión.</p>` : '<p class="sub">Todo OK.</p>');
+    }
+  } catch (e) {
+    box.innerHTML = `<p class="sub" style="color:#c33">Falló: ${esc(String(e))}</p>`;
+  }
+}
+
+function onApiAllTestsToggle() {
+  const on = document.getElementById('api_all_tests').checked;
+  // Mismo criterio que --all-tests de la CLI: tilda TODOS los api.*/gql.* registrados,
+  // incluidos los opt-in (default_enabled=false) que de otro modo quedan afuera.
+  // No oculta la lista (a diferencia de vet/full) para que se pueda destildar algo puntual
+  // después de tildar todo.
+  document.querySelectorAll('.test-cb').forEach(cb => { cb.checked = on; });
 }
 
 function toggleAuthFields() {
@@ -768,7 +1894,8 @@ function applyLevel(n) {
 }
 
 async function loadTests(which = 'mcp') {
-  const res = await fetch(which === 'api' ? '/api/api-tests' : '/api/tests');
+  const url = which === 'api' ? '/api/api-tests' : which === 'netrecon' ? '/api/netrecon-tests' : '/api/tests';
+  const res = await fetch(url);
   testsMeta = await res.json();
   const byCat = {};
   testsMeta.forEach(t => { (byCat[t.category] ||= []).push(t); });
@@ -845,6 +1972,13 @@ function collectBaseParams() {
     source_path: document.getElementById('source_path').value,
     ca_bundle: document.getElementById('ca_bundle').value,
     trust_presented_cert: document.getElementById('trust_presented_cert').checked,
+    proxy: document.getElementById('proxy').value,
+    client_cert: document.getElementById('client_cert').value,
+    client_key: document.getElementById('client_key').value,
+    oauth2_token_url: document.getElementById('oauth2_token_url').value,
+    oauth2_client_id: document.getElementById('oauth2_client_id').value,
+    oauth2_client_secret: document.getElementById('oauth2_client_secret').value,
+    oauth2_scope: document.getElementById('oauth2_scope').value,
     package_name: document.getElementById('package_name').value,
     oob_callback_host: document.getElementById('oob_callback_host').value,
     allow_network: document.getElementById('allow_network').checked,
@@ -873,6 +2007,8 @@ function collectBaseParams() {
 
 function runScan() {
   if (currentMode === 'full') { runFull(); return; }
+  if (currentMode === 'netrecon') { runNetrecon(); return; }
+  if (currentMode === 'agent') { runAgent(); return; }
 
   const btn = document.getElementById('run-btn');
   btn.disabled = true;
@@ -931,7 +2067,183 @@ function runScan() {
   ws.onerror = () => { log('ERROR de WebSocket'); btn.disabled = false; };
 }
 
+function runNetrecon() {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  document.getElementById('log').textContent = '';
+  document.getElementById('result').innerHTML = '';
+
+  const selectedTests = Array.from(document.querySelectorAll('.test-cb:checked')).map(cb => cb.value);
+  const params = {
+    net_target: document.getElementById('net_target').value,
+    net_scope: document.getElementById('net_scope').value,
+    net_nuclei_severity: document.getElementById('net_nuclei_severity').value,
+    net_timeout_s: document.getElementById('net_timeout_s').value,
+    net_rate_limit: document.getElementById('net_rate_limit').value,
+    environment: document.getElementById('environment').value,
+    min_confidence: document.getElementById('min_confidence').value,
+    tests: selectedTests.length ? selectedTests : null,
+  };
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws/netrecon`);
+  ws.onopen = () => ws.send(JSON.stringify(params));
+  ws.onmessage = (msg) => {
+    const data = JSON.parse(msg.data);
+    if (data.type === 'progress') {
+      const e = data.event;
+      if (e.type === 'log') log(e.message);
+      else if (e.type === 'test_started') log(`> ${e.test_id} — ${e.name || ''}`);
+      else if (e.type === 'test_finished') log(`  [OK] ${e.findings_count} findings`);
+      else if (e.type === 'test_error') log(`  ERROR en ${e.test_id}: ${e.error}`);
+    } else if (data.type === 'fatal_error') {
+      log(`FATAL: ${data.error}`);
+      btn.disabled = false;
+    } else if (data.type === 'done') {
+      renderResult(data);
+      btn.disabled = false;
+    }
+  };
+  ws.onerror = () => { log('ERROR de WebSocket'); btn.disabled = false; };
+}
+
+// Side question modal — el agente pregunta al operador durante el scan
+function showSideQuestion(question, urgency, callback) {
+  let modal = document.getElementById('side-question-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'side-question-modal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:1rem';
+    document.body.appendChild(modal);
+  }
+  const isBlocking = urgency === 'blocking';
+  modal.innerHTML = `
+    <div style="background:var(--bg-raised);border:1px solid var(--border-strong);border-left:4px solid ${isBlocking?'#f87171':'#8b5cf6'};border-radius:12px;padding:1.5rem;max-width:540px;width:100%">
+      <div style="font-size:.8rem;font-weight:600;color:${isBlocking?'#f87171':'#a78bfa'};margin-bottom:.5rem">
+        ${isBlocking ? '⛔ El agente necesita tu respuesta para continuar' : '💬 El agente tiene una pregunta (opcional)'}
+      </div>
+      <p style="margin:.5rem 0 1rem;line-height:1.5">${esc(question)}</p>
+      <textarea id="sq-answer" rows="3" placeholder="Tu respuesta (vacío = continuar sin responder)" style="width:100%;margin-bottom:.7rem;box-sizing:border-box"></textarea>
+      <div style="display:flex;gap:.6rem;justify-content:flex-end">
+        ${!isBlocking ? `<button class="secondary" onclick="document.getElementById('side-question-modal').style.display='none';sqCb&&sqCb('(omitida por operador)')">Omitir</button>` : ''}
+        <button onclick="
+          const a=document.getElementById('sq-answer').value;
+          document.getElementById('side-question-modal').style.display='none';
+          sqCb&&sqCb(a||'(sin respuesta)');
+        ">Responder</button>
+      </div>
+    </div>`;
+  window.sqCb = callback;
+  modal.style.display = 'flex';
+}
+
+const _PROVIDER_DEFAULT_MODELS = {
+  anthropic:   'claude-sonnet-5-5',
+  openai:      'gpt-4o-mini',
+  deepseek:    'deepseek-chat',
+  nvidia:      'meta/llama-3.1-70b-instruct',
+  mistral:     'mistral-large-latest',
+  groq:        'llama-3.1-70b-versatile',
+  together:    'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
+  openrouter:  'meta-llama/llama-3.1-70b-instruct',
+  gemini:      'gemini-1.5-flash',
+  xai:         'grok-beta',
+  ollama:      'llama3.2',
+  custom:      '',
+  auto:        '',
+};
+
+function updateAgentModelHints() {
+  const prov = document.getElementById('agent_provider').value;
+  const modelInput = document.getElementById('agent_model');
+  const hint = _PROVIDER_DEFAULT_MODELS[prov] || '';
+  modelInput.placeholder = hint ? `default: ${hint}` : '(default del provider)';
+}
+
+function runAgent() {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  document.getElementById('log').textContent = '';
+  document.getElementById('result').innerHTML = '';
+
+  const params = {
+    agent_target:        document.getElementById('agent_target').value,
+    agent_scope:         document.getElementById('agent_scope').value,
+    agent_provider:      document.getElementById('agent_provider').value,
+    agent_model:         document.getElementById('agent_model').value,
+    agent_max_rounds:    document.getElementById('agent_max_rounds').value,
+    agent_goal:          document.getElementById('agent_goal').value,
+    agent_allow_level3:  document.getElementById('agent_allow_level3').checked,
+    agent_enable_proxy:  document.getElementById('agent_enable_proxy').checked,
+    use_v2:              document.getElementById('agent_use_v2')?.checked || false,
+    agent_denylist:      document.getElementById('agent_denylist').value,
+    agent_timeout_s:     document.getElementById('agent_timeout_s').value,
+    agent_rate_limit:    150,
+    environment:         document.getElementById('environment').value,
+    min_confidence:      document.getElementById('min_confidence').value,
+    allowlist_path:      document.getElementById('allowlist_path') ? document.getElementById('allowlist_path').value : '',
+  };
+
+  if (!params.agent_target) {
+    log('ERROR: falta la URL del target'); btn.disabled = false; return;
+  }
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws/agent_scan`);
+  ws.onopen = () => ws.send(JSON.stringify(params));
+  ws.onmessage = (msg) => {
+    const data = JSON.parse(msg.data);
+    if (data.type === 'progress') {
+      const e = data.event;
+      if (e.type === 'scan_started') {
+        log(`— Agent scan ${e.scan_id} iniciado —`);
+      } else if (e.type === 'agent_round') {
+        log(`\n[Ronda ${e.round}/${e.max_rounds}]`);
+      } else if (e.type === 'agent_thinking') {
+        log(`  🤔 ${e.title}`);
+        if (e.content) log(`     ${e.content.substring(0,200)}${e.content.length>200?'…':''}`);
+      } else if (e.type === 'agent_tool_call') {
+        log(`  → ejecutando ${e.test_id}…`);
+      } else if (e.type === 'agent_finished') {
+        const p = e.security_posture || '';
+        log(`\n✓ Análisis final: ${p.substring(0,300)}${p.length>300?'…':''}`);
+      } else if (e.type === 'gate_denied') {
+        log(`  ⛔ gate denegó ${e.test_id}: ${e.reason}`);
+      } else if (e.type === 'test_started') {
+        log(`  > ${e.test_id} — ${e.name||''}`);
+      } else if (e.type === 'test_finished') {
+        log(`    [OK] ${e.findings_count} findings (${e.confirmed} confirmados)`);
+      } else if (e.type === 'test_error') {
+        log(`    ERROR en ${e.test_id}: ${e.error}`);
+      } else if (e.type === 'noise_reduction') {
+        log(`  · ruido: ${e.allowlisted} allowlist, ${e.below_confidence_floor} confidence`);
+      } else if (e.type === 'agent_error') {
+        log(`ERROR del agente: ${e.error}`);
+      } else if (e.type === 'log') {
+        log(e.message);
+      }
+    } else if (data.type === 'side_question') {
+      // El agente pregunta al operador — mostrar modal de respuesta
+      showSideQuestion(data.question, data.urgency, (answer) => {
+        ws.send(JSON.stringify({answer}));
+      });
+    } else if (data.type === 'fatal_error') {
+      log(`FATAL: ${data.error}`);
+      btn.disabled = false;
+    } else if (data.type === 'done') {
+      renderResult(data);
+      btn.disabled = false;
+    }
+  };
+  ws.onerror = () => { log('ERROR de WebSocket'); btn.disabled = false; };
+}
+
 function renderResult(data) {
+  // inyectar contexto en el chat si hay hallazgos
+  if (data.scan_id || data.findings) {
+    const findings = (data.findings || []).filter(f => !f.passed);
+    _chatInjectFromResult(data.scan_id, data.target_name, findings.slice(0, 20));
+  }
   const s = data.summary, sc = data.score, pv = data.policy_verdict;
   let html = '';
   if (data.incomplete_reason) {
@@ -941,6 +2253,13 @@ function renderResult(data) {
   html += `<div class="stat"><b>${s.confirmed_findings}</b>hallazgos confirmados</div>`;
   if (s.suppressed_findings) html += `<div class="stat"><b>${s.suppressed_findings}</b>suprimidos (no gatean score/policy)</div>`;
   if (sc) html += `<div class="stat"><b>${sc.score}/100 (${sc.grade})</b>score</div>`;
+  // severity breakdown
+  const bySev = (s && s.by_severity) || {};
+  const sevOrder = ['critical','high','medium','low','info'];
+  const sevPills = sevOrder.filter(sv => bySev[sv]).map(sv =>
+    `<span class="sev-pill ${sv}"><b>${bySev[sv]}</b>${sv}</span>`
+  ).join('');
+  if (sevPills) html += `<div style="margin:.5rem 0 .3rem">${sevPills}</div>`;
   html += `<div class="verdict ${pv.overall}">Policy (${pv.environment}): ${pv.overall}</div>`;
   if (data.auth_impact) {
     html += `<p>${data.auth_impact.summary}</p>`;
@@ -1116,7 +2435,7 @@ async function loadReports() {
       const href = (r.links && r.links.html) ? r.links.html : `/reports/${r.scan_id}/report.html`;
       const pinned = !!r.pinned;
       return `<tr>
-      <td>${esc(r.target_name)}${r.batch_id ? ' <span class="pill">full</span>' : ''}</td>
+      <td>${esc(r.target_name)}${r.batch_id ? ' <span class="pill">full</span>' : ''}${r.mode === 'netrecon' ? ' <span class="pill" style="background:#0e7490">netrecon</span>' : ''}${r.mode === 'agent-scan' ? ' <span class="pill" style="background:#4c1d95;color:#c4b5fd">agent</span>' : ''}</td>
       <td>${esc(r.mode || 'scan')}</td>
       <td>${esc(r.started_at)}</td>
       <td>${r.score ? r.score.score + '/100 (' + r.score.grade + ')' : '—'}</td>
@@ -1168,6 +2487,155 @@ async function purgeOldReports() {
 loadLevels();
 testsLoadedFor = 'mcp';
 loadTests('mcp');
+
+// ---------------------------------------------------------------------------
+// IA Chat
+// ---------------------------------------------------------------------------
+let _chatWs = null;
+let _chatTypingEl = null;
+let _chatCurrentAssistantEl = null;
+// contexto del último scan activo (se actualiza cuando llega un result/finding)
+let _chatScanCtx = { scan_id: null, target: null, findings: [] };
+
+function chatUpdateCtxBar() {
+  const bar = document.getElementById('chat-ctx-bar');
+  if (!bar) return;
+  if (_chatScanCtx.scan_id) {
+    bar.innerHTML = `Contexto: <span>scan ${_chatScanCtx.scan_id}</span>${_chatScanCtx.target ? '<span>' + esc(_chatScanCtx.target) + '</span>' : ''}<span>${_chatScanCtx.findings.length} hallazgo(s)</span>`;
+  } else {
+    bar.textContent = 'Sin scan activo — las respuestas serán generales.';
+  }
+}
+
+function chatInjectScanCtx(scanId, target, findings) {
+  _chatScanCtx = { scan_id: scanId, target: target, findings: findings || [] };
+  chatUpdateCtxBar();
+}
+
+function _chatAppendMsg(role, text, meta) {
+  const box = document.getElementById('chat-messages');
+  if (!box) return null;
+  // Limpiar placeholder inicial
+  const ph = box.querySelector('p');
+  if (ph) ph.remove();
+  const el = document.createElement('div');
+  el.className = 'chat-msg ' + role;
+  el.textContent = text;
+  if (meta) {
+    const m = document.createElement('div');
+    m.className = 'chat-meta';
+    m.textContent = meta;
+    el.appendChild(m);
+  }
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+  return el;
+}
+
+function chatClear() {
+  const box = document.getElementById('chat-messages');
+  if (box) box.innerHTML = '<p style="color:var(--text-faint);font-size:.85rem;text-align:center;margin:auto">Enviá un mensaje para empezar.</p>';
+  if (_chatWs && _chatWs.readyState === WebSocket.OPEN) {
+    _chatWs.send(JSON.stringify({type: 'clear'}));
+  }
+  _chatTypingEl = null;
+  _chatCurrentAssistantEl = null;
+}
+
+function chatSend() {
+  const input = document.getElementById('chat-input');
+  const msg = (input.value || '').trim();
+  if (!msg) return;
+  input.value = '';
+
+  _chatAppendMsg('user', msg);
+
+  const provider = document.getElementById('chat-provider').value;
+  const model = document.getElementById('chat-model').value.trim() || null;
+  const useCtx = document.getElementById('chat-use-scan-ctx').checked;
+
+  const payload = {
+    message: msg,
+    provider,
+    model,
+    scan_context: useCtx ? _chatScanCtx : {},
+  };
+
+  document.getElementById('chat-send-btn').disabled = true;
+
+  _chatCurrentAssistantEl = _chatAppendMsg('assistant', '…', null);
+  _chatCurrentAssistantEl.classList.add('typing');
+  _chatCurrentAssistantEl.dataset.text = '';
+
+  const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = wsProto + '//' + location.host + '/ws/chat';
+
+  if (!_chatWs || _chatWs.readyState !== WebSocket.OPEN) {
+    _chatWs = new WebSocket(wsUrl);
+    _chatWs.onmessage = _chatOnMessage;
+    _chatWs.onopen = () => _chatWs.send(JSON.stringify(payload));
+    _chatWs.onerror = () => {
+      if (_chatCurrentAssistantEl) {
+        _chatCurrentAssistantEl.textContent = '⚠ Error de conexión con el servidor.';
+        _chatCurrentAssistantEl.classList.remove('typing');
+      }
+      document.getElementById('chat-send-btn').disabled = false;
+    };
+  } else {
+    _chatWs.send(JSON.stringify(payload));
+  }
+}
+
+function _chatOnMessage(evt) {
+  let data;
+  try { data = JSON.parse(evt.data); } catch { return; }
+
+  if (data.type === 'chunk') {
+    if (_chatCurrentAssistantEl) {
+      _chatCurrentAssistantEl.dataset.text = (_chatCurrentAssistantEl.dataset.text || '') + (data.text || '');
+      _chatCurrentAssistantEl.textContent = _chatCurrentAssistantEl.dataset.text;
+      _chatCurrentAssistantEl.classList.remove('typing');
+      document.getElementById('chat-messages').scrollTop = 9999;
+    }
+  } else if (data.type === 'done') {
+    if (_chatCurrentAssistantEl) {
+      if (data.text && !_chatCurrentAssistantEl.dataset.text) {
+        _chatCurrentAssistantEl.textContent = data.text;
+      }
+      _chatCurrentAssistantEl.classList.remove('typing');
+      const meta = document.createElement('div');
+      meta.className = 'chat-meta';
+      meta.textContent = (data.provider || '') + (data.model ? ' · ' + data.model : '');
+      _chatCurrentAssistantEl.appendChild(meta);
+      _chatCurrentAssistantEl = null;
+    }
+    document.getElementById('chat-send-btn').disabled = false;
+  } else if (data.type === 'error') {
+    if (_chatCurrentAssistantEl) {
+      _chatCurrentAssistantEl.textContent = '⚠ ' + (data.error || 'Error desconocido');
+      _chatCurrentAssistantEl.classList.remove('typing');
+      _chatCurrentAssistantEl = null;
+    }
+    document.getElementById('chat-send-btn').disabled = false;
+  } else if (data.type === 'cleared') {
+    // servidor confirmó el clear
+  }
+}
+
+// Enter para enviar (Shift+Enter para nueva línea)
+document.addEventListener('DOMContentLoaded', () => {
+  const inp = document.getElementById('chat-input');
+  if (inp) {
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend(); }
+    });
+  }
+});
+
+// Cuando un scan termina, inyectar contexto automáticamente en el chat
+function _chatInjectFromResult(scanId, target, findings) {
+  chatInjectScanCtx(scanId, target, findings);
+}
 </script>
 </body>
 </html>

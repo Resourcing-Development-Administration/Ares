@@ -148,7 +148,55 @@ def _risk_panel(f, policy_by_finding: dict) -> str:
     """
 
 
-def render_html(report: ScanReport) -> str:
+def _coverage_block(coverage_summary: dict | None) -> str:
+    if not coverage_summary:
+        return ""
+    s = coverage_summary
+    pct = s.get("coverage_pct")
+    pct_str = f" ({pct:.0f}%)" if pct is not None else ""
+    rows = "".join(
+        f'<tr><td>{_esc(e["test_id"])}</td>'
+        f'<td style="color:{"#6ee7b7" if e["outcome"]=="ok" else "#f87171"}">{_esc(e["outcome"])}</td>'
+        f'<td>{e.get("findings",0)}</td>'
+        f'<td>{e.get("confirmed",0)}</td>'
+        f'<td style="color:#9ca3af;font-size:.7rem">{_esc(e.get("started_at","") or "")[:19]}</td></tr>'
+        for e in s.get("entries", [])
+    )
+    return (
+        f'<details><summary>Cobertura de tests — {s.get("tests_run",0)} ejecutados, '
+        f'{s.get("tests_gate_denied",0)} bloqueados, {s.get("total_findings",0)} hallazgos{pct_str}</summary>'
+        f'<table style="width:100%;border-collapse:collapse;font-size:.8rem;margin-top:.5rem">'
+        f'<thead><tr style="color:#9ca3af"><th align="left">test_id</th><th>resultado</th>'
+        f'<th>findings</th><th>confirmados</th><th>inicio</th></tr></thead>'
+        f'<tbody>{rows}</tbody></table></details>'
+    ) if rows else ""
+
+
+def _facts_block(facts: list[dict] | None) -> str:
+    if not facts:
+        return ""
+    rows = "".join(
+        f'<tr><td style="color:#93c5fd">{_esc(f.get("subject",""))}</td>'
+        f'<td style="color:#9ca3af">{_esc(f.get("predicate",""))}</td>'
+        f'<td>{_esc(str(f.get("object","")))}</td>'
+        f'<td style="color:#6ee7b7;font-size:.7rem">{_esc(f.get("source",""))}</td>'
+        f'<td style="color:#6b7280;font-size:.7rem">{f.get("confidence",1.0):.0%}</td></tr>'
+        for f in facts[:200]
+    )
+    return (
+        f'<details><summary>Hechos observados ({len(facts)} total)</summary>'
+        f'<table style="width:100%;border-collapse:collapse;font-size:.8rem;margin-top:.5rem">'
+        f'<thead><tr style="color:#9ca3af"><th align="left">sujeto</th><th>predicado</th>'
+        f'<th>objeto</th><th>fuente</th><th>conf.</th></tr></thead>'
+        f'<tbody>{rows}</tbody></table></details>'
+    )
+
+
+def render_html(
+    report: ScanReport,
+    coverage_summary: dict | None = None,
+    facts: list[dict] | None = None,
+) -> str:
     summary = report.summary()
     findings = sorted(report.findings, key=lambda f: (f.passed, f.severity.value))
     policy_by_finding = {}
@@ -249,6 +297,8 @@ NOTES: {_esc(f.evidence.notes)}</pre>
   {_policy_banner(report)}
   {_baseline_block(report)}
   {_auth_impact_block(report)}
+  {_coverage_block(coverage_summary)}
+  {_facts_block(facts)}
 
   <details><summary>Errores/skips durante el scan</summary><ul>{errors_html}</ul></details>
 
@@ -259,6 +309,7 @@ NOTES: {_esc(f.evidence.notes)}</pre>
     <button onclick="filt('high')">High</button>
     <button onclick="filt('medium')">Medium</button>
     <button onclick="filt('low')">Low</button>
+    <button onclick="filt('cat:network')">Red</button>
     <button onclick="filt('suppressed')">Suprimidos</button>
   </div>
 
@@ -272,6 +323,7 @@ function filt(mode) {{
     let show = true;
     if (mode === 'findings') show = c.dataset.passed === 'false' && c.dataset.suppressed === 'false';
     else if (mode === 'suppressed') show = c.dataset.suppressed === 'true';
+    else if (mode.startsWith('cat:')) show = c.dataset.cat === mode.slice(4) && c.dataset.suppressed === 'false';
     else if (mode !== 'all') show = c.dataset.sev === mode && c.dataset.passed === 'false' && c.dataset.suppressed === 'false';
     c.style.display = show ? 'block' : 'none';
   }});
@@ -282,6 +334,11 @@ function filt(mode) {{
 </body></html>"""
 
 
-def save_html_report(report: ScanReport, path: str):
+def save_html_report(
+    report: ScanReport,
+    path: str,
+    coverage_summary: dict | None = None,
+    facts: list[dict] | None = None,
+) -> None:
     with open(path, "w", encoding="utf-8") as f:
-        f.write(render_html(report))
+        f.write(render_html(report, coverage_summary=coverage_summary, facts=facts))

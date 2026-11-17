@@ -192,6 +192,16 @@ _TABLE: dict[str, dict] = {
         "remediation_effort": ("low", "Conectarse de verdad (p.ej. --ca-bundle para una CA interna) y "
                                        "re-ejecutar; no confiar en el score hasta que la corrida sea completa."),
     },
+    # equivalente de orchestrator.connection_failed para el módulo de API (engine/api/runner.py):
+    # TODOS los requests HTTP de la corrida fallaron sin status (timeout/refused/DNS/TLS). Mismo
+    # razonamiento -- I:H para que un api-scan contra un target caído no pase como "limpio", y
+    # policy.yaml lo fuerza a BLOCK en production igual que su contraparte MCP.
+    "api.connection_failed": {
+        "vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+        "business_impact": {"financial": "low", "reputational": "high", "compliance": "high", "privacy": "low"},
+        "remediation_effort": ("low", "Confirmar que la API está arriba y accesible (red/puerto/TLS) y "
+                                       "re-ejecutar; no confiar en el score hasta que la corrida sea completa."),
+    },
     "adv.confused_deputy": {
         "vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N",
         "business_impact": {"financial": "medium", "reputational": "medium", "compliance": "medium", "privacy": "medium"},
@@ -405,6 +415,67 @@ _TABLE: dict[str, dict] = {
         "business_impact": {"financial": "high", "reputational": "high", "compliance": "high", "privacy": "high"},
         "remediation_effort": ("medium", "Requerir confirmación humana antes de pasar datos leídos de un "
                                            "server a una tool de red/envío de OTRO server conectado."),
+    },
+
+    # netrecon — perfiles de riesgo para herramientas de reconocimiento de red
+    # net.httpx_probe: baseline = HSTS ausente (el finding más grave del test, C:L porque
+    # HSTS ausente habilita downgrade HTTPS→HTTP, no exposición directa de datos). El test
+    # sobrescribe el vector per-finding para las demás cabeceras (vectores menos graves).
+    "net.httpx_probe": {
+        "vector": "AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:N",
+        "business_impact": {"financial": "medium", "reputational": "medium", "compliance": "medium", "privacy": "medium"},
+        "remediation_effort": ("trivial", "Configurar las cabeceras de seguridad en la capa del servidor web/proxy; "
+                                          "suele ser config de Nginx/Apache/CDN, no código."),
+    },
+    # net.subfinder: informativo puro, severidad INFO siempre.
+    "net.subfinder": {
+        "vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:N",
+        "business_impact": {"financial": "low", "reputational": "low", "compliance": "low", "privacy": "low"},
+        "remediation_effort": ("medium", "Revisar cada subdominio descubierto para identificar shadow IT / "
+                                          "servicios no inventariados. No hay fix en el servidor del subdominio."),
+    },
+    # net.nuclei_scan: baseline = severidad LOW del template; el test pisa el vector con el
+    # CVSS real del template (si lo tiene) o con _NUCLEI_CVSS_MAP según severidad nuclei.
+    "net.nuclei_scan": {
+        "vector": "AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N",
+        "business_impact": {"financial": "medium", "reputational": "medium", "compliance": "medium", "privacy": "low"},
+        "remediation_effort": ("medium", "Depende del template: revisar el finding puntual y aplicar el fix "
+                                          "indicado en la descripción del template de nuclei."),
+    },
+    # net.katana_crawl: hallazgo de superficie -- el finding de >50 params sobreescribe el vector.
+    "net.katana_crawl": {
+        "vector": "AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N",
+        "business_impact": {"financial": "low", "reputational": "low", "compliance": "low", "privacy": "low"},
+        "remediation_effort": ("medium", "Auditar los endpoints con parámetros descubiertos para "
+                                          "injection/IDOR/lógica de negocio -- no hay fix en el crawler."),
+    },
+    # net.bbot_osint: OSINT pasivo -- exposición de email es el hallazgo más grave (phishing).
+    "net.bbot_osint": {
+        "vector": "AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N",
+        "business_impact": {"financial": "low", "reputational": "medium", "compliance": "low", "privacy": "medium"},
+        "remediation_effort": ("high", "Reducir la exposición de emails en fuentes públicas (WHOIS privacy, "
+                                       "ofuscación en páginas web). No hay fix técnico inmediato."),
+    },
+    # net.ffuf_fuzz: baseline LOW (ruta accesible); el test sobreescribe con HIGH si hay rutas de alto riesgo.
+    "net.ffuf_fuzz": {
+        "vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+        "business_impact": {"financial": "medium", "reputational": "medium", "compliance": "medium", "privacy": "medium"},
+        "remediation_effort": ("trivial", "Deshabilitar/restringir acceso a las rutas encontradas; "
+                                          "archivos de config/backup deben estar fuera del webroot."),
+    },
+    # net.dalfox_xss: XSS reflejado/almacenado. Stored XSS es más grave pero el baseline cubre reflected.
+    "net.dalfox_xss": {
+        "vector": "AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+        "business_impact": {"financial": "medium", "reputational": "high", "compliance": "high", "privacy": "medium"},
+        "remediation_effort": ("medium", "Implementar output encoding y CSP estricta; "
+                                         "validar/escapar todos los parámetros de entrada."),
+    },
+    # net.sqlmap_sqli: SQLi confirmado es CRÍTICO -- acceso/modificación de base de datos.
+    "net.sqlmap_sqli": {
+        "vector": "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N",
+        "business_impact": {"financial": "high", "reputational": "high", "compliance": "high", "privacy": "high"},
+        "remediation_effort": ("medium", "Usar prepared statements / ORM con parámetros vinculados; "
+                                         "nunca concatenar input de usuario en queries SQL."),
     },
 }
 

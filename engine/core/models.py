@@ -27,6 +27,26 @@ class Severity(str, Enum):
     CRITICAL = "critical"
 
 
+class TriageStatus(str, Enum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    CONFIRMED = "confirmed"
+    RESOLVED = "resolved"
+    FIXED = "fixed"
+    FALSE_POSITIVE = "false_positive"
+    IGNORED = "ignored"
+    DUPLICATE = "duplicate"
+    RISK_ACCEPTED = "risk_accepted"
+
+
+class VerificationStatus(str, Enum):
+    VERIFIED = "verified"
+    UNVERIFIED = "unverified"
+    BLOCKED = "blocked"
+    NOT_ASSESSED = "not_assessed"
+    FALSE_POSITIVE = "false_positive"
+
+
 class Category(str, Enum):
     RECON = "recon"
     STATIC = "static"
@@ -38,6 +58,7 @@ class Category(str, Enum):
     API = "api"            # módulo de APIs (REST/GraphQL), ver engine/api/
     PROTOCOL = "protocol"  # sampling/elicitation/roots -- primitivas del protocolo en sí,
                             # no de un tool particular (ver engine/protocol/tests.py)
+    NETWORK = "network"    # reconocimiento de red activo (httpx/subfinder/nuclei/katana)
 
 
 # Nombres/descripciones de los 4 niveles de TestMeta.level -- única fuente de verdad,
@@ -111,6 +132,14 @@ class Finding:
     suppressed: bool = False
     suppressed_reason: Optional[str] = None
 
+    # POE / verification (ARTEX S1 port)
+    poe_level: int = 0                          # 0-4, proof-of-exploitation level
+    verification_status: str = "unverified"     # verified/unverified/blocked/not_assessed/false_positive
+    verification_note: str = ""
+    counterevidence: str = ""                   # qué se probó y no funcionó
+    confidence_rationale: str = ""              # por qué la conclusión es válida
+    triage_status: str = "pending"              # TriageStatus value
+
     @property
     def frameworks(self) -> list[dict]:
         """Tags de OWASP LLM Top 10 / OWASP API Security Top 10 / MITRE ATLAS (táctica) /
@@ -175,6 +204,12 @@ class Finding:
             "timestamp": self.timestamp,
             "suppressed": self.suppressed,
             "suppressed_reason": self.suppressed_reason,
+            "poe_level": self.poe_level,
+            "verification_status": self.verification_status,
+            "verification_note": self.verification_note,
+            "counterevidence": self.counterevidence,
+            "confidence_rationale": self.confidence_rationale,
+            "triage_status": self.triage_status,
         }
 
 
@@ -204,8 +239,13 @@ class TestMeta:
 @dataclass
 class AuthConfig:
     """Credenciales explícitas a usar contra el target (transporte http/sse).
-    type: "none" | "bearer" | "apikey" | "custom"
-    header_name: solo aplica a "apikey"/"custom" (ej. "X-API-Key")."""
+    type: "none" | "bearer" | "apikey" | "custom" | "basic"
+    header_name: solo aplica a "apikey"/"custom" (ej. "X-API-Key").
+    "basic": token = "usuario:contraseña" (se codifica en base64 acá, no antes) -- el OTRO
+    esquema real faltante, OAuth2 client-credentials, no se modela como AuthConfig porque
+    necesita un roundtrip HTTP propio (token endpoint) ANTES de armar la conexión: se resuelve
+    a un AuthConfig(type="bearer", token=<access_token>) en engine/core/oauth.py, que es
+    llamado desde la CLI/webui antes de construir este objeto."""
     type: str = "none"
     token: Optional[str] = None
     header_name: Optional[str] = None
@@ -215,6 +255,10 @@ class AuthConfig:
             return {"Authorization": f"Bearer {self.token}"}
         if self.type in ("apikey", "custom") and self.token:
             return {(self.header_name or "X-API-Key"): self.token}
+        if self.type == "basic" and self.token:
+            import base64
+            user_pass = self.token if ":" in self.token else f"{self.token}:"
+            return {"Authorization": f"Basic {base64.b64encode(user_pass.encode()).decode()}"}
         return {}
 
 
@@ -246,6 +290,13 @@ class ScanConfig:
                                                 # handshake y poder correr las pruebas. NO valida identidad (el
                                                 # dictamen del cert sigue marcándolo self-signed/riesgo) -- solo
                                                 # permite auditar un target con cert interno sin frenar. Opt-in.
+    proxy: Optional[str] = None               # http/sse: proxy HTTP/HTTPS/SOCKS para TODO el tráfico hacia el target
+                                                # (ej. "http://127.0.0.1:8080" para interceptar con Burp/mitmproxy,
+                                                # o "socks5://host:1080"). None = conexión directa (default).
+    client_cert: Optional[str] = None         # http/sse: ruta a un certificado de cliente (PEM) para mTLS -- el
+                                                # server exige que EL CLIENTE se autentique con su propio cert,
+                                                # no solo que el cliente valide el del server (eso es ca_bundle).
+    client_key: Optional[str] = None          # clave privada (PEM) del client_cert, si no está en el mismo archivo
     request_delay_ms: int = 0                 # pausa entre llamadas a tools, para no saturar targets sensibles
     oob_callback_host: Optional[str] = None   # "host:puerto" reachable por el target, para confirmar SSRF por callback real
     baseline_path: Optional[str] = None       # reporte.json anterior; habilita el diff de findings Y adv.rug_pull
@@ -297,6 +348,8 @@ class ScanReport:
     auth_impact: Optional[dict] = None      # {mitigated_by_auth, not_mitigated_by_auth} -- ver engine/compare.py
     baseline_diff: Optional[dict] = None    # {new, resolved, persisting} -- ver engine/baseline.py
     ares_version: str = ""
+    extra_assets: list[str] = field(default_factory=list)  # activos descubiertos por scanner ingest
+    poe_summary: dict = field(default_factory=dict)         # {poe_level: count}
 
     def to_dict(self) -> dict:
         return {
@@ -315,6 +368,8 @@ class ScanReport:
             "auth_impact": self.auth_impact,
             "baseline_diff": self.baseline_diff,
             "ares_version": self.ares_version,
+            "extra_assets": self.extra_assets,
+            "poe_summary": self.poe_summary,
         }
 
     def summary(self) -> dict:

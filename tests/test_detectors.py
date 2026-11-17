@@ -347,6 +347,39 @@ async def test_http_secret_exposure_finds_fake_api_key(http_fixture_url):
     assert "supplychain.secret_exposure" in confirmed_ids(report)
 
 
+# --- transporte sse (target_server_sse.py) -----------------------------------
+# Antes de esto, "sse" era el único de los 3 transportes MCP (stdio/http/sse) sin NINGÚN
+# test de integración real -- existía en client.py/CLI/webui pero nunca se había probado
+# conectar de punta a punta contra un server real.
+
+async def test_sse_transport_connects_and_lists_tools(sse_fixture_url):
+    config = ScanConfig(
+        target_name="sse-test", transport="sse", connection={"url": sse_fixture_url},
+        selected_tests=["recon.enumerate"],
+    )
+    report = await run_scan(config)
+    names = {t["name"] for t in report.tools_enumerated}
+    assert {"read_file", "save_note", "read_note", "delete_all_notes", "get_config"} <= names
+
+
+async def test_sse_unauthenticated_access_confirmed(sse_fixture_url):
+    config = ScanConfig(
+        target_name="sse-test", transport="sse", connection={"url": sse_fixture_url},
+        selected_tests=["auth.unauthenticated_access"],
+    )
+    report = await run_scan(config)
+    assert "auth.unauthenticated_access" in confirmed_ids(report)
+
+
+async def test_sse_secret_exposure_finds_fake_api_key(sse_fixture_url):
+    config = ScanConfig(
+        target_name="sse-test", transport="sse", connection={"url": sse_fixture_url},
+        selected_tests=["supplychain.secret_exposure"],
+    )
+    report = await run_scan(config)
+    assert "supplychain.secret_exposure" in confirmed_ids(report)
+
+
 # --- SAST (opt-in, requiere semgrep instalado) -------------------------------
 
 import shutil

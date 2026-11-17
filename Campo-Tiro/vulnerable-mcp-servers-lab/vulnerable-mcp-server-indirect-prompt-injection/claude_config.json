@@ -1,8 +1,0 @@
-{
-    "mcpServers": {
-      "vulnerable-mcp-server-indirect-prompt-injection": {
-        "command": "node",
-        "args": ["/full/path/to/vulnerable-mcp-server-indirect-prompt-injection/index.js"]
-      }
-    }
-}

@@ -17,15 +17,24 @@ from engine.core.limits import cap_text, MAX_RESPONSE_CONTENT
 class ApiTarget:
     def __init__(self, base_url: str, *, headers: dict | None = None, auth_a: dict | None = None,
                  auth_b: dict | None = None, verify=True, delay_ms: int = 0, timeout: float = 15.0,
-                 max_body: int = MAX_RESPONSE_CONTENT):
+                 max_body: int = MAX_RESPONSE_CONTENT, proxy: str | None = None,
+                 client_cert: str | None = None, client_key: str | None = None):
         self.base_url = base_url.rstrip("/")
         self.origin = f"{urlparse(base_url).scheme}://{urlparse(base_url).netloc}"
         self.headers = dict(headers or {})
         self.auth = {"a": dict(auth_a or {}), "b": dict(auth_b or {})}
         self.delay_ms, self.max_body = delay_ms, max_body
-        self.client = httpx.AsyncClient(verify=verify, timeout=timeout, follow_redirects=False)
+        cert = ((client_cert, client_key) if client_key else client_cert) if client_cert else None
+        client_kwargs: dict = {"verify": verify, "timeout": timeout, "follow_redirects": False}
+        if proxy:
+            client_kwargs["proxy"] = proxy
+        if cert:
+            client_kwargs["cert"] = cert
+        self.client = httpx.AsyncClient(**client_kwargs)
         self.call_log: list[dict] = []
         self.request_count = 0
+        self.error_count = 0  # requests que nunca llegaron a tener status (timeout/refused/DNS/TLS) --
+        # ver runner.py: si TODOS los requests cayeron acá, el scan no probó nada real.
 
     async def close(self):
         await self.client.aclose()
@@ -76,6 +85,7 @@ class ApiTarget:
                     pass
         except Exception as e:
             out["error"] = f"{type(e).__name__}: {e}"
+            self.error_count += 1
         out["elapsed_ms"] = (time.monotonic() - t0) * 1000
         self.call_log.append({"method": method.upper(), "url": url, "status": out["status"], "error": out["error"]})
         return out

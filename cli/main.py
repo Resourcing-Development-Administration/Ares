@@ -35,7 +35,7 @@ from engine.reporting.sarif import save_sarif_report
 from engine.reporting.redact import redact_report
 from engine.reporting.suppress import default_allowlist_path
 from engine.baseline import diff_against_baseline
-from engine.core.tls import resolve_ca_bundle, ca_bundle_source
+from engine.core.tls import resolve_ca_bundle, ca_bundle_source, fetch_presented_cert_pem
 from engine.core.sandbox import DEFAULT_MEM_MB as DEFAULT_SANDBOX_MEM_MB
 from engine.discovery.local_configs import discover_mcp_servers
 from engine.crossserver import analyze_cross_server, cross_server_findings
@@ -271,28 +271,92 @@ def _build_api_auth(token, atype, header_name):
         return {}
     if atype == "bearer":
         return {"Authorization": f"Bearer {token}"}
+    if atype == "basic":
+        import base64
+        user_pass = token if ":" in token else f"{token}:"
+        return {"Authorization": f"Basic {base64.b64encode(user_pass.encode()).decode()}"}
     return {(header_name or "X-API-Key"): token}
+
+
+def _resolve_oauth2_token(args) -> str | None:
+    """Si se dieron --oauth2-token-url/--oauth2-client-id/--oauth2-client-secret, resuelve un
+    access_token real vía el grant client_credentials y lo devuelve (para usarlo como Bearer).
+    None si no se configuró OAuth2 -- ahí el camino normal (--auth-token/--auth-type) sigue
+    exactamente como antes."""
+    token_url = getattr(args, "oauth2_token_url", None)
+    if not token_url:
+        return None
+    client_id = getattr(args, "oauth2_client_id", None)
+    client_secret = getattr(args, "oauth2_client_secret", None)
+    if not client_id or not client_secret:
+        console.print("[red]--oauth2-token-url requiere --oauth2-client-id y --oauth2-client-secret[/red]")
+        sys.exit(1)
+    from engine.core.oauth import fetch_client_credentials_token
+    try:
+        token = fetch_client_credentials_token(
+            token_url, client_id, client_secret, scope=getattr(args, "oauth2_scope", None),
+        )
+    except RuntimeError as e:
+        console.print(f"[red]{e}[/red]")
+        sys.exit(1)
+    console.print("[green]Token OAuth2 (client_credentials) obtenido correctamente.[/green]")
+    return token
 
 
 def cmd_api_scan(args):
     from engine.api.runner import run_api_scan
     headers = _parse_headers(args.header)
-    auth_a = _build_api_auth(args.auth_token, args.auth_type, args.auth_header_name)
+    oauth2_token = _resolve_oauth2_token(args)
+    auth_a = {"Authorization": f"Bearer {oauth2_token}"} if oauth2_token else \
+        _build_api_auth(args.auth_token, args.auth_type, args.auth_header_name)
     auth_b = _build_api_auth(args.auth_token_b, args.auth_type_b, args.auth_header_name_b)
     selected = [t for t in args.tests.split(",") if t] if args.tests else []
-    if args.max_level and not selected:
+    if getattr(args, "all_tests", False) and not selected:
+        # equivalente de 'vet' del lado MCP: corre TODOS los tests registrados (incluidos
+        # opt-in como api.bola/api.mass_assignment/api.injection_probe/api.rate_limit,
+        # gql.alias_batching/gql.depth_limit), sin el filtro default_enabled de api-scan normal.
+        from engine.api.registry import all_api_tests
+        selected = list(all_api_tests())
+    elif args.max_level and not selected:
         from engine.api.registry import all_api_tests
         reg = all_api_tests()
         selected = [tid for tid, (meta, _) in reg.items() if meta.default_enabled and meta.level <= args.max_level]
     verify = resolve_ca_bundle(args.ca_bundle) if getattr(args, "ca_bundle", None) else True
+    # --trust-presented-cert: mismo pinning TOFU que 'scan'/'vet'/'full' (ver
+    # engine/orchestrator.py) -- sin esto, api-scan no tenía forma de auditar una API con
+    # cert self-signed/CA interna sin pasar --ca-bundle.
+    pinned_cert_file = None
+    cert_pin_note = None
+    if getattr(args, "trust_presented_cert", False) and verify is True and args.url.startswith("https://"):
+        pinned_cert_file = fetch_presented_cert_pem(args.url)
+        if pinned_cert_file:
+            verify = pinned_cert_file
+            cert_pin_note = (
+                "--trust-presented-cert: se fijó (pinning TOFU) el certificado que presentó el server "
+                "para poder conectarse y auditar. Esto NO valida su identidad contra una CA de confianza "
+                "-- si ya había un MITM, se fijó el cert del atacante."
+            )
+        else:
+            cert_pin_note = "--trust-presented-cert: no se pudo obtener el certificado presentado por el server."
     console.print(f"[cyan]Auditando API en {args.url} ...[/cyan]")
-    report = asyncio.run(run_api_scan(
-        base_url=args.url, spec_source=args.spec, selected_tests=selected or None, headers=headers,
-        auth_a=auth_a or None, auth_b=auth_b or None, jwt=args.jwt or args.auth_token, verify=verify,
-        delay_ms=args.request_delay_ms, max_fuzz=args.max_fuzz_cases, test_timeout_s=args.test_timeout_s,
-        graphql_path=args.graphql_path, allowlist_path=_resolve_allowlist(args),
-        min_confidence=args.min_confidence, environment=args.environment,
-    ))
+    try:
+        report = asyncio.run(run_api_scan(
+            base_url=args.url, spec_source=args.spec, selected_tests=selected or None, headers=headers,
+            auth_a=auth_a or None, auth_b=auth_b or None, jwt=args.jwt or args.auth_token, verify=verify,
+            delay_ms=args.request_delay_ms, max_fuzz=args.max_fuzz_cases, test_timeout_s=args.test_timeout_s,
+            graphql_path=args.graphql_path, allowlist_path=_resolve_allowlist(args),
+            min_confidence=args.min_confidence, environment=args.environment,
+            proxy=getattr(args, "proxy", None), client_cert=getattr(args, "client_cert", None),
+            client_key=getattr(args, "client_key", None),
+        ))
+    finally:
+        if pinned_cert_file:
+            try:
+                os.unlink(pinned_cert_file)
+            except OSError:
+                pass
+    if cert_pin_note:
+        report.errors.append(cert_pin_note)
     _emit_report(report, args, args.out, args.sarif_out)
 
 
@@ -307,6 +371,9 @@ def _parse_headers(raw: list[str]) -> dict:
 
 
 def _build_auth(args) -> AuthConfig | None:
+    oauth2_token = _resolve_oauth2_token(args)
+    if oauth2_token:
+        return AuthConfig(type="bearer", token=oauth2_token)
     if not args.auth_token:
         return None
     return AuthConfig(type=args.auth_type, token=args.auth_token, header_name=args.auth_header_name)
@@ -435,6 +502,9 @@ def _build_config(args, target_name: str, transport: str, connection: dict) -> S
         source_path=args.source_path,
         ca_bundle=_resolve_ca_bundle_arg(args),
         trust_presented_cert=getattr(args, "trust_presented_cert", False),
+        proxy=getattr(args, "proxy", None),
+        client_cert=getattr(args, "client_cert", None),
+        client_key=getattr(args, "client_key", None),
         request_delay_ms=args.request_delay_ms,
         oob_callback_host=args.oob_callback_host,
         baseline_path=getattr(args, "baseline", None),
@@ -643,8 +713,14 @@ def cmd_vet(args):
         oob_callback_host=args.oob_callback_host, environment="production",
         source_path=args.source_path, ca_bundle=getattr(args, "ca_bundle", None),
         trust_presented_cert=getattr(args, "trust_presented_cert", False), header=args.header,
-        auth_token=args.auth_token, auth_type=args.auth_type, auth_header_name=args.auth_header_name,
-        compare_auth=bool(args.auth_token),
+        proxy=getattr(args, "proxy", None), client_cert=getattr(args, "client_cert", None),
+        client_key=getattr(args, "client_key", None),
+        # resuelto UNA sola vez acá (no se reenvían oauth2_token_url/client_id/secret) -- evita
+        # pedir un token nuevo por segunda vez más abajo en _build_config/_build_auth.
+        auth_token=_resolve_oauth2_token(args) or args.auth_token,
+        auth_type="bearer" if getattr(args, "oauth2_token_url", None) else args.auth_type,
+        auth_header_name=args.auth_header_name,
+        compare_auth=bool(args.auth_token) or bool(getattr(args, "oauth2_token_url", None)),
         print_findings=args.print_findings, no_file=args.no_file,
         allowlist=args.allowlist, min_confidence=args.min_confidence,
         live_agent_provider=args.live_agent_provider,
@@ -732,6 +808,9 @@ async def _full_one(sem: asyncio.Semaphore, args, server: dict, mode: str, out_d
             # (misma ruta/env var) sin reimprimir ni re-chequear por cada target concurrente.
             ca_bundle=resolve_ca_bundle(getattr(args, "ca_bundle", None)),
             trust_presented_cert=getattr(args, "trust_presented_cert", False),
+            proxy=getattr(args, "proxy", None),
+            client_cert=getattr(args, "client_cert", None),
+            client_key=getattr(args, "client_key", None),
             request_delay_ms=args.request_delay_ms,
             oob_callback_host=args.oob_callback_host,
             allowlist_path=_resolve_allowlist(args),
@@ -953,6 +1032,376 @@ def _run_cross_server_correlation(args, results: list[dict]):
         _write_reports(report, out_html, out_sarif)
 
 
+def cmd_netrecon(args):
+    """Reconocimiento de red activo (httpx + subfinder + nuclei + katana)."""
+    from engine.netrecon.runner import run_netrecon_scan
+
+    selected = [t for t in args.tests.split(",") if t] if args.tests else None
+    severities = [s.strip() for s in args.nuclei_severity.split(",") if s.strip()] \
+        if args.nuclei_severity else None
+    scope = [s.strip() for s in args.scope.split(",") if s.strip()] \
+        if args.scope else None
+
+    console.print(f"[cyan]Reconocimiento de red — {args.target}[/cyan]")
+    if scope:
+        console.print(f"[dim]Scope: {', '.join(scope)}[/dim]")
+    console.print("[bold yellow]Aviso:[/bold yellow] este comando envía tráfico real al target. "
+                  "Confirmá que tenés autorización para escanearlo.")
+
+    def _netrecon_progress(event: dict) -> None:
+        etype = event.get("type", "")
+        if etype == "test_started":
+            console.print(f"  [dim]▶ {event['test_id']} — {event.get('name','')}[/dim]")
+        elif etype == "test_finished":
+            n = event.get("findings_count", 0)
+            c = event.get("confirmed", 0)
+            console.print(f"  [dim]✓ {event['test_id']}: {n} findings ({c} confirmados)[/dim]")
+        elif etype == "test_error":
+            console.print(f"  [red]✗ {event['test_id']}: {event.get('error','')}[/red]")
+        elif etype == "noise_reduction":
+            console.print(f"  [dim]· ruido suprimido: {event.get('allowlisted',0)} allowlist, "
+                          f"{event.get('below_confidence_floor',0)} confidence[/dim]")
+        elif etype == "log":
+            console.print(f"  [dim]{event.get('message','')}[/dim]")
+
+    report = asyncio.run(run_netrecon_scan(
+        target_url=args.target,
+        scope=scope,
+        selected_tests=selected,
+        nuclei_severity=severities,
+        timeout_s=args.timeout_s,
+        rate_limit=args.rate_limit,
+        min_confidence=args.min_confidence,
+        environment=args.environment,
+        allowlist_path=getattr(args, "allowlist", None),
+        progress_cb=_netrecon_progress,
+    ))
+
+    _emit_report(report, args, args.out, args.sarif_out)
+
+
+def cmd_install_tools(args):
+    """Descarga y verifica las herramientas de red (nuclei/httpx/subfinder/katana/ffuf/dalfox)."""
+    from engine.tools.installer import install_all, TOOL_VERSIONS, ALL_TOOLS
+    from engine.tools.paths import tools_dir
+
+    tools = [t.strip() for t in args.tools.split(",") if t.strip()] if args.tools else None
+    targets = tools or ALL_TOOLS
+
+    console.print(f"[cyan]Instalando herramientas de red en {tools_dir()}[/cyan]")
+    for name in targets:
+        ver = TOOL_VERSIONS.get(name, "?")
+        console.print(f"  [dim]{name} v{ver}[/dim]")
+
+    errors = install_all(
+        tools=tools,
+        force=args.force,
+        progress=lambda msg: console.print(msg),
+    )
+
+    if errors:
+        console.print("\n[bold red]Errores:[/bold red]")
+        for name, err in errors.items():
+            console.print(f"  [red]✗ {name}:[/red] {err}")
+        raise SystemExit(1)
+
+    console.print(f"\n[green]✓ Herramientas instaladas en {tools_dir()}[/green]")
+    console.print("[dim]Verificá con: ares netrecon-list-tests[/dim]")
+
+
+def cmd_netrecon_list_tests(args):
+    """Lista los tests de reconocimiento de red disponibles."""
+    from engine.netrecon.registry import list_net_meta
+    import engine.netrecon.tests  # noqa: F401 — fuerza el registro
+    table = Table(title="Tests de reconocimiento de red")
+    table.add_column("ID"); table.add_column("Nivel"); table.add_column("Nombre"); table.add_column("Descripción", overflow="fold")
+    for meta in list_net_meta():
+        table.add_row(meta.id, str(meta.level), meta.name, meta.description)
+    console.print(table)
+
+
+def cmd_mcp_server(args):
+    """Arranca Ares como servidor MCP."""
+    from engine.mcp_server import mcp
+    transport = getattr(args, "transport", "stdio")
+    if transport == "stdio":
+        console.print("[dim]Iniciando Ares MCP server (stdio)…[/dim]")
+        mcp.run(transport="stdio")
+    else:
+        host = getattr(args, "host", "127.0.0.1")
+        port = getattr(args, "port", 8766)
+        console.print(f"[dim]Iniciando Ares MCP server ({transport}) en {host}:{port}…[/dim]")
+        mcp.run(transport=transport, host=host, port=port)
+
+
+def cmd_schedule_list(args):
+    """Lista schedules configurados."""
+    from engine.scheduler.scheduler import ScanScheduler
+    from dataclasses import asdict
+    sched = ScanScheduler("reports")
+    entries = sched.list_all()
+    if not entries:
+        console.print("[dim]Sin schedules configurados.[/dim]")
+        return
+    for e in entries:
+        status = "[green]habilitado[/green]" if e.enabled else "[dim]deshabilitado[/dim]"
+        console.print(f"  [cyan]{e.id}[/cyan] {e.cron} {e.scan_type} → {e.params.get('target_url','?')} {status}")
+        console.print(f"    runs={e.run_count} errors={e.error_count} next={e.next_run}")
+
+
+def cmd_schedule_add(args):
+    """Agrega un schedule nuevo."""
+    from engine.scheduler.scheduler import ScanScheduler, ScheduleEntry
+    import uuid as _uuid
+    sched = ScanScheduler("reports")
+    scope_list = [s.strip() for s in args.scope.split(",") if s.strip()] if getattr(args, "scope", None) else None
+    params = {"target_url": args.target}
+    if scope_list:
+        params["scope"] = scope_list
+    if getattr(args, "goal", None):
+        params["goal"] = args.goal
+    if getattr(args, "provider", None) and args.provider != "auto":
+        params["provider"] = args.provider
+    if getattr(args, "model", None):
+        params["model"] = args.model
+    entry = ScheduleEntry(
+        id=getattr(args, "schedule_id", None) or _uuid.uuid4().hex[:8],
+        cron=args.cron,
+        scan_type=args.scan_type,
+        params=params,
+        notify_webhook=getattr(args, "notify_webhook", None),
+    )
+    result = sched.add(entry)
+    console.print(f"[green]Schedule creado:[/green] {result.id} — próximo run: {result.next_run}")
+
+
+def cmd_schedule_delete(args):
+    """Elimina un schedule."""
+    from engine.scheduler.scheduler import ScanScheduler
+    sched = ScanScheduler("reports")
+    ok = sched.delete(args.schedule_id)
+    if ok:
+        console.print(f"[green]Schedule eliminado:[/green] {args.schedule_id}")
+    else:
+        console.print(f"[red]Schedule no encontrado:[/red] {args.schedule_id}")
+
+
+def cmd_schedule_daemon(args):
+    """Corre el daemon de schedules en foreground."""
+    from engine.scheduler.scheduler import ScanScheduler
+    sched = ScanScheduler("reports")
+    console.print("[cyan]Scheduler daemon iniciado[/cyan] — Ctrl+C para detener")
+    entries = sched.list_all()
+    enabled = [e for e in entries if e.enabled]
+    console.print(f"[dim]{len(enabled)} schedules habilitados[/dim]")
+    for e in enabled:
+        console.print(f"  [dim]{e.id}  {e.cron}  {e.scan_type}  {e.params.get('target_url','?')}[/dim]")
+    asyncio.run(sched.run_forever())
+
+
+def cmd_custom_tool_default(args):
+    console.print("[yellow]Uso:[/yellow] ares custom-tool <subcomando>")
+    console.print("  list            — lista custom tools definidos")
+    console.print("  add             — agrega un custom tool (interactivo)")
+    console.print("  delete <id>     — elimina un custom tool")
+    console.print("  test <id>       — ejecuta un custom tool con params opcionales")
+    console.print("\nEjemplo:")
+    console.print('  ares custom-tool add --name my-curl --type bash --cmd "curl -s {{url}}"')
+
+
+def cmd_custom_tool_list(args):
+    from engine.tools.custom import CustomToolStore
+    store = CustomToolStore()
+    tools = store.list_all()
+    if not tools:
+        console.print("[dim]Sin custom tools definidos.[/dim]")
+        return
+    from rich.table import Table
+    t = Table(show_header=True, header_style="bold cyan")
+    t.add_column("ID", style="dim", width=10)
+    t.add_column("Nombre")
+    t.add_column("Tipo")
+    t.add_column("Descripción")
+    t.add_column("Activo", justify="center")
+    for tool in tools:
+        t.add_row(
+            tool.id,
+            tool.name,
+            tool.tool_type.value,
+            tool.description[:60],
+            "✓" if tool.enabled else "✗",
+        )
+    console.print(t)
+
+
+def cmd_custom_tool_add(args):
+    from engine.tools.custom import CustomTool, CustomToolStore, CustomToolType
+    try:
+        tool_type = CustomToolType(args.tool_type)
+    except ValueError:
+        console.print(f"[red]Tipo inválido: {args.tool_type}. Usa: http, command, bash[/red]")
+        return
+    tool = CustomTool(
+        name=args.name,
+        description=args.description or "",
+        tool_type=tool_type,
+        command_template=args.cmd or "",
+        url_template=args.url or "",
+        method=args.method or "GET",
+        timeout_s=args.timeout_s,
+    )
+    store = CustomToolStore()
+    try:
+        created = store.add(tool)
+        console.print(f"[green]Custom tool creado:[/green] {created.id} — {created.name}")
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+
+
+def cmd_custom_tool_delete(args):
+    from engine.tools.custom import CustomToolStore
+    store = CustomToolStore()
+    ok = store.delete(args.tool_id)
+    if ok:
+        console.print(f"[green]Eliminado:[/green] {args.tool_id}")
+    else:
+        console.print(f"[red]Tool no encontrado:[/red] {args.tool_id}")
+
+
+def cmd_custom_tool_test(args):
+    import asyncio
+    from engine.tools.custom import CustomToolStore
+    store = CustomToolStore()
+    tool = store.get(args.tool_id)
+    if tool is None:
+        console.print(f"[red]Tool no encontrado:[/red] {args.tool_id}")
+        return
+    # Parse --param key=value pairs
+    params: dict = {}
+    for p in (args.params or []):
+        if "=" in p:
+            k, v = p.split("=", 1)
+            params[k.strip()] = v.strip()
+    console.print(f"[cyan]Ejecutando:[/cyan] {tool.name} ({tool.tool_type.value})")
+    output = asyncio.run(store.execute(args.tool_id, params))
+    console.print(output)
+
+
+def cmd_schedule_default(args):
+    """Handler por defecto cuando se escribe 'ares schedule' sin subcomando."""
+    console.print("[yellow]Uso:[/yellow] ares schedule <subcomando>")
+    console.print("  list        — lista schedules configurados")
+    console.print("  add         — agrega un schedule nuevo")
+    console.print("  delete <id> — elimina un schedule")
+    console.print("  run-daemon  — corre el daemon en foreground")
+    console.print("\nEjemplo:")
+    console.print('  ares schedule add --cron "0 2 * * *" --type netrecon --target https://example.com')
+
+
+def cmd_agent_scan(args):
+    """Scan de red autónomo dirigido por LLM. El agente Claude decide iterativamente
+    qué tests correr basándose en hallazgos acumulados."""
+    try:
+        from engine.agent.orchestrator import run_agent_scan
+    except ImportError as e:
+        console.print(f"[red]{e}[/red]")
+        sys.exit(1)
+
+    scope = [s.strip() for s in args.scope.split(",") if s.strip()] if args.scope else None
+    denylist = [s.strip() for s in args.denylist.split(",") if s.strip()] if getattr(args, "denylist", None) else None
+
+    provider_info = args.provider if args.provider != "auto" else "auto (detecta keys del entorno)"
+    model_info = args.model or f"(default del provider {args.provider})"
+    console.print(f"[cyan]Agent scan autónomo — {args.target}[/cyan]")
+    console.print(f"[dim]Provider: {provider_info} · Modelo: {model_info} · Max rondas: {args.max_rounds}[/dim]")
+    if scope:
+        console.print(f"[dim]Scope: {', '.join(scope)}[/dim]")
+    if args.goal:
+        console.print(f"[dim]Objetivo: {args.goal}[/dim]")
+    if args.allow_level3:
+        console.print("[bold yellow]Aviso:[/bold yellow] tests nivel 3 habilitados (sqlmap SQLi — intrusivo)")
+    console.print("[bold yellow]Aviso:[/bold yellow] este comando envía tráfico real al target y llama a la API de Claude. "
+                  "Confirmá que tenés autorización y ANTHROPIC_API_KEY configurado.")
+
+    def _agent_progress(event: dict) -> None:
+        etype = event.get("type", "")
+        if etype == "agent_round":
+            console.print(f"\n[bold cyan]— Ronda {event['round']}/{event['max_rounds']} —[/bold cyan]")
+        elif etype == "agent_thinking":
+            console.print(f"  [cyan]🤔 {event['title']}[/cyan]")
+            if event.get("content"):
+                excerpt = event["content"][:200]
+                console.print(f"  [dim]{excerpt}{'…' if len(event['content']) > 200 else ''}[/dim]")
+        elif etype == "agent_tool_call":
+            console.print(f"  [dim]→ ejecutando {event['test_id']}…[/dim]")
+        elif etype == "agent_finished":
+            posture = event.get("security_posture", "")
+            console.print(f"\n[green]✓ Análisis final:[/green] {posture[:300]}{'…' if len(posture) > 300 else ''}")
+        elif etype == "gate_denied":
+            console.print(f"  [yellow]⛔ gate denegó {event['test_id']}: {event['reason']}[/yellow]")
+        elif etype == "agent_error":
+            console.print(f"  [red]ERROR del agente: {event['error']}[/red]")
+        elif etype == "test_started":
+            console.print(f"  [dim]▶ {event['test_id']} — {event.get('name','')}[/dim]")
+        elif etype == "test_finished":
+            n, c = event.get("findings_count", 0), event.get("confirmed", 0)
+            console.print(f"  [dim]✓ {event['test_id']}: {n} findings ({c} confirmados)[/dim]")
+        elif etype == "test_error":
+            console.print(f"  [red]✗ {event['test_id']}: {event.get('error','')}[/red]")
+        elif etype == "noise_reduction":
+            console.print(f"  [dim]· ruido suprimido: {event.get('allowlisted',0)} allowlist, "
+                          f"{event.get('below_confidence_floor',0)} confidence[/dim]")
+
+    if getattr(args, "v2", False):
+        from engine.agent.orchestrator_v2 import run_agent_scan_v2
+        report = asyncio.run(run_agent_scan_v2(
+            target_url=args.target,
+            scope=scope,
+            goal=getattr(args, "goal", None),
+            provider=args.provider,
+            model=args.model or None,
+            timeout_s=args.timeout_s,
+            rate_limit=args.rate_limit,
+            min_confidence=args.min_confidence,
+            environment=args.environment,
+            allow_level3=args.allow_level3,
+            denylist=denylist,
+            allowlist_path=getattr(args, "allowlist", None),
+            progress_cb=_agent_progress,
+        ))
+    else:
+        report = asyncio.run(run_agent_scan(
+            target_url=args.target,
+            scope=scope,
+            goal=getattr(args, "goal", None),
+            provider=args.provider,
+            model=args.model or None,
+            max_rounds=args.max_rounds,
+            timeout_s=args.timeout_s,
+            rate_limit=args.rate_limit,
+            min_confidence=args.min_confidence,
+            environment=args.environment,
+            allow_level3=args.allow_level3,
+            denylist=denylist,
+            allowlist_path=getattr(args, "allowlist", None),
+            progress_cb=_agent_progress,
+        ))
+
+    _emit_report(report, args, args.out, args.sarif_out)
+
+
+def cmd_tools_status(args):
+    """Estado de cada herramienta de red: instalada, versión pinneada, path."""
+    from engine.tools.paths import tools_status
+    from engine.tools.installer import TOOL_VERSIONS
+    table = Table(title="Estado de herramientas de red")
+    table.add_column("Herramienta"); table.add_column("Disponible"); table.add_column("Versión pinneada"); table.add_column("Fuente"); table.add_column("Path")
+    for name, info in tools_status().items():
+        ok = "[green]✓[/green]" if info["available"] else "[red]✗[/red]"
+        table.add_row(name, ok, info["pinned_version"], info["source"], info["path"] or "-")
+    console.print(table)
+
+
 def discover_mcp_servers_from_file(path: str) -> list[dict]:
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -1004,7 +1453,7 @@ def main():
     p_serve.set_defaults(func=cmd_serve)
 
     p_scan = sub.add_parser("scan")
-    p_scan.add_argument("--transport", choices=["stdio", "sse", "http"], default="stdio")
+    p_scan.add_argument("--transport", choices=["stdio", "sse", "http"], default="stdio", help="nota: con sse, los tests de fuzzing de protocolo crudo (protocol.jsonrpc_malformed_fuzz y similares) no corren -- el canal RPC crudo (engine/protocol/rawrpc.py) solo soporta stdio/http")
     p_scan.add_argument("--command", default=None, help="comando para lanzar el server MCP (stdio), ej: python")
     p_scan.add_argument("--args", default="", help="argumentos del comando, ej: 'target_server.py'")
     p_scan.add_argument("--url", default=None, help="URL del server MCP (transporte sse/http)")
@@ -1025,13 +1474,20 @@ def main():
     p_scan.add_argument("--environment", choices=["production", "development"], default="production", help="ambiente usado por el policy engine para el veredicto BLOCK/CONDITIONAL/ALLOW")
     p_scan.add_argument("--source-path", dest="source_path", default=None, help="ruta local al código fuente del server, para supplychain.dependency_vulnerabilities")
     p_scan.add_argument("--ca-bundle", dest="ca_bundle", default=None, help="ruta a un bundle de CA (PEM) para validar el certificado TLS del server (http/sse) contra una CA interna/corporativa, sin desactivar la verificación. Fallback: variable de entorno SSL_CERT_FILE")
+    p_scan.add_argument("--proxy", default=None, help="proxy HTTP/HTTPS/SOCKS para TODO el tráfico hacia el target http/sse, ej: http://127.0.0.1:8080 (para interceptar con Burp/mitmproxy) o socks5://host:1080 (SOCKS requiere 'pip install httpx[socks]' -- falla con un error claro de httpx si falta)")
+    p_scan.add_argument("--client-cert", dest="client_cert", default=None, help="ruta a un certificado de cliente (PEM) para mTLS -- el server exige que ARES mismo se autentique con un cert, no solo que valide el del server (eso es --ca-bundle)")
+    p_scan.add_argument("--client-key", dest="client_key", default=None, help="clave privada (PEM) de --client-cert, si no está en el mismo archivo")
     p_scan.add_argument("--trust-presented-cert", dest="trust_presented_cert", action="store_true", help="http/sse: si la conexión falla por TLS no confiable (self-signed/CA desconocida) y no diste --ca-bundle, trae el certificado que presenta el server y lo FIJA (pinning TOFU) para conectarse y correr las pruebas igual. NO valida identidad (el cert se sigue reportando self-signed/riesgo) -- es para auditar un target interno sin frenar")
     p_scan.add_argument("--header", action="append", default=[], help='header HTTP extra "Clave: Valor" (repetible, transporte sse/http)')
-    p_scan.add_argument("--auth-token", dest="auth_token", default=None, help="credencial a inyectar (transporte sse/http)")
-    p_scan.add_argument("--auth-type", dest="auth_type", choices=["bearer", "apikey", "custom"], default="bearer")
+    p_scan.add_argument("--auth-token", dest="auth_token", default=None, help="credencial a inyectar (transporte sse/http). Para --auth-type basic: 'usuario:contraseña'. Ver también --oauth2-token-url para resolver un access_token OAuth2 client-credentials en vez de pasarlo a mano")
+    p_scan.add_argument("--auth-type", dest="auth_type", choices=["bearer", "apikey", "custom", "basic"], default="bearer")
     p_scan.add_argument("--auth-header-name", dest="auth_header_name", default=None, help="nombre del header para auth-type apikey/custom, ej: X-API-Key")
+    p_scan.add_argument("--oauth2-token-url", dest="oauth2_token_url", default=None, help="si se da, resuelve un access_token real vía OAuth2 client_credentials contra este token endpoint y lo usa como Bearer -- ignora --auth-token/--auth-type si están dados. Requiere --oauth2-client-id y --oauth2-client-secret")
+    p_scan.add_argument("--oauth2-client-id", dest="oauth2_client_id", default=None)
+    p_scan.add_argument("--oauth2-client-secret", dest="oauth2_client_secret", default=None)
+    p_scan.add_argument("--oauth2-scope", dest="oauth2_scope", default=None, help="scope opcional a pedir en el token OAuth2")
     p_scan.add_argument("--auth-token-b", dest="auth_token_b", default=None, help="SEGUNDA credencial/tenant válido contra el mismo server, para auth.cross_session_context_bleed (fuga de contexto entre sesiones -- MCP10:2025). Independiente de --auth-token")
-    p_scan.add_argument("--auth-type-b", dest="auth_type_b", choices=["bearer", "apikey", "custom"], default="bearer")
+    p_scan.add_argument("--auth-type-b", dest="auth_type_b", choices=["bearer", "apikey", "custom", "basic"], default="bearer")
     p_scan.add_argument("--auth-header-name-b", dest="auth_header_name_b", default=None, help="nombre del header para --auth-type-b apikey/custom")
     p_scan.add_argument("--compare-auth", dest="compare_auth", action="store_true", help="corre el scan con y sin las credenciales dadas, y reporta qué hallazgos mitiga realmente la auth")
     p_scan.add_argument("--print", dest="print_findings", action="store_true", help="además de los archivos, imprime en la terminal el detalle de cada hallazgo confirmado (severidad, confidence, test, target, remediación)")
@@ -1064,17 +1520,30 @@ def main():
     p_api.add_argument("--graphql-path", dest="graphql_path", default=None, help="path del endpoint GraphQL si no es uno de los comunes (/graphql, /api/graphql, /v1/graphql, /gql)")
     p_api.add_argument("--tests", default="", help="lista de test ids separados por coma; vacío = todos los default_enabled")
     p_api.add_argument("--max-level", dest="max_level", type=int, choices=[1, 2, 3, 4], default=None)
+    p_api.add_argument("--all-tests", dest="all_tests", action="store_true",
+                       help="corre TAMBIEN los tests opt-in (api.bola, api.mass_assignment, "
+                            "api.injection_probe, api.rate_limit, gql.alias_batching, "
+                            "gql.depth_limit) -- equivalente de 'vet' para el módulo de API, "
+                            "pensado para el gate 'apto para mi operación', no para CI ruidoso")
     p_api.add_argument("--out", default="reporte_api.html")
     p_api.add_argument("--sarif-out", dest="sarif_out", default=None)
     p_api.add_argument("--header", action="append", default=[], help='header HTTP extra "Clave: Valor" (repetible)')
     p_api.add_argument("--auth-token", dest="auth_token", default=None, help="credencial principal (identidad A)")
-    p_api.add_argument("--auth-type", dest="auth_type", choices=["bearer", "apikey", "custom"], default="bearer")
+    p_api.add_argument("--auth-type", dest="auth_type", choices=["bearer", "apikey", "custom", "basic"], default="bearer")
     p_api.add_argument("--auth-header-name", dest="auth_header_name", default=None)
+    p_api.add_argument("--oauth2-token-url", dest="oauth2_token_url", default=None, help="resuelve un access_token real vía OAuth2 client_credentials en vez de pasar --auth-token a mano (ver 'scan --help')")
+    p_api.add_argument("--oauth2-client-id", dest="oauth2_client_id", default=None)
+    p_api.add_argument("--oauth2-client-secret", dest="oauth2_client_secret", default=None)
+    p_api.add_argument("--oauth2-scope", dest="oauth2_scope", default=None)
     p_api.add_argument("--auth-token-b", dest="auth_token_b", default=None, help="SEGUNDA credencial/identidad, para api.bola (acceso cruzado con dos usuarios reales)")
-    p_api.add_argument("--auth-type-b", dest="auth_type_b", choices=["bearer", "apikey", "custom"], default="bearer")
+    p_api.add_argument("--auth-type-b", dest="auth_type_b", choices=["bearer", "apikey", "custom", "basic"], default="bearer")
     p_api.add_argument("--auth-header-name-b", dest="auth_header_name_b", default=None)
     p_api.add_argument("--jwt", default=None, help="override: JWT a analizar en api.jwt, si es distinto de --auth-token")
     p_api.add_argument("--ca-bundle", dest="ca_bundle", default=None)
+    p_api.add_argument("--proxy", default=None, help="proxy HTTP/HTTPS/SOCKS para toda la auditoría (ver 'scan --help')")
+    p_api.add_argument("--client-cert", dest="client_cert", default=None, help="certificado de cliente (PEM) para mTLS (ver 'scan --help')")
+    p_api.add_argument("--client-key", dest="client_key", default=None)
+    p_api.add_argument("--trust-presented-cert", dest="trust_presented_cert", action="store_true", help="si el TLS de la API no valida (self-signed/CA desconocida) y no diste --ca-bundle, trae el certificado que presenta el server y lo FIJA (pinning TOFU) para conectarse y auditar igual. NO valida identidad (ver 'scan --help')")
     p_api.add_argument("--request-delay-ms", dest="request_delay_ms", type=int, default=0)
     p_api.add_argument("--max-fuzz-cases", dest="max_fuzz_cases", type=int, default=40)
     p_api.add_argument("--test-timeout-s", dest="test_timeout_s", type=float, default=60.0)
@@ -1086,7 +1555,7 @@ def main():
     p_api.set_defaults(func=cmd_api_scan)
 
     p_vet = sub.add_parser("vet", help="Auditoría de máxima cobertura antes de implementar un MCP: corre TODOS los tests (incluidos opt-in), pensada para el gate de 'apto para mi operación'")
-    p_vet.add_argument("--transport", choices=["stdio", "sse", "http"], default="stdio")
+    p_vet.add_argument("--transport", choices=["stdio", "sse", "http"], default="stdio", help="nota: con sse, los tests de fuzzing de protocolo crudo (protocol.jsonrpc_malformed_fuzz y similares) no corren -- el canal RPC crudo (engine/protocol/rawrpc.py) solo soporta stdio/http")
     p_vet.add_argument("--command", default=None)
     p_vet.add_argument("--args", default="")
     p_vet.add_argument("--url", default=None)
@@ -1102,11 +1571,18 @@ def main():
     p_vet.add_argument("--oob-callback-host", dest="oob_callback_host", default=None)
     p_vet.add_argument("--source-path", dest="source_path", default=None, help="ruta al código fuente, para incluir el chequeo de dependencias vulnerables (OSV.dev)")
     p_vet.add_argument("--ca-bundle", dest="ca_bundle", default=None, help="ruta a un bundle de CA (PEM) para validar el TLS del server contra una CA interna (ver 'scan --help'); fallback SSL_CERT_FILE")
+    p_vet.add_argument("--proxy", default=None, help="proxy HTTP/HTTPS/SOCKS para toda la auditoría (ver 'scan --help')")
+    p_vet.add_argument("--client-cert", dest="client_cert", default=None, help="certificado de cliente (PEM) para mTLS (ver 'scan --help')")
+    p_vet.add_argument("--client-key", dest="client_key", default=None)
     p_vet.add_argument("--trust-presented-cert", dest="trust_presented_cert", action="store_true", help="fija el cert presentado (pinning TOFU) para conectarse a un target con cert interno y auditarlo igual (ver 'scan --help')")
     p_vet.add_argument("--header", action="append", default=[])
     p_vet.add_argument("--auth-token", dest="auth_token", default=None, help="si lo das, corre compare-auth automáticamente")
-    p_vet.add_argument("--auth-type", dest="auth_type", choices=["bearer", "apikey", "custom"], default="bearer")
+    p_vet.add_argument("--auth-type", dest="auth_type", choices=["bearer", "apikey", "custom", "basic"], default="bearer")
     p_vet.add_argument("--auth-header-name", dest="auth_header_name", default=None)
+    p_vet.add_argument("--oauth2-token-url", dest="oauth2_token_url", default=None, help="resuelve un access_token real vía OAuth2 client_credentials en vez de pasar --auth-token a mano (ver 'scan --help')")
+    p_vet.add_argument("--oauth2-client-id", dest="oauth2_client_id", default=None)
+    p_vet.add_argument("--oauth2-client-secret", dest="oauth2_client_secret", default=None)
+    p_vet.add_argument("--oauth2-scope", dest="oauth2_scope", default=None)
     p_vet.add_argument("--print", dest="print_findings", action="store_true", help="además de los archivos, imprime en la terminal el detalle de cada hallazgo confirmado")
     p_vet.add_argument("--no-file", dest="no_file", action="store_true", help="no escribe reporte_vet.html/.json/.sarif -- solo termina en la terminal (implica --print)")
     p_vet.add_argument("--allowlist", default=None, help="ruta a un .ares_allowlist.yml; sin esto, se auto-detecta en el directorio actual")
@@ -1142,7 +1618,7 @@ def main():
     p_full.add_argument("--concurrency", type=int, default=3, help="cuántos targets correr en simultáneo (default 3)")
     p_full.add_argument("--out-dir", dest="out_dir", default="reportes_full", help="carpeta donde se guarda un reporte por target")
     p_full.add_argument("--config", default=None, help="ruta a un config estilo Claude Desktop; usa esos servers en vez de auto-discover")
-    p_full.add_argument("--transport", choices=["stdio", "sse", "http"], default="stdio", help="solo si das --command/--url explícito (single target)")
+    p_full.add_argument("--transport", choices=["stdio", "sse", "http"], default="stdio", help="solo si das --command/--url explícito (single target). nota: con sse, los tests de fuzzing de protocolo crudo (protocol.jsonrpc_malformed_fuzz y similares) no corren -- el canal RPC crudo (engine/protocol/rawrpc.py) solo soporta stdio/http")
     p_full.add_argument("--command", default=None, help="target único explícito (stdio), en vez de auto-discover")
     p_full.add_argument("--args", default="")
     p_full.add_argument("--url", default=None, help="target único explícito (http/sse), en vez de auto-discover")
@@ -1156,11 +1632,18 @@ def main():
     p_full.add_argument("--environment", choices=["production", "development"], default="production")
     p_full.add_argument("--source-path", dest="source_path", default=None)
     p_full.add_argument("--ca-bundle", dest="ca_bundle", default=None, help="ruta a un bundle de CA (PEM) para validar el TLS de TODOS los targets http/sse contra una CA interna; fallback SSL_CERT_FILE")
+    p_full.add_argument("--proxy", default=None, help="proxy HTTP/HTTPS/SOCKS para toda la auditoría (ver 'scan --help')")
+    p_full.add_argument("--client-cert", dest="client_cert", default=None, help="certificado de cliente (PEM) para mTLS (ver 'scan --help')")
+    p_full.add_argument("--client-key", dest="client_key", default=None)
     p_full.add_argument("--trust-presented-cert", dest="trust_presented_cert", action="store_true", help="fija el cert presentado (pinning TOFU) de cada target http/sse para conectarse y auditar igual (ver 'scan --help')")
     p_full.add_argument("--header", action="append", default=[])
     p_full.add_argument("--auth-token", dest="auth_token", default=None)
-    p_full.add_argument("--auth-type", dest="auth_type", choices=["bearer", "apikey", "custom"], default="bearer")
+    p_full.add_argument("--auth-type", dest="auth_type", choices=["bearer", "apikey", "custom", "basic"], default="bearer")
     p_full.add_argument("--auth-header-name", dest="auth_header_name", default=None)
+    p_full.add_argument("--oauth2-token-url", dest="oauth2_token_url", default=None, help="resuelve un access_token real vía OAuth2 client_credentials en vez de pasar --auth-token a mano (ver 'scan --help')")
+    p_full.add_argument("--oauth2-client-id", dest="oauth2_client_id", default=None)
+    p_full.add_argument("--oauth2-client-secret", dest="oauth2_client_secret", default=None)
+    p_full.add_argument("--oauth2-scope", dest="oauth2_scope", default=None)
     p_full.add_argument("--print", dest="print_findings", action="store_true", help="además de los archivos, imprime en la terminal el detalle de cada hallazgo confirmado por target")
     p_full.add_argument("--no-file", dest="no_file", action="store_true", help="no escribe ningún reporte a disco -- solo termina en la terminal (implica --print)")
     p_full.add_argument("--allowlist", default=None, help="ruta a un .ares_allowlist.yml, aplicado a TODOS los targets; sin esto, se auto-detecta en el directorio actual")
@@ -1174,8 +1657,221 @@ def main():
     p_full.add_argument("--webhook-on-regression", dest="webhook_on_regression", default=None, help="requiere --baseline-dir: UN SOLO POST JSON agregando TODOS los targets con hallazgos nuevos (nunca uno por target, nunca si nadie tuvo regresión)")
     p_full.set_defaults(func=cmd_full)
 
+    # ── netrecon ─────────────────────────────────────────────────────────────
+    p_netrecon = sub.add_parser(
+        "netrecon",
+        help="Reconocimiento de red activo: HTTP probe, subdomain enum, nuclei scan, web crawl"
+    )
+    p_netrecon.add_argument("--target", required=True,
+                             help="URL o dominio del objetivo, ej: https://example.com")
+    p_netrecon.add_argument("--scope", default=None,
+                             help="dominios en scope, separados por coma (ej: example.com,sub.example.com); "
+                                  "sin esto, no se verifica scope (modo libre)")
+    p_netrecon.add_argument("--tests", default="",
+                             help="IDs de tests a correr separados por coma; vacío = todos "
+                                  "(net.httpx_probe, net.subfinder, net.bbot_osint, net.katana_crawl, "
+                                  "net.nuclei_scan, net.ffuf_fuzz, net.dalfox_xss, net.sqlmap_sqli)")
+    p_netrecon.add_argument("--nuclei-severity", dest="nuclei_severity", default="critical,high,medium",
+                             help="severidades nuclei a incluir, separadas por coma (default: critical,high,medium)")
+    p_netrecon.add_argument("--timeout-s", dest="timeout_s", type=int, default=180,
+                             help="timeout por test en segundos (default 180)")
+    p_netrecon.add_argument("--rate-limit", dest="rate_limit", type=int, default=150,
+                             help="peticiones/seg máximas hacia el target (default 150)")
+    p_netrecon.add_argument("--out", default="reporte_netrecon.html")
+    p_netrecon.add_argument("--sarif-out", dest="sarif_out", default=None)
+    p_netrecon.add_argument("--environment", choices=["production", "development", "staging"], default="production")
+    p_netrecon.add_argument("--min-confidence", dest="min_confidence",
+                             choices=["heuristic", "verified"], default="heuristic")
+    p_netrecon.add_argument("--allowlist", dest="allowlist", default=None,
+                             help="ruta a .ares_allowlist.yml para suprimir findings conocidos")
+    p_netrecon.add_argument("--print", dest="print_findings", action="store_true")
+    p_netrecon.add_argument("--no-file", dest="no_file", action="store_true")
+    p_netrecon.set_defaults(func=cmd_netrecon)
+
+    # ── install-tools ─────────────────────────────────────────────────────────
+    p_install = sub.add_parser(
+        "install-tools",
+        help="Descarga y verifica binarios de seguridad: nuclei, httpx, subfinder, katana, ffuf, dalfox"
+    )
+    p_install.add_argument("--tools", default=None,
+                            help="herramientas a instalar, separadas por coma; "
+                                 "vacío = todas (nuclei,httpx,subfinder,katana,ffuf,dalfox,sqlmap,bbot)")
+    p_install.add_argument("--force", action="store_true",
+                            help="reinstala aunque el binario ya exista")
+    p_install.add_argument("--help-tools", dest="help_tools", action="store_true",
+                            help="muestra las herramientas disponibles y sus versiones pinneadas")
+    p_install.set_defaults(func=cmd_install_tools)
+
+    # ── netrecon-list-tests ───────────────────────────────────────────────────
+    p_nrl = sub.add_parser("netrecon-list-tests", help="Lista los tests de reconocimiento de red disponibles")
+    p_nrl.set_defaults(func=cmd_netrecon_list_tests)
+
+    # ── tools-status ─────────────────────────────────────────────────────────
+    p_ts = sub.add_parser("tools-status", help="Estado de las herramientas de red (instalada/path/versión)")
+    p_ts.set_defaults(func=cmd_tools_status)
+
+    # ── mcp-server ────────────────────────────────────────────────────────────
+    p_mcp_srv = sub.add_parser(
+        "mcp-server",
+        help="Arranca Ares como servidor MCP (expone ares_netrecon, ares_agent_scan, ares_list_reports, etc.)"
+    )
+    p_mcp_srv.add_argument("--transport", choices=["stdio", "http", "sse"], default="stdio",
+                            help="transporte MCP (default: stdio)")
+    p_mcp_srv.add_argument("--host", default="127.0.0.1")
+    p_mcp_srv.add_argument("--port", type=int, default=8766)
+    p_mcp_srv.set_defaults(func=cmd_mcp_server)
+
+    # ── custom-tool ───────────────────────────────────────────────────────────
+    p_ct = sub.add_parser("custom-tool", help="Gestión de custom tools definidos por el usuario")
+    p_ct.set_defaults(func=cmd_custom_tool_default)
+    ct_sub = p_ct.add_subparsers(dest="ct_action")
+
+    ct_list = ct_sub.add_parser("list", help="Lista custom tools")
+    ct_list.set_defaults(func=cmd_custom_tool_list)
+
+    ct_add = ct_sub.add_parser("add", help="Agrega un custom tool")
+    ct_add.add_argument("--name", required=True, help="Nombre único del tool")
+    ct_add.add_argument("--description", default="", help="Descripción para el agente LLM")
+    ct_add.add_argument("--type", dest="tool_type", choices=["http", "command", "bash"], default="command")
+    ct_add.add_argument("--cmd", default=None, help="Plantilla de comando (usa {{param}} para sustitución)")
+    ct_add.add_argument("--url", default=None, help="URL template (tipo http)")
+    ct_add.add_argument("--method", default="GET", help="HTTP method (tipo http)")
+    ct_add.add_argument("--timeout-s", dest="timeout_s", type=int, default=60)
+    ct_add.set_defaults(func=cmd_custom_tool_add)
+
+    ct_del = ct_sub.add_parser("delete", help="Elimina un custom tool")
+    ct_del.add_argument("tool_id", help="ID del tool a eliminar")
+    ct_del.set_defaults(func=cmd_custom_tool_delete)
+
+    ct_test = ct_sub.add_parser("test", help="Prueba un custom tool")
+    ct_test.add_argument("tool_id", help="ID del tool a ejecutar")
+    ct_test.add_argument("params", nargs="*", metavar="key=value", help="Parámetros para el template")
+    ct_test.set_defaults(func=cmd_custom_tool_test)
+
+    # ── schedule ──────────────────────────────────────────────────────────────
+    p_sched = sub.add_parser("schedule", help="Gestión de scans programados (cron-style)")
+    p_sched.set_defaults(func=cmd_schedule_default)
+    sched_sub = p_sched.add_subparsers(dest="schedule_action")
+
+    p_sched_list = sched_sub.add_parser("list", help="Lista schedules configurados")
+    p_sched_list.set_defaults(func=cmd_schedule_list)
+
+    p_sched_add = sched_sub.add_parser("add", help="Agrega un schedule nuevo")
+    p_sched_add.add_argument("--cron", required=True, help="Expresión cron de 5 campos (ej: '0 2 * * *')")
+    p_sched_add.add_argument("--type", dest="scan_type",
+                              choices=["scan", "api-scan", "netrecon", "agent-scan"], default="netrecon")
+    p_sched_add.add_argument("--target", required=True)
+    p_sched_add.add_argument("--scope", default=None)
+    p_sched_add.add_argument("--id", dest="schedule_id", default=None)
+    p_sched_add.add_argument("--goal", default=None)
+    p_sched_add.add_argument("--provider", default="auto",
+                              help="provider LLM: auto|anthropic|openai|deepseek|nvidia|mistral|groq|together|openrouter|gemini|xai|ollama|custom")
+    p_sched_add.add_argument("--model", default=None,
+                              help="modelo del provider (vacío = default del provider)")
+    p_sched_add.add_argument("--webhook", dest="notify_webhook", default=None)
+    p_sched_add.set_defaults(func=cmd_schedule_add)
+
+    p_sched_del = sched_sub.add_parser("delete", help="Elimina un schedule")
+    p_sched_del.add_argument("schedule_id")
+    p_sched_del.set_defaults(func=cmd_schedule_delete)
+
+    p_sched_run = sched_sub.add_parser("run-daemon", help="Corre el daemon de schedules en foreground")
+    p_sched_run.set_defaults(func=cmd_schedule_daemon)
+
+    # ── agent-scan ────────────────────────────────────────────────────────────
+    p_agent = sub.add_parser(
+        "agent-scan",
+        help="Scan autónomo dirigido por LLM: Claude decide qué tests correr según hallazgos acumulados. Requiere ANTHROPIC_API_KEY"
+    )
+    p_agent.add_argument("--target", required=True,
+                          help="URL o dominio del objetivo, ej: https://example.com")
+    p_agent.add_argument("--scope", default=None,
+                          help="dominios en scope, separados por coma. Recomendado siempre.")
+    p_agent.add_argument("--goal", default=None,
+                          help="instrucción al agente, ej: 'Encontrar paneles admin expuestos y SQLi'")
+    p_agent.add_argument("--provider", default="auto",
+                          help="provider LLM: auto|anthropic|openai|deepseek|nvidia|mistral|groq|together|openrouter|gemini|xai|ollama|custom. 'auto' detecta API keys del entorno. (default: auto)")
+    p_agent.add_argument("--model", default=None,
+                          help="modelo del provider (vacío = default del provider, ej: claude-sonnet-5-5, gpt-4o-mini, deepseek-chat)")
+    p_agent.add_argument("--max-rounds", dest="max_rounds", type=int, default=8,
+                          help="rondas máximas de llamadas al LLM (default 8)")
+    p_agent.add_argument("--timeout-s", dest="timeout_s", type=int, default=180,
+                          help="timeout por test en segundos (default 180)")
+    p_agent.add_argument("--rate-limit", dest="rate_limit", type=int, default=150,
+                          help="peticiones/seg máximas hacia el target (default 150)")
+    p_agent.add_argument("--allow-level3", dest="allow_level3", action="store_true",
+                          help="permite tests nivel 3 (net.sqlmap_sqli — intrusivo, solo con autorización explícita)")
+    p_agent.add_argument("--denylist", default=None,
+                          help="hosts siempre bloqueados, separados por coma. Las IPs privadas/loopback van automáticamente.")
+    p_agent.add_argument("--out", default="reporte_agent.html")
+    p_agent.add_argument("--sarif-out", dest="sarif_out", default=None)
+    p_agent.add_argument("--environment", choices=["production", "development", "staging"], default="production")
+    p_agent.add_argument("--min-confidence", dest="min_confidence",
+                          choices=["heuristic", "verified"], default="heuristic")
+    p_agent.add_argument("--allowlist", dest="allowlist", default=None)
+    p_agent.add_argument("--print", dest="print_findings", action="store_true")
+    p_agent.add_argument("--no-file", dest="no_file", action="store_true")
+    p_agent.add_argument("--v2", action="store_true", default=False,
+                         help="Usar orquestador Planner+Worker separados (experimental)")
+    p_agent.set_defaults(func=cmd_agent_scan)
+
+    # ── rsi ────────────────────────────────────────────────────────────────
+    p_rsi = sub.add_parser("rsi", help="Gestión de lecciones RSI (Recursive Self-Improvement)")
+    rsi_sub = p_rsi.add_subparsers(dest="rsi_cmd", required=True)
+
+    p_rsi_list = rsi_sub.add_parser("list", help="Lista lecciones extraídas de scans anteriores")
+    p_rsi_list.add_argument("--kind", default=None,
+                             choices=["exploitation", "enumeration", "false_positive",
+                                      "efficiency", "chaining"],
+                             help="Filtrar por tipo de lección")
+    p_rsi_list.add_argument("--limit", type=int, default=50)
+    p_rsi_list.set_defaults(func=cmd_rsi_list)
+
+    p_rsi_clear = rsi_sub.add_parser("clear", help="Elimina todas las lecciones RSI")
+    p_rsi_clear.set_defaults(func=cmd_rsi_clear)
+
+    p_rsi_rm = rsi_sub.add_parser("remove", help="Elimina una lección por ID")
+    p_rsi_rm.add_argument("lesson_id")
+    p_rsi_rm.set_defaults(func=cmd_rsi_remove)
+
     args = parser.parse_args()
     args.func(args)
+
+
+def cmd_rsi_list(args):
+    from engine.rsi.lessons import LessonLibrary, LessonKind
+    lib = LessonLibrary()
+    if args.kind:
+        lessons = lib.by_kind(LessonKind(args.kind))
+    else:
+        lessons = lib.all()
+    lessons_sorted = sorted(lessons, key=lambda l: l.created_at, reverse=True)[:args.limit]
+    if not lessons_sorted:
+        print("No hay lecciones RSI guardadas.")
+        return
+    for l in lessons_sorted:
+        print(f"[{l.id}] {l.kind.value:15s} conf={l.confidence:.2f} hits={l.hits}")
+        print(f"  CUE:    {l.cue[:80]}")
+        print(f"  ACTION: {l.action[:80]}")
+        print(f"  SOURCE: scan {l.source_scan_id}  created: {l.created_at[:10]}")
+        print()
+
+
+def cmd_rsi_clear(args):
+    from engine.rsi.lessons import LessonLibrary
+    lib = LessonLibrary()
+    count = lib.clear()
+    print(f"Eliminadas {count} lecciones RSI.")
+
+
+def cmd_rsi_remove(args):
+    from engine.rsi.lessons import LessonLibrary
+    lib = LessonLibrary()
+    ok = lib.remove(args.lesson_id)
+    if ok:
+        print(f"Lección {args.lesson_id} eliminada.")
+    else:
+        print(f"No se encontró la lección {args.lesson_id}.")
 
 
 if __name__ == "__main__":

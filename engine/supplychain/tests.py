@@ -20,7 +20,7 @@ from engine.core.risk import build_vector, base_vector_for
 from engine.core.registry import register_test
 from engine.supplychain.similarity import jaro_winkler, squat_kind
 from engine.supplychain.rule_sources import load_secret_patterns
-from engine.core.limits import cap_text
+from engine.core.limits import cap_text, MAX_TOOLS_FOR_PAIRWISE_SIMILARITY
 
 # --- secretos ---------------------------------------------------------------
 
@@ -245,6 +245,9 @@ NAME_SIMILARITY_THRESHOLD = 0.82
 async def tool_squatting(target, ctx) -> list[Finding]:
     tools = ctx.get("tools") or await target.list_tools()
     names = [t["name"] for t in tools]
+    truncated_for_perf = len(names) > MAX_TOOLS_FOR_PAIRWISE_SIMILARITY
+    if truncated_for_perf:
+        names = names[:MAX_TOOLS_FOR_PAIRWISE_SIMILARITY]
     findings = []
 
     for i in range(len(names)):
@@ -289,13 +292,21 @@ async def tool_squatting(target, ctx) -> list[Finding]:
                              "evitar pares de nombres a una edición de distancia.",
             ))
 
+    perf_note = (
+        f" ADVERTENCIA: el server declaró más de {MAX_TOOLS_FOR_PAIRWISE_SIMILARITY} tools -- la "
+        f"comparación de similitud es O(n^2) y se acotó a las primeras {MAX_TOOLS_FOR_PAIRWISE_SIMILARITY} "
+        f"para no agotar el timeout del test; el resto NO se comparó entre sí."
+        if truncated_for_perf else ""
+    )
     if not findings:
         findings.append(Finding(
             test_id="supplychain.tool_squatting", title="Sin squatting de nombres detectado",
             category=Category.SUPPLYCHAIN, target="server",
-            description="Ningún par de tools superó el umbral de similitud de nombre.",
+            description=f"Ningún par de tools superó el umbral de similitud de nombre.{perf_note}",
             passed=True,
         ))
+    elif perf_note:
+        findings[0].description += perf_note
     return findings
 
 
@@ -344,7 +355,17 @@ async def exfiltration_chain(target, ctx) -> list[Finding]:
 # --- patrones maliciosos tipo YARA (regex propio) ---------------------------
 
 MALICIOUS_PATTERN_RULES = [
-    ("tool_poisoning", r"ignore (all|previous|the) (instructions|prompt)|do not (tell|inform|mention) the user|secretly|silently"),
+    # (?i) explícito -- SIN esto, "DO NOT REVEAL TO USER"/"<IMPORTANT>" en mayúsculas (el estilo
+    # real de los tool-poisoning in-the-wild documentados por Invariant Labs, justamente para
+    # maximizar cumplimiento del LLM) no matcheaba nunca contra este patrón -- confirmado:
+    # 0 hits contra damn-vulnerable-MCP-server/challenges/easy/challenge2 (Tool Poisoning),
+    # que usa "<IMPORTANT>...DO NOT REVEAL TO USER...MUST...mandatory compliance...</IMPORTANT>"
+    # calcado del post original de Invariant. Ampliado "do not X the user" con
+    # reveal/disclose/show/let, + el wrapper <IMPORTANT>/<system> en sí, + "mandatory"/"you must"
+    # como señal de instrucción imperativa embebida en una descripción de tool (que no debería
+    # tener ninguna).
+    ("tool_poisoning", r"(?i)ignore (all|previous|the) (instructions|prompt)|do not (tell|inform|mention|reveal|disclose|show|let) the user|secretly|silently|"
+                       r"</?important>|<system[ >]|you must (first |always )?(read|include|call)|mandatory compliance|before responding to the user"),
     ("code_execution", r"\beval\(|\bexec\(|subprocess\.|os\.system\(|child_process|execSync"),
     ("credential_harvesting", r"(?i)send (your|the) (password|api[_ ]?key|token|credentials)"),
     ("data_exfiltration", r"(?i)(upload|post|send) .{0,30}(to|at) https?://"),

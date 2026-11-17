@@ -240,14 +240,16 @@ def wrap_command(
 
 
 # ---------------------------------------------------------------------------------------------
-# Enmascarado de credenciales reales del host (ver docstring del módulo) -- aplica SOLO a las
-# rutas de mayor valor que viven en su propia subcarpeta bajo $HOME (SSH, cloud, otros clientes
-# MCP): se les monta un tmpfs y se les pone contenido FALSO con un canario fijo. Deliberadamente
-# NO cubre los archivos sueltos directo en $HOME (.netrc/.npmrc/.gitconfig/.bash_history) de
-# CREDENTIAL_HARVEST_PATHS -- enmascarar esos necesitaría tocar $HOME entero (bwrap no puede
-# crear un nodo de bind nuevo bajo una ruta que ya quedó read-only) y el intento más agresivo
-# (tmpfs en $HOME completo) rompería cualquier target real cuyo código/proyecto viva bajo $HOME
-# -- menor severidad (no son claves/credenciales), queda documentado como gap conocido.
+# Enmascarado de credenciales reales del host (ver docstring del módulo): rutas de alto valor
+# que viven en su propia subcarpeta bajo $HOME (SSH, cloud, otros clientes MCP) se enmascaran
+# montando un tmpfs sobre la subcarpeta y poniendo contenido FALSO con un canario fijo.
+#
+# Los archivos sueltos directo en $HOME (.netrc/.npmrc/.gitconfig/.bash_history/.zsh_history) de
+# CREDENTIAL_HARVEST_PATHS se enmascaran aparte, con un --ro-bind por archivo (confirmado
+# empíricamente: bwrap SÍ puede bind-montar un archivo falso directo sobre un archivo existente
+# bajo `--ro-bind / /`, sin tocar $HOME entero -- la restricción real es solo que el archivo
+# DESTINO ya exista en el host antes del bind, igual que con las subcarpetas de arriba; si no
+# existe, bwrap falla con "Read-only file system" al intentar crear el nodo nuevo).
 
 import secrets
 import tempfile
@@ -287,6 +289,17 @@ _MASKED_SUBDIRS: dict[str, dict[str, str]] = {
     },
 }
 
+# Archivos sueltos directo en $HOME (no en una subcarpeta propia) -> contenido falso. Mismo
+# canario, con pinta de lo que cada archivo real tendría -- ver CREDENTIAL_HARVEST_PATHS en
+# payloads/canary.py (".netrc"/".npmrc"/".gitconfig"/".bash_history"/".zsh_history").
+_MASKED_HOME_FILES: dict[str, str] = {
+    ".netrc": f"machine canary.invalid\nlogin ares-canary\npassword {CREDENTIAL_CANARY}\n",
+    ".npmrc": f"//registry.npmjs.org/:_authToken={CREDENTIAL_CANARY}\n",
+    ".gitconfig": f"[user]\n\temail = ares-canary@invalid\n[credential]\n\t# {CREDENTIAL_CANARY}\n",
+    ".bash_history": f"export ARES_CANARY_TOKEN={CREDENTIAL_CANARY}\n",
+    ".zsh_history": f"export ARES_CANARY_TOKEN={CREDENTIAL_CANARY}\n",
+}
+
 _staging_dirs: list[str] = []  # cleanup best-effort al salir del proceso de Ares
 
 
@@ -319,4 +332,12 @@ def credential_mask_bind_args(home: str) -> list[str]:
             with open(fake, "w") as f:
                 f.write(content)
             args += ["--ro-bind", fake, os.path.join(real_dir, name)]
+    for name, content in _MASKED_HOME_FILES.items():
+        real_file = os.path.join(home, name)
+        if not os.path.isfile(real_file):
+            continue  # bwrap no puede crear el nodo de bind si el archivo no existe ya
+        fake = os.path.join(staging, "home_" + name.lstrip("."))
+        with open(fake, "w") as f:
+            f.write(content)
+        args += ["--ro-bind", fake, real_file]
     return args

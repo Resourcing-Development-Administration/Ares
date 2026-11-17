@@ -1,12 +1,72 @@
+# Python
 __pycache__/
 *.py[cod]
+*.pyc
+*.pyo
 *.egg-info/
 .venv/
+.pytest_cache/
+
+# Build / dist
 build/
 dist/
-.pytest_cache/
+/server/webui/dist/
+
+# Reports & logs
 reports/*
 !reports/.gitkeep
 !reports/*.md
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Node / frontend
 node_modules/
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+.next/
+/out/
+/coverage
+*.tsbuildinfo
+next-env.d.ts
+*.local
+.env*.local
+.vercel
+
+# Databases & runtime state
+*.db
+*.db-wal
+*.db-shm
+/data/
+config.json
+scheduler_state.json
+
+# Secrets & keys
+/jwt.key
+/secret.key
+/keys/
+.env
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+*.pem
+
+# Claude Code local state
+.claude/
+
+# Scan / bench artifacts
+*-events.csv
+/bench/
+/Dockerfile.bench
+/Dockerfile.bench.v2
+backups/
+posture-runs/
+benchmark-results/

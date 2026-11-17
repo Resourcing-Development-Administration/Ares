@@ -71,6 +71,8 @@ para copiar y pegar el comando que necesitás.
 | Ver si un agente real obedece una inyección (no solo si el server la refleja) | `adv.live_agent_injection` | [§3.6](#36-scan) |
 | Detectar tools que se hacen pasar por otro server conectado | correlación cross-server (automática en `full`, 2+ targets) | [§3.8](#38-full) |
 | Ver en vivo cada llamada real a los tools, no solo el resumen por test | `--verbose` | [§3.6](#36-scan) |
+| Resolver un token OAuth2 en vez de pasarlo a mano | `--oauth2-token-url` (+ client-id/secret/scope) | [§3.6](#36-scan) |
+| Auditar por un proxy de intercepción (Burp/mitmproxy) o con certificado cliente mTLS | `--proxy` / `--client-cert`+`--client-key` | [§3.6](#36-scan) |
 | Entender de dónde sale la severidad de un hallazgo | — | [§7](#7-metodología-de-riesgo-cvss--owasp-risk-rating) |
 | Agregar un test propio a Ares | — | [§9](#9-extender-ares-test-nuevo) |
 | Saber exactamente qué toca red y qué no | — | [§10](#10-qué-toca-red-y-qué-no) |
@@ -610,6 +612,10 @@ score/policy/SARIF. OWASP API Security Top 10 2023.
 | `--spec` | OpenAPI/Swagger/Postman: ruta local o URL. Sin esto, autodescubre en rutas comunes (`/openapi.json`, `/swagger.json`, `/v3/api-docs`...) |
 | `--graphql-path` | si el endpoint GraphQL no es uno de los comunes (`/graphql`, `/api/graphql`, `/v1/graphql`, `/gql`) -- se detecta solo con una query mínima + introspección |
 | `--auth-token` / `--auth-token-b` | credencial A / una SEGUNDA identidad real, para `api.bola` (acceso cruzado confirmado con dos usuarios reales, no solo "parece distinto") |
+| `--auth-type {bearer,apikey,custom,basic}` / `--auth-header-name` (+ `-b` para la segunda identidad) | misma semántica que en `scan` (sección 3.6) — `basic` espera `usuario:contraseña` en `--auth-token` |
+| `--oauth2-token-url` (+ `--oauth2-client-id`/`--oauth2-client-secret`/`--oauth2-scope`) | resuelve un `access_token` OAuth2 client-credentials en vez de pasarlo a mano — misma semántica que en `scan` (sección 3.6), prioridad sobre `--auth-token` |
+| `--ca-bundle` / `--trust-presented-cert` | TLS contra una CA interna, o pinning TOFU del cert presentado — misma semántica que en `scan` (sección 3.6b) |
+| `--proxy` / `--client-cert` / `--client-key` | proxy HTTP/HTTPS/SOCKS y certificado cliente mTLS para todo el tráfico hacia la API — misma semántica que en `scan` |
 | `--jwt` | si la credencial no es el JWT a analizar en `api.jwt` |
 | `--tests` / `--max-level` | igual semántica que en `scan` |
 
@@ -628,11 +634,17 @@ detectado por introspección), `gql.alias_batching` (opt-in, N alias =
 N intentos en 1 request -- bypass de rate limit), `gql.unauth_queries`,
 `gql.get_mutations` (CSRF).
 
-Probado contra DVGA (`Campo-Tiro/Damn-Vulnerable-GraphQL-Application`,
-levantado local sin Docker vía `run_dvga.py`): introspección, `pastes`/
-`users`/`search`/`audits` accesibles sin auth, y mutations por GET -- las
-3 clases confirmadas. `crAPI` queda sin probar en este equipo por falta de
-Docker; el runner (`Campo-Tiro/run_all.py`) ya lo soporta cuando haya Docker.
+Los 5 detectores GraphQL con cobertura fijada en el test suite propio
+(`tests/test_api.py` + `tests/fixtures/graphql_api_server.py`, fixture
+propia en modo vulnerable/safe vía `ARES_FIXTURE_MODE` — `gql.depth_limit`
+queda fuera a propósito, ver [ARCHITECTURE.md](ARCHITECTURE.md#12-tests-del-propio-ares)).
+También probado en campo contra DVGA
+(`Campo-Tiro/Damn-Vulnerable-GraphQL-Application`, levantado local sin
+Docker vía `run_dvga.py`): introspección, `pastes`/`users`/`search`/
+`audits` accesibles sin auth, y mutations por GET -- las 3 clases
+confirmadas. `crAPI` (vía `Campo-Tiro/run_all.py`, stack Docker completo)
+también disponible como target de práctica para REST cuando el stack está
+levantado.
 
 ### 3.5 `update-rules`
 
@@ -711,7 +723,7 @@ Flags por grupo:
 
 | Flag | Uso |
 |---|---|
-| `--transport {stdio,sse,http}` | default `stdio` |
+| `--transport {stdio,sse,http}` | default `stdio`. Con `sse`, los tests de fuzzing de protocolo crudo (`protocol.jsonrpc_malformed_fuzz`, `protocol.batch_cancel_robustness`, `protocol.session_replay`) no corren — el canal RPC crudo (`engine/protocol/rawrpc.py`) solo soporta `stdio`/`http`. El resto de la batería (recon/auth/supply-chain/etc.) sí corre igual contra `sse` |
 | `--command <COMANDO> --args "<ARGS>"` | para `--transport stdio`, ej. `--command python3 --args "mi_servidor.py"` |
 | `--url <URL>` | para `--transport sse\|http`, ej. `--url https://mcp.miempresa.com/mcp` |
 | `--config <RUTA>` | ignora lo anterior: lee un JSON estilo Claude Desktop (`mcpServers`) y escanea **todos** sus servers en batch, un reporte por cada uno |
@@ -737,11 +749,15 @@ Flags por grupo:
 |---|---|
 | `--header "Clave: Valor"` | repetible, header HTTP crudo (cookies, headers propietarios no cubiertos por `--auth-token`) |
 | `--ca-bundle <RUTA.pem>` | valida el certificado TLS del server contra esa CA (interna/corporativa) sin desactivar la verificación — ver [3.6b](#36b-tls-con-ca-interna---ca-bundle-y-tipo-de-certificado). Fallback: variable de entorno `SSL_CERT_FILE` |
-| `--auth-token "<TOKEN>"` | credencial a inyectar |
-| `--auth-type {bearer,apikey,custom}` | default `bearer`. `bearer` → header `Authorization: Bearer <TOKEN>`; `apikey`/`custom` → header `--auth-header-name` con el token crudo |
+| `--trust-presented-cert` | si el TLS no valida y no diste `--ca-bundle`, trae el certificado que presenta el server y lo fija (pinning TOFU) para completar el handshake igual — no valida identidad, es para targets internos que controlás. Ver [3.6b](#36b-tls-con-ca-interna---ca-bundle-y-tipo-de-certificado) |
+| `--proxy <URL>` | proxy HTTP/HTTPS/SOCKS para TODO el tráfico hacia el target (ej. Burp/mitmproxy: `http://127.0.0.1:8080`). SOCKS requiere `pip install "httpx[socks]"` en el venv de Ares |
+| `--client-cert <RUTA.pem>` / `--client-key <RUTA.pem>` | certificado cliente mTLS (y su clave privada, si es un archivo separado) — para un target que exige autenticación por certificado de cliente |
+| `--auth-token "<TOKEN>"` | credencial a inyectar. Para `--auth-type basic`: formato `usuario:contraseña` |
+| `--auth-type {bearer,apikey,custom,basic}` | default `bearer`. `bearer` → header `Authorization: Bearer <TOKEN>`; `apikey`/`custom` → header `--auth-header-name` con el token crudo; `basic` → `Authorization: Basic <base64(usuario:contraseña)>` |
 | `--auth-header-name "<NOMBRE>"` | requerido con `apikey`/`custom`, ej `X-API-Key` |
+| `--oauth2-token-url <URL>` (+ `--oauth2-client-id`/`--oauth2-client-secret`/`--oauth2-scope`) | resuelve un `access_token` OAuth2 client-credentials en el momento del scan (POST `grant_type=client_credentials`) en vez de pasarlo a mano con `--auth-token` — si se da, tiene prioridad sobre `--auth-token`/`--auth-type`. Si la resolución falla (credenciales mal, endpoint caído, respuesta sin `access_token`), el scan no arranca — error explícito, nunca un scan silencioso sin auth |
 | `--compare-auth` | corre el scan dos veces (con y sin `--auth-token`/headers) y agrega la sección de impacto de auth: qué hallazgos desaparecen al autenticarse vs cuáles persisten igual |
-| `--auth-token-b "<TOKEN>"` (+ `--auth-type-b`/`--auth-header-name-b`, misma semántica que los de arriba) | una SEGUNDA credencial/tenant válido, independiente de `--auth-token` — habilita `auth.cross_session_context_bleed` (sección 12): sin esto, ese test se saltea solo |
+| `--auth-token-b "<TOKEN>"` (+ `--auth-type-b`/`--auth-header-name-b`, misma semántica que los de arriba, incluido `basic`) | una SEGUNDA credencial/tenant válido, independiente de `--auth-token` — habilita `auth.cross_session_context_bleed` (sección 12): sin esto, ese test se saltea solo |
 
 **Policy / salida — cómo ver el resultado (archivo, terminal, o ambos):**
 
@@ -1482,8 +1498,11 @@ se decidió NO construir todavía en esta pasada, y por qué:
   validado en campo de tiro contra MCPGoat (desafío `sampling-abuse`, nivel
   easy, capturado con el prompt inyectado completo como evidencia). Fuzzing a nivel protocolo: cubierto por `protocol.jsonrpc_malformed_fuzz`,
   `protocol.batch_cancel_robustness` y `protocol.session_replay` (canal
-  JSON-RPC crudo propio; ver tabla de tests). Sigue sin cubrirse el transporte
-  SSE legado y la negociación de `protocolVersion`.
+  JSON-RPC crudo propio; ver tabla de tests) contra `stdio`/`http`. El
+  transporte `sse` tiene cobertura de tests normal (`target_server_sse.py`),
+  pero el canal RPC crudo no lo soporta, así que esos 3 tests de fuzzing de
+  protocolo no corren contra un target `sse` (avisado en `--help`/tooltip,
+  ver sección 3.6). Sigue sin cubrirse la negociación de `protocolVersion`.
 - **Grafo de exfiltración cross-server** — cubierto AHORA por la correlación
   cross-server del modo `full` (sección 3.8): con 2+ targets en la misma
   corrida, detecta cadenas lector(server A)→emisor(server B) que

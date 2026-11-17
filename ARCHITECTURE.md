@@ -65,11 +65,17 @@ Ares/
 │   │   ├── limits.py          # cap_text(): tope de tamaño para texto analizado con regex y para
 │   │   │                      #   respuestas de call_tool/read_resource -- defensa contra un target
 │   │   │                      #   que infla el costo de análisis de Ares a propósito
+│   │   ├── oauth.py           # fetch_client_credentials_token(): resuelve un access_token OAuth2
+│   │   │                      #   client-credentials (httpx.post síncrono) en vez de pasarlo a mano
+│   │   │                      #   -- usado por CLI (--oauth2-token-url) y webui, nunca falla en silencio
 │   │   └── sandbox.py         # wrap_command(): aislamiento REAL del subprocess stdio -- prlimit
 │   │                           #   (RLIMIT memoria/CPU/procesos/FDs, nproc calculado dinámicamente
 │   │                           #   relativo a lo que YA corre, nunca absoluto) + bwrap (namespaces de
 │   │                           #   PID/IPC/UTS + corte de red condicional a allow_network)
-│   ├── recon/tests.py        # enumerate, suspicious_descriptions, excessive_permissions, audit_logging
+│   ├── recon/tests.py        # enumerate, suspicious_descriptions, excessive_permissions, audit_logging --
+│   │                          #   excessive_permissions matchea por \b + conjugaciones verbales explícitas
+│   │                          #   (no substring plano): confirmado en campo que "rm" matcheaba dentro de
+│   │                          #   "confirm" y "exec" dentro del campo legítimo `script.exec` de un target real
 │   ├── static/
 │   │   ├── tests.py           # schema_permissive, no_schema, known_cve_check, typosquatting_check
 │   │   ├── known_cves.py      # feed curado y VERIFICADO (nunca inventado) de CVEs reales de servers MCP oficiales
@@ -93,6 +99,7 @@ Ares/
 │   │                          #   --auth-token-b, http/sse únicamente)
 │   ├── api/                   # módulo de APIs REST/GraphQL (OWASP API Security Top 10), separado de MCP
 │   │   ├── client.py          # ApiTarget: httpx directo, credenciales A/B, nunca sigue redirects solo
+│   │   │                      #   (proxy/client_cert/client_key opcionales, mismo patrón que MCPTarget)
 │   │   ├── spec.py            # parser de OpenAPI/Swagger/Postman + autodescubrimiento + sample_value()
 │   │   ├── registry.py        # registro propio (api_test), separado del de MCP -- recibe ApiTarget
 │   │   ├── meta.py            # inyecta vectores CVSS/business-impact/confidence/frameworks en las
@@ -113,8 +120,15 @@ Ares/
 │   ├── exposure/tests.py      # transport_security, cors_misconfig, network_reachability, session_id_entropy
 │   ├── supplychain/
 │   │   ├── tests.py           # secret_exposure, tool_squatting, exfiltration_chain, malicious_patterns,
-│   │   │                     #   dependency_vulnerabilities, source_sast
-│   │   ├── sast.py            # runner de semgrep (offline, ruleset propio) para supplychain.source_sast
+│   │   │                      #   dependency_vulnerabilities, source_sast -- malicious_patterns exige un
+│   │   │                      #   comando real dentro de los backticks (command_injection_marker): antes
+│   │   │                      #   `[^`]+` matcheaba CUALQUIER code-span de markdown (confirmado: 30/41
+│   │   │                      #   tools de un target real marcados solo por usar `código` en su descripción)
+│   │   ├── sast.py            # runner de semgrep (offline, ruleset propio) para supplychain.source_sast --
+│   │   │                      #   el binario se busca en PATH y, si no está, junto a sys.executable (el
+│   │   │                      #   venv): invocar Ares como `.venv/bin/python cli/main.py` directo, sin pasar
+│   │   │                      #   por ares.sh (que sí activa el venv), dejaba shutil.which("semgrep") sin
+│   │   │                      #   encontrarlo aunque estuviera instalado ahí mismo
 │   │   ├── rule_sources.py    # fetch/cache de patrones de gitleaks.toml (comando update-rules)
 │   │   ├── manifest_parsers.py # parseo de requirements.txt/package.json/package-lock.json
 │   │   ├── similarity.py      # Jaro-Winkler para tool squatting (y para tool shadowing en crossserver.py)
@@ -138,7 +152,11 @@ Ares/
 │   └── baseline.py            # diff_against_baseline(): compara contra un reporte.json anterior
 ├── payloads/
 │   ├── prompt_injection.py    # payloads de prompt injection reutilizados por varios tests adversarial
-│   └── canary.py               # generación/verificación de canarios (confirma ejecución real, no solo reflejo)
+│   └── canary.py               # generación/verificación de canarios (confirma ejecución real, no solo reflejo) --
+│                                #   las rutas de credential_harvest_paths usan _COMMON_DEPLOY_USERS (root, ubuntu,
+│                                #   ec2-user, admin, deploy, app, www-data, centos) para `/home/{user}/.ssh/id_rsa`;
+│                                #   antes tenía un único `{user}` sin reemplazo real, payload muerto que nunca
+│                                #   probaba nada
 ├── policy.yaml                 # reglas de policy por test_id × ambiente (production/development)
 ├── .ares_allowlist.example.yml # plantilla de allowlist de findings aceptados -- copiar a .ares_allowlist.yml
 ├── rules/
@@ -149,7 +167,10 @@ Ares/
 │   └── static/index.html       # dashboard SPA (vanilla JS), consume los endpoints de arriba
 ├── target_server.py             # MCP vulnerable de práctica, vía stdio
 ├── target_server_http.py        # MCP vulnerable de práctica, vía streamable-http sin auth
+├── target_server_sse.py         # MCP vulnerable de práctica, vía sse (mismos tools que el de http)
 ├── tests/                       # test suite del propio Ares (pytest), ver sección 12
+│   └── fixtures/graphql_api_server.py  # fixture GraphQL (vulnerable/safe vía ARES_FIXTURE_MODE),
+│                                 #   usado por tests/test_api.py para graphql_tests.py
 ├── reports/                      # salida por defecto del dashboard (persistido, gitignored)
 └── README.md / MANUAL.md / ARCHITECTURE.md
 ```
@@ -222,8 +243,18 @@ Todo vive en `engine/core/models.py`:
 - **`TestMeta`** — metadata declarativa de un test (id, categoría,
   default_enabled, requires_network) — es lo que arma `list-tests` y los
   checkboxes del dashboard.
-- **`AuthConfig`** — credenciales explícitas (`bearer`/`apikey`/`custom`) →
-  se convierten en headers HTTP vía `to_headers()`.
+- **`AuthConfig`** — credenciales explícitas (`bearer`/`apikey`/`custom`/
+  `basic`) → se convierten en headers HTTP vía `to_headers()` (`basic`
+  codifica `usuario:contraseña` en base64). El token puede resolverse en
+  runtime en vez de pasarse a mano vía OAuth2 client-credentials
+  (`engine/core/oauth.py::fetch_client_credentials_token`, sección 6) —
+  tanto CLI como webui lo resuelven ANTES de construir el `AuthConfig`/
+  los headers, así que desde este punto para abajo es indistinguible de un
+  bearer token normal.
+- `ScanConfig.proxy`/`client_cert`/`client_key` — proxy HTTP/HTTPS/SOCKS y
+  certificado cliente mTLS para TODO el tráfico hacia el target MCP
+  (`http`/`sse`); mismos 3 campos existen como parámetros sueltos de
+  `run_api_scan()` (`engine/api/runner.py`) para el path de `api-scan`.
 
 ## 5. Patrón de plugin de un test
 
@@ -268,6 +299,27 @@ manejan ese caso con su propio cliente HTTP en vez de `target`).
   `--verbose`/el checkbox del dashboard: el orquestador setea
   `target.progress_cb = emit` y `target.current_test_id` antes de cada
   test, así cada llamada real sale tageada con qué test la disparó.
+  `MCPTarget.stderr_tail` (vía `_StderrTail`, un tempfile real con `.fileno()`
+  -- el SDK lo usa TAL CUAL como `stderr=` del subprocess, no acepta un
+  objeto Python de solo-`.write()`) expone los últimos ~4000 chars que el
+  subprocess stdio escribió a stderr, incluidos aunque la conexión haya
+  fallado -- antes esto solo iba a `sys.stderr` y se perdía (confirmado en
+  campo: "Connection closed" escondía la causa real, ej. "Failed to reserve
+  virtual memory for CodeRange" de V8). `conn_errors.py::classify_connection_error`
+  tiene una categoría `resource_limit` dedicada a este patrón (el target
+  murió por chocar con el sandbox de Ares, no por sí mismo), con una
+  remediación específica (subir `--sandbox-mem-mb`/`--sandbox-nofile`) en
+  vez del mensaje genérico de `other`. `_tls_kwargs()` arma un
+  `httpx_client_factory` para `sse_client`/`streamablehttp_client` cuando
+  hace falta algo más que el trust store default: CA custom (`--ca-bundle`),
+  pinning TOFU (`--trust-presented-cert`), proxy (`--proxy`) o certificado
+  cliente mTLS (`--client-cert`/`--client-key`) — los 4 comparten el mismo
+  closure `_factory(headers, timeout, auth)`, válido tanto para `http` como
+  para `sse`. El canal RPC crudo (`engine/protocol/rawrpc.py`, sección de
+  abajo) solo soporta `stdio`/`http` — `sse` no tiene equivalente, así que
+  `protocol.jsonrpc_malformed_fuzz`/`batch_cancel_robustness`/`session_replay`
+  no corren contra un target `sse` (avisado en `--help`/tooltip, no en
+  silencio).
 - **`risk.py` + `cvss.py`** — CVSS v3.1 real (vector → score, verificado
   contra vectores de referencia públicos) + OWASP Risk Rating Methodology
   (Likelihood × Impact → Note/Low/Medium/High/Critical). Es la única fuente
@@ -325,7 +377,7 @@ mostrar nada.
 | `discover` | `discover_mcp_servers()` (sin escanear nada) | `cmd_discover` |
 | `update-rules` | fetch de gitleaks.toml → `rules/secrets_patterns.json` | `cmd_update_rules` |
 | `scan` | un target (o batch vía `--config`), tests seleccionados o default | `cmd_scan` → `_run_one` |
-| `vet` | fuerza TODOS los tests + `--allow-network` + `production`, un solo target | `cmd_vet` (arma un `Namespace` completo y llama a `_run_one`) |
+| `vet` | fuerza TODOS los tests + `--allow-network` + `production`, un solo target | `cmd_vet` (arma un `Namespace` completo y llama a `_run_one`) -- expone los mismos flags de sandbox/recursos que `scan` (`--sandbox-mem-mb`/`-nofile`/etc.); antes forzaba siempre el default sin override, lo que rompía contra un runtime real pesado (Node con muchos módulos) |
 | `full` | discover (o `--config`/target explícito) + `scan`/`vet` de **todos** los targets, **en paralelo** (`asyncio.gather` + `asyncio.Semaphore(--concurrency)`) | `cmd_full` → `_run_full` → `_full_one` por target |
 | `serve` | levanta `webui.app:app` con uvicorn | `cmd_serve` |
 
@@ -438,13 +490,20 @@ Pensado para gatear CI: `BLOCK` = no apto tal como está para ese ambiente.
 
 `tests/` (pytest, `asyncio_mode = "auto"` en `pyproject.toml`). Valida que
 cada detector encuentra lo que dice encontrar contra los targets vulnerables
-(`target_server.py`/`target_server_http.py`, positivo) y que **no** dispara
-falsos positivos contra `tests/fixtures/safe_server.py` (negativo). Fixtures
-en `tests/conftest.py` levantan/apagan los servers reales como subprocesos
-(`session`-scoped para el fixture HTTP). También hay unitarios puros
+(`target_server.py`/`target_server_http.py`/`target_server_sse.py`, positivo)
+y que **no** dispara falsos positivos contra `tests/fixtures/safe_server.py`
+(negativo). Fixtures en `tests/conftest.py` levantan/apagan los servers
+reales como subprocesos (`session`-scoped para los fixtures http/sse).
+`tests/test_api.py` cubre REST (`tests/fixtures/rest_api_server.py`) y
+GraphQL (`tests/fixtures/graphql_api_server.py`, también con modo
+vulnerable/safe vía `ARES_FIXTURE_MODE`) contra los 5 detectores de
+`graphql_tests.py` (`gql.depth_limit` queda fuera a propósito — exigiría
+simular latencia real sin probar lógica nueva). También hay unitarios puros
 (Jaro-Winkler, canario, CVSS contra vectores de referencia, scoring, policy
-engine) en `tests/test_unit.py`. Corre en CI (`.github/workflows/test.yml`)
-en cada push.
+engine, `AuthConfig` basic/bearer, `oauth.py` client-credentials, proxy/mTLS
+pasado a `httpx.AsyncClient` vía un stub) en `tests/test_unit.py`. Corre en
+CI (`.github/workflows/test.yml`) en cada push. 159 tests en total a la
+fecha de este documento.
 
 ## 13. Puntos de extensión
 

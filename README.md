@@ -5,7 +5,9 @@ fuzzing black-box dinámico, pruebas adversariales (prompt injection, SSRF,
 confused deputy, tool poisoning, **line jumping**, **rug pull**, acciones
 destructivas sin confirmación), autenticación tanto **sin credenciales**
 (acceso anónimo, credenciales débiles) como **con una o DOS sesiones
-autenticadas reales** (`auth.authz_object_level` — BOLA en tools;
+autenticadas reales** vía `bearer`/`apikey`/`custom`/`basic` o resolviendo un
+token OAuth2 client-credentials en el momento (`--oauth2-token-url`, sin
+pasarlo a mano) — (`auth.authz_object_level` — BOLA en tools;
 `auth.resource_object_level` — lo mismo en resources; `auth.cross_session_context_bleed`
 — planta un canario con una credencial y confirma si se filtra a una
 **segunda** credencial/tenant independiente, sin heurística, por ejecución
@@ -167,6 +169,20 @@ El test `exposure.certificate_type` deja anotado en el reporte el **tipo de
 certificado** que presenta el server (CA pública, CA interna/privada,
 self-signed o cadena desconocida), con emisor, validez y fingerprint SHA-256.
 Ver sección 3.6b del [manual](MANUAL.md).
+
+`--ca-bundle`/`--trust-presented-cert` (TOFU, pinning del cert que presenta
+el server) están disponibles tanto para MCP (`scan`/`vet`/`full`) como para
+`api-scan`. Para rutear el tráfico por un proxy de intercepción (Burp,
+mitmproxy) o autenticar con un certificado cliente (mTLS), `--proxy` y
+`--client-cert`/`--client-key` funcionan igual en los cuatro subcomandos
+(proxy SOCKS requiere `pip install "httpx[socks]"` en el venv de Ares):
+
+```bash
+./ares.sh scan --transport http --url https://mi-server.com/mcp \
+  --proxy http://127.0.0.1:8080 --out reporte.html
+./ares.sh api-scan --url https://api.interna.corp --client-cert cliente.pem \
+  --client-key cliente.key --out reporte.html
+```
 
 Descubrir qué servidores MCP hay configurados localmente (Claude Desktop,
 Cursor, VSCode, Windsurf, Codex) y escanearlos todos de una:
@@ -360,8 +376,12 @@ un backend alternativo (Docker/Podman), y eso se retoma solo si cambia la decisi
   motor SAST exhaustivo.
 - Fuzzing de protocolo: **cubierto** por `protocol.jsonrpc_malformed_fuzz`,
   `protocol.batch_cancel_robustness` y `protocol.session_replay` (ver
-  sección 12 del manual). Lo que sigue sin cubrirse: fuzzing del transporte
-  SSE legado (solo stdio y streamable-http tienen canal crudo) y de la
+  sección 12 del manual) contra `stdio` y `http`. El transporte `sse` sí
+  tiene cobertura de tests normal (recon/auth/supply-chain, contra
+  `target_server_sse.py`), pero el canal RPC crudo
+  (`engine/protocol/rawrpc.py`) no soporta `sse` todavía, así que esos 3
+  tests de fuzzing de protocolo no corren contra un target `sse` — avisado
+  en `--help`/tooltip del dashboard, no en silencio. Sigue sin cubrirse la
   negociación de `protocolVersion`.
 - Cadenas multi-step: **cubierto** por `adv.multistep_chain` (hasta 4 tools,
   cada eslabón probado con canario) y `adv.stored_injection_roundtrip`

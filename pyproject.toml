@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ares-mcp-redteam"
-version = "0.3.0"
+version = "0.4.0"
 description = "Motor de pruebas de seguridad red-team para servidores Model Context Protocol (MCP)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,12 +20,17 @@ dependencies = [
     "uvicorn",
     "websockets",  # uvicorn sin esto no soporta el handshake de WebSocket (/ws/scan, /ws/full
                    # del dashboard fallan con "Unsupported upgrade request" / 404 silencioso)
+    "passlib[bcrypt]",
+    "python-jose[cryptography]",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-asyncio"]
 live-agent = ["anthropic"]  # openai/ollama usan httpx (ya core dep), sin paquete extra
 sast = ["semgrep"]
+postgres = ["asyncpg"]     # persistence layer PostgreSQL opcional
+crypto = ["cryptography"]  # AES-256-GCM for secrets at rest
+dns = ["dnspython"]        # enrich DNS resolution
 
 [project.scripts]
 ares = "cli.main:main"
@@ -46,6 +51,20 @@ packages = [
     "engine.reporting",
     "engine.policy",
     "engine.discovery",
+    "engine.netrecon",
+    "engine.tools",
+    "engine.enrich",
+    "engine.intercept",
+    "engine.agent",
+    "engine.notify",
+    "engine.scheduler",
+    "engine.persistence",
+    "engine.proxy",
+    "engine.egress",
+    "engine.ingest",
+    "engine.facts",
+    "engine.rsi",
+    "engine.enrich",
     "cli",
     "payloads",
     "webui",

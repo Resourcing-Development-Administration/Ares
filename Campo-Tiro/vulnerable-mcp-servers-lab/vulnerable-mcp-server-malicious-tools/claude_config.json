@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "vulnerable-mcp-server-malicious-tools": {
-      "command": "node",
-      "args": ["/full/path/to/vulnerable-mcp-server-malicious-tools/index.js"]
-    }
-  }
-}

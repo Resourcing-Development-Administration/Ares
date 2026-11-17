@@ -38,6 +38,7 @@ CONFIDENCE_MAP: dict[str, str] = {
     "orchestrator.test_unresponsive": VERIFIED,  # el timeout es un hecho observado, no una heurística
     "orchestrator.target_unresponsive_sustained": VERIFIED,
     "orchestrator.connection_failed": VERIFIED,  # el rechazo de conexión es un hecho observado (TLS/red/transport)
+    "api.connection_failed": VERIFIED,  # idem, lado API: 100% de los requests sin status es un hecho observado
 
     "adv.injection_passthrough": HEURISTIC,
     "adv.ssrf_exfil": HEURISTIC,
@@ -74,6 +75,15 @@ CONFIDENCE_MAP: dict[str, str] = {
     "supplychain.malicious_patterns": HEURISTIC,
     "supplychain.dependency_vulnerabilities": VERIFIED,
     "supplychain.source_sast": VERIFIED,  # patrón/taint sobre código fuente real, hecho observado directamente
+    # netrecon — herramientas externas, confirmación directa de lo que reportan
+    "net.httpx_probe":   VERIFIED,   # cabecera ausente/presente: hecho observable en la respuesta HTTP real
+    "net.subfinder":     HEURISTIC,  # subdominio descubierto: puede no estar activo
+    "net.nuclei_scan":   VERIFIED,   # template match nuclei: evidencia directa del hallazgo
+    "net.katana_crawl":  VERIFIED,   # URL rastreada: observada en respuesta real del sitio
+    "net.bbot_osint":    HEURISTIC,  # OSINT pasivo: subdominios/emails en fuentes públicas, puede no estar activo
+    "net.ffuf_fuzz":     VERIFIED,   # ruta descubierta con código HTTP real, hecho observable
+    "net.dalfox_xss":    VERIFIED,   # PoC XSS confirmado por dalfox con payload real
+    "net.sqlmap_sqli":   VERIFIED,   # inyección SQL confirmada por sqlmap con respuesta real
 }
 
 

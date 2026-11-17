@@ -263,6 +263,7 @@ FRAMEWORK_MAP: dict[str, list[dict]] = {
     "orchestrator.test_unresponsive": [_api("API4:2023"), _llm("LLM06:2026"), _agentic("resource-exhaustion"), _atlas_t("agentic-resource-consumption")],
     "orchestrator.target_unresponsive_sustained": [_api("API4:2023"), _llm("LLM06:2026"), _agentic("resource-exhaustion"), _atlas_t("agentic-resource-consumption")],
     "orchestrator.connection_failed": [_mcp("MCP07:2025"), _api("API8:2023")],
+    "api.connection_failed": [_api("API8:2023")],
 
     # prompt-injection-indirect (AML.T0051.001) reemplaza la táctica genérica "ml-attack-staging":
     # match preciso -- "indirect injection via data channels ingested by the LLM", exactamente
@@ -350,6 +351,20 @@ FRAMEWORK_MAP: dict[str, list[dict]] = {
     "adv.multistep_chain": [_mcp("MCP06:2025"), _llm("LLM02:2026"), _asi("ASI02:2026"), _atlas_t("exfil-via-tool"), _atlas_t("context-poisoning")],
     "adv.stored_injection_roundtrip": [_mcp("MCP10:2025"), _llm("LLM01:2026"), _asi("ASI01:2026"), _atlas_t("context-poisoning"), _atlas_t("prompt-injection-indirect")],
     "protocol.sampling_elicitation_exposure": [_mcp("MCP06:2025"), _llm("LLM01:2026"), _asi("ASI01:2026"), _asi("ASI09:2026"), _atlas_t("prompt-injection")],
+
+    # netrecon — herramientas de reconocimiento de red
+    # API9:2023 (Improper Inventory Management): subfinder/katana/httpx descubren
+    # exactamente lo que API9 describe: surface no inventariada, servicios shadow IT.
+    # API8:2023 (Security Misconfiguration): cabeceras de seguridad ausentes (httpx_probe)
+    # y vulnerabilidades de configuración (nuclei) son la clase canónica de API8.
+    "net.httpx_probe":  [_api("API8:2023"), _api("API9:2023"), _atlas("reconnaissance")],
+    "net.subfinder":    [_api("API9:2023"), _atlas("reconnaissance")],
+    "net.nuclei_scan":  [_api("API8:2023"), _mcp("MCP04:2025"), _llm("LLM04:2026"), _atlas("reconnaissance")],
+    "net.katana_crawl": [_api("API9:2023"), _atlas("reconnaissance")],
+    "net.bbot_osint":   [_api("API9:2023"), _atlas("reconnaissance")],
+    "net.ffuf_fuzz":    [_api("API8:2023"), _api("API9:2023"), _atlas("reconnaissance")],
+    "net.dalfox_xss":   [_api("API1:2023"), _api("API8:2023"), _atlas("execution")],
+    "net.sqlmap_sqli":  [_api("API1:2023"), _api("API8:2023"), _atlas("execution")],
 }
 
 

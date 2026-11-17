@@ -29,6 +29,21 @@ MAX_TEXT_FOR_ANALYSIS = 200_000
 # de leak-pattern que corren sobre esto.
 MAX_RESPONSE_CONTENT = 2_000_000
 
+# Cantidad de tools que se procesan de un solo tools/list. A diferencia de
+# MAX_TEXT_FOR_ANALYSIS (que acota cada descripción), esto acota cuántas
+# entradas se construyen en memoria -- un server hostil puede declarar
+# millones de tools con descripciones cortas (cada una pasa el cap de texto
+# individual) para agotar RAM antes de que cualquier timeout por-test tenga
+# chance de cortar algo, ya que list_tools corre una sola vez al conectar.
+MAX_TOOLS_LISTED = 5_000
+
+# supplychain.tool_squatting compara CADA PAR de nombres de tool (O(n^2), jaro_winkler puro
+# Python sin aceleración en C) -- confirmado empíricamente: a 5000 tools (el tope de arriba)
+# son ~12.5M pares, ~86s, más que test_timeout_s por defecto (60s). Antes de MAX_TOOLS_LISTED
+# esto nunca se alcanzaba (el target se caía/colgaba en list_tools primero) -- ahora que ese
+# límite deja pasar hasta 5000 tools reales, este test necesita su propio tope más chico.
+MAX_TOOLS_FOR_PAIRWISE_SIMILARITY = 1_500
+
 _TRUNC_SUFFIX = "\n…[truncado por Ares: excede {limit} chars -- posible intento de agotar recursos del escáner]"
 
 

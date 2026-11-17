@@ -68,6 +68,12 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
         # (engine/core/client.py) como las sondas httpx crudas y la inspección de certificado
         # (engine/exposure/tests.py, engine/auth/tests.py), todos vía ctx["connection"]["ca_bundle"].
         connection["ca_bundle"] = config.ca_bundle
+    if config.proxy:
+        connection["proxy"] = config.proxy
+    if config.client_cert:
+        connection["client_cert"] = config.client_cert
+        if config.client_key:
+            connection["client_key"] = config.client_key
 
     # --trust-presented-cert: si NO hay CA real provista y el target es http/sse, traer el
     # certificado que el server presenta y FIJARLO para poder completar el handshake contra un
@@ -226,6 +232,31 @@ async def run_scan(config: ScanConfig, progress_cb=None) -> ScanReport:
                 remediation=fix,
             ))
             emit({"type": "connection_failed_finding", "kind": kind})
+
+        if target is not None:
+            # Precarga tools/resources/prompts UNA sola vez para toda la corrida. Antes, el único
+            # lugar que llenaba este cache era el primer test de recon/tests.py (orden alfabético
+            # de test_id) -- si algo con orden alfabético anterior (adv.*, auth.*, dynamic.*,
+            # exposure.*, protocol.*) necesitaba la lista de tools, pagaba tools/list DE NUEVO
+            # (nunca cacheado). Confirmado empíricamente contra un target con miles de tools
+            # (Campo-Tiro/ares-range/hostile_to_scanner.py): tools/list tarda lo bastante como para
+            # que cada test que la re-pida por su cuenta agote su propio test_timeout_s, y la
+            # cascada de timeouts dispara el circuit breaker ANTES de que recon.enumerate llegue a
+            # correr -- el scan entero queda sin señal real, no porque el target sea hostil, sino
+            # porque Ares pagaba el mismo costo caro N veces en vez de una.
+            try:
+                with anyio.fail_after(config.test_timeout_s):
+                    ctx["tools"] = await target.list_tools()
+                    ctx["resources"] = await target.list_resources()
+                    ctx["resource_templates"] = await target.list_resource_templates()
+                    ctx["prompts"] = await target.list_prompts()
+            except TimeoutError:
+                report.errors.append(
+                    f"precarga de tools/resources/prompts no terminó en {config.test_timeout_s}s -- "
+                    f"cada test que los necesite va a pedirlos por su cuenta (más lento, pero no bloquea el scan)."
+                )
+            except Exception as e:
+                report.errors.append(f"precarga de tools/resources/prompts falló: {e}")
 
         consecutive_timeouts = 0
         consecutive_session_errors = 0  # ver circuit breaker ampliado más abajo

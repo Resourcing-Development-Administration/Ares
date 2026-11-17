@@ -26,6 +26,20 @@ XSS_MARK = "<script>ARES_XSS</script>"
 NOSQLI = {"$ne": None}
 
 
+_DESTRUCTIVE_HINT = re.compile(r"creat|populat|reset|delete|wipe|seed|drop|truncat|init|destroy|purge", re.I)
+
+
+def _looks_destructive(ep) -> bool:
+    """Heurística: el summary del endpoint sugiere que reinicia/borra estado real (ej. el 'GET
+    /createdb' de VAmPI repuebla TODA la base de datos pese a ser un GET -- un GET con side-
+    effects es señal de CSRF-vía-GET aparte, no excusa para no reportarlo, pero SÍ para que los
+    fuzzers genéricos que iteran TODOS los endpoints del spec (auth_required, verbose_errors,
+    method_tampering, mass_assignment, injection_probe) no lo llamen a ciegas con sample data:
+    confirmado contra VAmPI, auth_required llamando a /createdb a mitad de la corrida borraba
+    los usuarios de prueba recién registrados que api.bola necesita viva toda la corrida."""
+    return bool(_DESTRUCTIVE_HINT.search(ep.summary or ""))
+
+
 def _args_from(ep, extra_id: str | None = None) -> dict:
     out = {}
     for p in ep.path_params:
@@ -80,7 +94,7 @@ _REQUIRED_HEADERS = {
 async def security_headers(target, ctx) -> list[Finding]:
     tid = "api.security_headers"
     eps = ctx.get("endpoints") or []
-    probe = next((e for e in eps if e.method == "GET"), None)
+    probe = next((e for e in eps if e.method == "GET" and not _looks_destructive(e)), None)
     path = _fill_path(probe.path, _args_from(probe)) if probe else "/"
     r = await target.request("GET", path, auth="a" if ctx.get("auth_a") else None)
     if r["status"] is None:
@@ -111,7 +125,7 @@ async def security_headers(target, ctx) -> list[Finding]:
 async def cors_misconfig(target, ctx) -> list[Finding]:
     tid = "api.cors"
     eps = ctx.get("endpoints") or []
-    probe = next((e for e in eps if e.method == "GET"), None)
+    probe = next((e for e in eps if e.method == "GET" and not _looks_destructive(e)), None)
     path = _fill_path(probe.path, _args_from(probe)) if probe else "/"
     evil = f"https://ares-{secrets.token_hex(4)}.evil.example"
     r = await target.request("GET", path, headers={"Origin": evil}, auth="a" if ctx.get("auth_a") else None)
@@ -149,7 +163,8 @@ async def auth_required(target, ctx) -> list[Finding]:
         return [Finding(test_id=tid, title="Sin credenciales para comparar", category=Category.API, target="server",
                         passed=True, description="Se necesita --auth-token (credencial válida) para distinguir "
                                                     "'esto no está protegido' de 'esto es público a propósito'.")]
-    eps = [e for e in (ctx.get("endpoints") or []) if e.method in ("GET", "POST", "PUT", "PATCH", "DELETE")]
+    eps = [e for e in (ctx.get("endpoints") or []) if e.method in ("GET", "POST", "PUT", "PATCH", "DELETE")
+           and not _looks_destructive(e)]
     findings = []
     for ep in eps[: ctx.get("max_fuzz", 40)]:
         if ep.secured is False:
@@ -177,32 +192,79 @@ async def auth_required(target, ctx) -> list[Finding]:
     return findings
 
 
+def _bearer_token(target, who: str) -> str | None:
+    """Extrae el token crudo de target.auth[who] (header Authorization: Bearer <tok>, o
+    X-API-Key: <tok>) para poder decodificarlo como JWT -- ctx solo trae bool auth_a/auth_b,
+    no el token, así que esto lee directo del ApiTarget."""
+    h = (target.auth or {}).get(who) or {}
+    for v in h.values():
+        v = str(v)
+        return v.split(" ", 1)[1] if v.lower().startswith("bearer ") else v
+    return None
+
+
+def _identity_claims(target, who: str) -> set[str]:
+    """Valores de claims string de un JWT (sub/username/user_id/login/email/name/uid) de la
+    credencial 'a'/'b' -- candidatos genéricos de 'identidad propia' para el swap de BOLA
+    por id no-numérico (username, email, slug), sin asumir qué claim usa cada API en particular."""
+    tok = _bearer_token(target, who)
+    if not tok:
+        return set()
+    parts = _jwt_parts(tok)
+    if not parts:
+        return set()
+    _, payload, _ = parts
+    keys = ("sub", "username", "user", "user_id", "userid", "login", "email", "name", "uid", "id")
+    return {str(payload[k]) for k in keys if k in payload and isinstance(payload[k], (str, int))}
+
+
 @api_test("api.bola", "BOLA: acceso a objetos de otro usuario por id (IDOR)", level=3,
           description="Para endpoints con un parámetro tipo id en el path, prueba IDs vecinos (incrementar/"
-                       "decrementar, UUID ajeno si --auth-token-b da uno) con las credenciales A -- si el "
-                       "server devuelve 200 con datos de un objeto que no le pertenece a A, es BOLA confirmado.",
+                       "decrementar) y, si --auth-token-b da una segunda identidad real, el/los valores de "
+                       "identidad propios de B (username/email/sub del JWT) -- con las credenciales A en "
+                       "ambos casos. Si el server devuelve 200 con datos de un objeto que no le pertenece a "
+                       "A, es BOLA confirmado.",
           default_enabled=False)
 async def bola(target, ctx) -> list[Finding]:
     tid = "api.bola"
     if not ctx.get("auth_a"):
         return [Finding(test_id=tid, title="Sin credenciales", category=Category.API, target="server", passed=True,
                         description="Requiere --auth-token para tener una identidad con la que probar acceso cruzado.")]
-    eps = [e for e in (ctx.get("endpoints") or []) if e.method == "GET" and e.path_params]
+    a_claims = _identity_claims(target, "a") if ctx.get("auth_a") else set()
+    b_claims = _identity_claims(target, "b") if ctx.get("auth_b") else set()
+    eps = [e for e in (ctx.get("endpoints") or []) if e.method == "GET" and e.path_params and not _looks_destructive(e)]
     findings, probed = [], 0
     for ep in eps[:20]:
-        id_param = next((p for p in ep.path_params if re.search(r"id$", p["name"], re.I)), ep.path_params[0])
+        id_param = next((p for p in ep.path_params if re.search(r"id$|user|owner|account|login", p["name"], re.I)),
+                        ep.path_params[0])
         base_args = _args_from(ep)
+        # si el param parece de identidad (username/user_id/email/...), un sample_value genérico
+        # del spec (ej. "string") casi nunca resuelve a un objeto real de A -- probar el 'own' GET
+        # con un claim real del JWT de A primero, así el endpoint SÍ arranca de un 200 propio y el
+        # swap a la identidad B de abajo tiene algo contra qué comparar.
+        if re.search(r"user|owner|account|login", id_param["name"], re.I):
+            for claim in a_claims:
+                if claim != str(base_args.get(id_param["name"])):
+                    trial_args = dict(base_args); trial_args[id_param["name"]] = claim
+                    trial = await target.request("GET", _fill_path(ep.path, trial_args), auth="a")
+                    if trial["status"] == 200:
+                        base_args = trial_args
+                        break
         own_path = _fill_path(ep.path, base_args)
         own = await target.request("GET", own_path, auth="a")
         if own["status"] != 200:
             continue
         probed += 1
         own_id = base_args.get(id_param["name"])
-        candidates = []
+        candidates: list = []
         if isinstance(own_id, str) and own_id.isdigit():
             candidates = [str(int(own_id) + 1), str(max(0, int(own_id) - 1))]
         elif isinstance(own_id, int):
             candidates = [own_id + 1, max(0, own_id - 1)]
+        # swap por identidad real de B (username/email/sub): cubre el caso MAS común de BOLA en
+        # el mundo real -- el id es un string (username/email/slug), no un entero correlativo --
+        # que la variante solo-numérica de arriba nunca dispara.
+        candidates += [c for c in b_claims if c != str(own_id)]
         for cand in candidates:
             args = dict(base_args); args[id_param["name"]] = cand
             other = await target.request("GET", _fill_path(ep.path, args), auth="a")
@@ -210,8 +272,9 @@ async def bola(target, ctx) -> list[Finding]:
                 findings.append(Finding(
                     test_id=tid, title=f"BOLA confirmado en {ep.key} (parámetro '{id_param['name']}')",
                     category=Category.API, target=ep.key, passed=False,
-                    description=f"Con la misma credencial, '{id_param['name']}={own_id}' y '={cand}' devuelven "
-                                 f"200 con contenido DISTINTO -- la credencial A puede leer un objeto que no le "
+                    description=f"Con la credencial A, '{id_param['name']}={own_id}' (propio) y '={cand}' "
+                                 f"(ajeno{' -- identidad B real' if cand in b_claims else ''}) devuelven 200 "
+                                 f"con contenido DISTINTO -- la credencial A puede leer un objeto que no le "
                                  f"pertenece, solo cambiando el id en la URL.",
                     evidence=Evidence(request={"path": ep.path, "own_id": own_id, "other_id": cand},
                                       response={"status": other["status"], "excerpt": other["text"][:300]}),
@@ -222,7 +285,7 @@ async def bola(target, ctx) -> list[Finding]:
                 break
     if not findings:
         findings.append(Finding(test_id=tid, title="Sin BOLA confirmado", category=Category.API, target="server",
-                                passed=True, description=f"Se probaron ids vecinos en {probed} endpoint(s) con un objeto propio accesible; ninguno expuso otro objeto."))
+                                passed=True, description=f"Se probaron ids vecinos{' + identidad B real' if b_claims else ''} en {probed} endpoint(s) con un objeto propio accesible; ninguno expuso otro objeto."))
     return findings
 
 
@@ -238,7 +301,7 @@ async def verbose_errors(target, ctx) -> list[Finding]:
         (re.compile(r"/(home|usr|var|opt|srv)/[\w./-]{6,}"), "path absoluto del filesystem"),
         (re.compile(r"System\.Exception|at [\w.]+\.cs:line \d+"), "stack trace de .NET"),
     ]
-    eps = ctx.get("endpoints") or []
+    eps = [e for e in (ctx.get("endpoints") or []) if not _looks_destructive(e)]
     findings, seen = [], set()
     for ep in eps[: ctx.get("max_fuzz", 30)]:
         args = {p["name"]: "💥" * 200 if p["in"] == "path" else None for p in ep.path_params}
@@ -268,7 +331,7 @@ async def verbose_errors(target, ctx) -> list[Finding]:
           default_enabled=False)
 async def injection_probe(target, ctx) -> list[Finding]:
     tid = "api.injection_probe"
-    eps = [e for e in (ctx.get("endpoints") or []) if any(p["in"] == "query" for p in e.params)]
+    eps = [e for e in (ctx.get("endpoints") or []) if any(p["in"] == "query" for p in e.params) and not _looks_destructive(e)]
     findings = []
     for ep in eps[:15]:
         qp = next(p for p in ep.params if p["in"] == "query")
@@ -301,7 +364,7 @@ async def injection_probe(target, ctx) -> list[Finding]:
 async def method_tampering(target, ctx) -> list[Finding]:
     tid = "api.method_tampering"
     eps = ctx.get("endpoints") or []
-    probe = next((e for e in eps), None)
+    probe = next((e for e in eps if not _looks_destructive(e)), None)
     path = _fill_path(probe.path, _args_from(probe)) if probe else "/"
     findings = []
     r = await target.request("TRACE", path, auth=None)
@@ -340,7 +403,8 @@ async def rate_limit(target, ctx) -> list[Finding]:
     # nombre destructivo/de sesión, y CALIBRAR con una llamada sola antes de lanzar 30 -- sin
     # esto, un eps[0] que 404 para todos (porque el id de muestra no es válido) hacía "sin rate
     # limiting" sobre una ráfaga que en realidad nunca tocó una respuesta real.
-    eps = [e for e in (ctx.get("endpoints") or []) if e.method == "GET" and not _RATE_LIMIT_UNSAFE_RE.search(e.path)]
+    eps = [e for e in (ctx.get("endpoints") or [])
+           if e.method == "GET" and not _RATE_LIMIT_UNSAFE_RE.search(e.path) and not _looks_destructive(e)]
     if not eps:
         return _na_rate_limit(tid, "Sin endpoint GET de nombre seguro para probar (todos parecían destructivos/de sesión, o no hay spec).")
 
@@ -439,7 +503,8 @@ async def jwt_weaknesses(target, ctx) -> list[Finding]:
           default_enabled=False)
 async def mass_assignment(target, ctx) -> list[Finding]:
     tid = "api.mass_assignment"
-    eps = [e for e in (ctx.get("endpoints") or []) if e.method in ("POST", "PUT", "PATCH") and e.body_schema]
+    eps = [e for e in (ctx.get("endpoints") or []) if e.method in ("POST", "PUT", "PATCH") and e.body_schema
+           and not _looks_destructive(e)]
     findings = []
     extra_fields = {"is_admin": True, "isAdmin": True, "role": "admin", "admin": True, "is_staff": True}
     for ep in eps[:15]:

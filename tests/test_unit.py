@@ -1017,3 +1017,255 @@ async def test_connection_failure_includes_real_subprocess_stderr():
         assert any("this_module_does_not_exist_at_all" in e for e in report.errors), report.errors
     finally:
         os.remove(broken)
+
+
+# --- AuthConfig: esquemas de auth hacia el target (ver cli/main.py --auth-type) -------------
+
+def test_authconfig_basic_encodes_user_pass_as_base64():
+    from engine.core.models import AuthConfig
+    import base64
+    headers = AuthConfig(type="basic", token="alice:wonderland").to_headers()
+    assert headers["Authorization"] == f"Basic {base64.b64encode(b'alice:wonderland').decode()}"
+
+
+def test_authconfig_basic_without_colon_assumes_empty_password():
+    from engine.core.models import AuthConfig
+    import base64
+    headers = AuthConfig(type="basic", token="just-a-token").to_headers()
+    assert headers["Authorization"] == f"Basic {base64.b64encode(b'just-a-token:').decode()}"
+
+
+def test_authconfig_bearer_still_works():
+    from engine.core.models import AuthConfig
+    assert AuthConfig(type="bearer", token="t123").to_headers() == {"Authorization": "Bearer t123"}
+
+
+# --- OAuth2 client-credentials (engine/core/oauth.py) ----------------------------------------
+
+def test_oauth2_client_credentials_returns_access_token(monkeypatch):
+    from engine.core import oauth
+
+    class _FakeResp:
+        status_code = 200
+        def json(self):
+            return {"access_token": "real-token-abc", "expires_in": 3600}
+
+    captured = {}
+
+    def _fake_post(url, data=None, timeout=None, verify=None):
+        captured["url"] = url
+        captured["data"] = data
+        return _FakeResp()
+
+    monkeypatch.setattr(oauth.httpx, "post", _fake_post)
+    token = oauth.fetch_client_credentials_token("https://auth.example.com/token", "cid", "csecret", scope="read:api")
+    assert token == "real-token-abc"
+    assert captured["data"]["grant_type"] == "client_credentials"
+    assert captured["data"]["client_id"] == "cid"
+    assert captured["data"]["scope"] == "read:api"
+
+
+def test_oauth2_client_credentials_raises_on_missing_access_token(monkeypatch):
+    from engine.core import oauth
+
+    class _FakeResp:
+        status_code = 401
+        def json(self):
+            return {"error": "invalid_client"}
+
+    monkeypatch.setattr(oauth.httpx, "post", lambda *a, **k: _FakeResp())
+    with pytest.raises(RuntimeError, match="no devolvió access_token"):
+        oauth.fetch_client_credentials_token("https://auth.example.com/token", "cid", "bad-secret")
+
+
+def test_oauth2_client_credentials_raises_on_connection_error(monkeypatch):
+    from engine.core import oauth
+
+    def _boom(*a, **k):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(oauth.httpx, "post", _boom)
+    with pytest.raises(RuntimeError, match="no se pudo contactar"):
+        oauth.fetch_client_credentials_token("https://auth.example.com/token", "cid", "csecret")
+
+
+# --- proxy / mTLS (API): ApiTarget debe pasarle proxy=/cert= al httpx.AsyncClient real --------
+
+class _FakeAsyncClient:
+    """Stand-in de httpx.AsyncClient que solo captura los kwargs con los que se construyó --
+    evita que el test dependa de un cert/key real en disco (httpx valida/carga el cert chain
+    de verdad en __init__, aunque nunca se abra una conexión)."""
+    last_kwargs: dict = {}
+
+    def __init__(self, **kwargs):
+        _FakeAsyncClient.last_kwargs = kwargs
+
+    async def aclose(self):
+        pass
+
+
+def test_apitarget_passes_proxy_and_client_cert_to_httpx(monkeypatch):
+    from engine.api import client as api_client_mod
+
+    monkeypatch.setattr(api_client_mod.httpx, "AsyncClient", _FakeAsyncClient)
+    api_client_mod.ApiTarget("http://example.test", proxy="http://127.0.0.1:8080",
+                             client_cert="/tmp/c.pem", client_key="/tmp/c.key")
+    assert _FakeAsyncClient.last_kwargs.get("proxy") == "http://127.0.0.1:8080"
+    assert _FakeAsyncClient.last_kwargs.get("cert") == ("/tmp/c.pem", "/tmp/c.key")
+
+
+def test_apitarget_omits_proxy_and_cert_when_not_given(monkeypatch):
+    from engine.api import client as api_client_mod
+
+    monkeypatch.setattr(api_client_mod.httpx, "AsyncClient", _FakeAsyncClient)
+    api_client_mod.ApiTarget("http://example.test")
+    assert "proxy" not in _FakeAsyncClient.last_kwargs
+    assert "cert" not in _FakeAsyncClient.last_kwargs
+
+
+# ── engine.ingest parsers ─────────────────────────────────────────────────────
+
+def test_ingest_nmap_xml_basic():
+    from engine.ingest.nmap import parse_nmap_xml
+    xml = """<?xml version="1.0"?>
+<nmaprun>
+  <host>
+    <status state="up"/>
+    <address addr="10.0.0.1" addrtype="ipv4"/>
+    <ports>
+      <port protocol="tcp" portid="80">
+        <state state="open"/>
+        <service name="http" product="nginx" version="1.18"/>
+      </port>
+      <port protocol="tcp" portid="443">
+        <state state="open"/>
+        <service name="https"/>
+      </port>
+      <port protocol="tcp" portid="22">
+        <state state="closed"/>
+      </port>
+    </ports>
+  </host>
+</nmaprun>"""
+    result = parse_nmap_xml(xml, "10.0.0.1")
+    assert result.source_tool == "nmap"
+    assert not result.errors
+    ip_assets = [a for a in result.assets if a.kind == "ip"]
+    assert any(a.value == "10.0.0.1" for a in ip_assets)
+    port_assets = [a for a in result.assets if a.kind == "port"]
+    assert any("80" in a.value for a in port_assets)
+    assert not any("22" in a.value for a in port_assets), "closed port must not be ingested"
+    service_facts = [f for f in result.facts if f.predicate == "runs_service"]
+    assert any("nginx" in f.object for f in service_facts)
+
+
+def test_ingest_nuclei_jsonl_cve():
+    from engine.ingest.nuclei import parse_nuclei_jsonl
+    line = '{"template-id":"cve-2021-44228","host":"http://target.test","matched-at":"http://target.test/path","info":{"name":"Log4Shell","severity":"critical","classification":{"cve-id":["CVE-2021-44228"]}}}'
+    result = parse_nuclei_jsonl(line, "target.test")
+    assert result.source_tool == "nuclei"
+    assert not result.errors
+    cve_facts = [f for f in result.facts if f.predicate == "has_cve"]
+    assert any(f.object == "CVE-2021-44228" for f in cve_facts)
+    vuln_facts = [f for f in result.facts if f.predicate == "has_vulnerability"]
+    assert any("cve-2021-44228" in f.object for f in vuln_facts)
+
+
+def test_ingest_httpx_jsonl_tech():
+    from engine.ingest.httpx import parse_httpx_jsonl
+    line = '{"url":"https://example.com","host":"example.com","status-code":200,"webserver":"nginx","tech":["WordPress","jQuery"],"title":"Home"}'
+    result = parse_httpx_jsonl(line, "example.com")
+    assert result.source_tool == "httpx"
+    assert not result.errors
+    url_assets = [a for a in result.assets if a.kind == "url"]
+    assert any("example.com" in a.value for a in url_assets)
+    tech_facts = [f for f in result.facts if f.predicate == "uses_tech"]
+    assert any(f.object == "WordPress" for f in tech_facts)
+    ws_facts = [f for f in result.facts if f.predicate == "runs_webserver"]
+    assert any(f.object == "nginx" for f in ws_facts)
+
+
+def test_ingest_ffuf_json_paths():
+    from engine.ingest.ffuf import parse_ffuf_json
+    data = {
+        "results": [
+            {"url": "https://target.test/admin", "status": 200, "length": 512},
+            {"url": "https://target.test/wp-login.php", "status": 302, "length": 100},
+            {"url": "https://target.test/random", "status": 404, "length": 0},
+        ]
+    }
+    import json
+    result = parse_ffuf_json(json.dumps(data), "target.test")
+    assert result.source_tool == "ffuf"
+    assert not result.errors
+    url_assets = [a for a in result.assets if a.kind == "url"]
+    assert any("/admin" in a.value for a in url_assets)
+    assert not any("404" in str(a.attrs.get("status", "")) for a in url_assets), "404 should not be ingested"
+    path_facts = [f for f in result.facts if f.predicate == "found_path"]
+    assert any("/admin" in f.object for f in path_facts)
+
+
+def test_ingest_bbot_jsonl_scope_filter():
+    from engine.ingest.bbot import parse_bbot_jsonl
+    lines = '\n'.join([
+        '{"type":"DNS_NAME","data":"in.scope.test","scope_distance":0,"source":"scope.test","tags":[]}',
+        '{"type":"DNS_NAME","data":"out.scope.test","scope_distance":1,"source":"scope.test","tags":[]}',
+        '{"type":"IP_ADDRESS","data":"1.2.3.4","scope_distance":0,"source":"in.scope.test","tags":[]}',
+    ])
+    result = parse_bbot_jsonl(lines, "scope.test")
+    assert result.source_tool == "bbot"
+    assert not result.errors
+    domains = [a.value for a in result.assets if a.kind == "domain"]
+    assert "in.scope.test" in domains
+    assert "out.scope.test" not in domains, "scope_distance=1 must be filtered out"
+    ips = [a.value for a in result.assets if a.kind == "ip"]
+    assert "1.2.3.4" in ips
+
+
+def test_ingest_router_dispatch():
+    from engine.ingest.router import ingest_scanner_output
+    result = ingest_scanner_output("unknown_tool", "some content", "target")
+    assert result.source_tool == "unknown_tool"
+    assert result.errors
+    assert "unknown tool" in result.errors[0]
+
+
+def test_factstore_add_and_query():
+    from engine.facts.store import FactStore, FactSource
+    store = FactStore()
+    store.add_fact("example.com", "has_port", "443", source=FactSource.SCANNER, tool="nmap")
+    store.add_fact("example.com", "has_port", "80", source=FactSource.SCANNER, tool="nmap")
+    store.add_fact("example.com", "has_cve", "CVE-2021-44228", source=FactSource.OBSERVED)
+    assert len(store) == 3
+    by_subj = store.by_subject("example.com")
+    assert len(by_subj) == 3
+    cve_facts = store.by_predicate("has_cve")
+    assert len(cve_facts) == 1
+    assert cve_facts[0].object == "CVE-2021-44228"
+
+
+def test_provenance_summary():
+    from engine.facts.store import FactStore, FactSource
+    from engine.facts.provenance import provenance_summary
+    store = FactStore()
+    store.add_fact("a.test", "has_port", "80", source=FactSource.SCANNER, tool="nmap")
+    store.add_fact("a.test", "has_cve", "CVE-X", source=FactSource.OBSERVED)
+    store.add_fact("b.test", "has_url", "http://b.test", source=FactSource.INFERRED)
+    summary = provenance_summary(store)
+    assert summary["total_facts"] == 3
+    assert summary["unique_subjects"] == 2
+    assert summary["by_source"]["scanner"] == 1
+    assert summary["by_source"]["observed"] == 1
+    assert summary["by_tool"]["nmap"] == 1
+
+
+def test_factstore_add_from_ingest():
+    from engine.facts.store import FactStore
+    from engine.ingest.nuclei import parse_nuclei_jsonl
+    line = '{"template-id":"sqli-test","host":"http://vuln.test","matched-at":"http://vuln.test/api","info":{"name":"SQLi","severity":"high","classification":{}}}'
+    ingest_result = parse_nuclei_jsonl(line, "vuln.test")
+    store = FactStore()
+    added = store.add_from_ingest(ingest_result.facts, tool="nuclei")
+    assert len(added) > 0
+    assert all(f.tool == "nuclei" for f in added)
+    assert len(store) == len(ingest_result.facts)

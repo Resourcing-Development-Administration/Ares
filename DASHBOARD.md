@@ -178,10 +178,13 @@ Al elegir este modo el fieldset "Target" (MCP) se oculta y aparece uno propio:
 | Path de GraphQL | solo si no es uno de los comunes (`/graphql`, `/api/graphql`...) -- se detecta solo |
 | JWT a analizar | si la credencial de Autenticación no es el JWT que `api.jwt` debe inspeccionar |
 
-El fieldset de **Autenticación** (§6) se reutiliza tal cual (token A para
-`api.auth_required`/`api.bola`/`api.jwt`/etc., token B para `api.bola` con
-dos identidades reales) y el de **Tests** (§9) carga los tests de API en
-vez de los de MCP (incluye los de GraphQL, con la etiqueta `graphql`).
+El fieldset de **Autenticación** (§6, incluido el bloque OAuth2 y `basic`)
+se reutiliza tal cual (token A para `api.auth_required`/`api.bola`/
+`api.jwt`/etc., token B para `api.bola` con dos identidades reales), el de
+**Opciones** (§7) también — `--ca-bundle`/`--trust-presented-cert`/
+`--proxy`/`--client-cert`/`--client-key` funcionan igual en este modo — y
+el de **Tests** (§9) carga los tests de API en vez de los de MCP (incluye
+los de GraphQL, con la etiqueta `graphql`).
 
 **Cuándo usarlo**: para auditar una API propia o de terceros que no hable MCP.
 
@@ -228,11 +231,25 @@ por igual.*
 
 | Campo | Qué es | Qué poner | Para qué sirve |
 |---|---|---|---|
-| **Tipo** | Cómo se arma el header de auth | `bearer` (lo más común) → `Authorization: Bearer <token>`; `apikey`/`custom` → el token crudo en el header que pongas abajo | Define el formato del header que Ares manda en cada request |
-| **Token / credencial** | La credencial en sí | Tu token/API key real, o **dejalo vacío** si querés probar sin auth | Vacío = el scan corre SIN ninguna credencial — es intencional, no un error: así respondés la pregunta "¿qué puede hacer un atacante externo?" (ver [MANUAL §5.0](MANUAL.md#50-paso-a-paso-probar-con-auth-y-sin-auth-las-dos-preguntas-que-importan)) |
-| **Nombre de header (apikey/custom)** | El nombre literal del header HTTP | Ej. `X-API-Key` | Solo se usa si Tipo es `apikey` o `custom`; con `bearer` se ignora (siempre es `Authorization`) |
+| **Tipo** | Cómo se arma el header de auth | `bearer` (lo más común) → `Authorization: Bearer <token>`; `apikey`/`custom` → el token crudo en el header que pongas abajo; `basic` → `Authorization: Basic <base64(usuario:contraseña)>` | Define el formato del header que Ares manda en cada request |
+| **Token / credencial** | La credencial en sí | Tu token/API key real, `usuario:contraseña` si Tipo es `basic`, o **dejalo vacío** si querés probar sin auth | Vacío = el scan corre SIN ninguna credencial — es intencional, no un error: así respondés la pregunta "¿qué puede hacer un atacante externo?" (ver [MANUAL §5.0](MANUAL.md#50-paso-a-paso-probar-con-auth-y-sin-auth-las-dos-preguntas-que-importan)). Si completás el bloque OAuth2 de abajo, este campo se ignora — el token sale de ahí |
+| **Nombre de header (apikey/custom)** | El nombre literal del header HTTP | Ej. `X-API-Key` | Solo se usa si Tipo es `apikey` o `custom`; con `bearer`/`basic` se ignora (siempre es `Authorization`) |
 | **Headers extra** | Headers HTTP crudos adicionales, uno por línea | Formato `Clave: Valor` por línea, ej. `Cookie: sesion=abc123` | Para credenciales que no son ni Bearer ni API key (cookies de sesión, headers propietarios) |
 | **`--compare-auth`** (checkbox, no disponible en `full`) | Corre el scan DOS veces | Tildalo si tenés Token cargado y querés saber si esa auth protege de verdad | Corre una vez CON el token y otra vez SIN nada, y compara: qué hallazgos desaparecen al autenticarse (auth sí protege) vs cuáles quedan igual (auth no protege eso). Sin Token cargado, tildarlo no hace nada — las dos corridas serían idénticas |
+
+**Avanzado — OAuth2 client-credentials** (colapsado, click en "Avanzado:
+OAuth2 client-credentials"): resuelve un `access_token` en el momento de
+correr el scan, en vez de pasarlo a mano en "Token / credencial".
+
+| Campo | Qué es | Qué poner | Para qué sirve |
+|---|---|---|---|
+| **Token URL** | El endpoint OAuth2 que emite el token | Ej. `https://auth.miempresa.com/oauth/token` | Si se completa, Ares hace el POST `grant_type=client_credentials` ANTES de conectar al target y usa el `access_token` devuelto como si fuera un bearer token normal |
+| **Client ID** / **Client secret** | Credenciales de la app OAuth2 | Las que te dio tu proveedor de identidad | Van en el body del POST de arriba — requeridos los dos si pusiste Token URL |
+| **Scope (opcional)** | Scope OAuth2 a pedir | Ej. `api.read` | Se manda tal cual en el body si lo completás; vacío = no se manda |
+
+Si falla la resolución del token (credenciales mal, endpoint no responde,
+respuesta sin `access_token`), el scan no arranca — error explícito en el
+log, nunca un scan silencioso sin auth.
 
 **Avanzado — Segunda identidad** (colapsado, click en "Avanzado: segunda
 identidad"): una SEGUNDA credencial/tenant válido contra el **mismo**
@@ -255,7 +272,9 @@ server, independiente de la de arriba.
 | **`--package-name`** | Nombre de paquete npm/pypi declarado | Ej. `mcp-server-fetch` | Habilita `static.typosquatting_check` — compara contra una lista curada de paquetes MCP oficiales conocidos, por similitud Jaro-Winkler |
 | **`--oob-callback-host`** | `host:puerto` alcanzable por el target, que vos mismo levantás (sin servicios de terceros) | Ej. `192.168.1.50:8899` | Para que `adv.ssrf_exfil` confirme SSRF por un callback real en vez de solo inferirlo — el finding sale como `confidence: verified` |
 | **`--ca-bundle`** (solo `http`/`sse`) | Ruta **local** (en la máquina donde corre `ares.sh serve`) a un bundle de CA en PEM | Ej. `/etc/ssl/certs/ca-corporativa.pem`; vacío = trust store por defecto (certifi), con fallback a la variable de entorno `SSL_CERT_FILE` | Valida el certificado TLS del server contra una CA **interna/corporativa** sin desactivar la verificación — para auditar un server interno cuyo cert no está firmado por una CA pública. El tipo de certificado detectado se muestra en el resultado (ver [§10.1](#101-resultado-de-scanvet)) y en el reporte (`exposure.certificate_type`) |
-| **`--trust-presented-cert`** (checkbox, solo `http`/`sse`) | Traer y fijar el cert que presenta el server para conectarse igual | Tildalo cuando el target tiene cert self-signed/CA interna y **no** tenés el bundle a mano, pero querés que el scan corra igual | Si el TLS no valida y no diste `--ca-bundle`, Ares trae el certificado presentado y lo **fija** (pinning TOFU) para completar el handshake y correr todas las pruebas. **No valida identidad** (si había un MITM, fija su cert) y el certificado se sigue reportando self-signed/riesgo. Solo para targets internos que controlás — para validación real usá `--ca-bundle` |
+| **`--trust-presented-cert`** (checkbox, `http`/`sse` y también modo `api`) | Traer y fijar el cert que presenta el server para conectarse igual | Tildalo cuando el target tiene cert self-signed/CA interna y **no** tenés el bundle a mano, pero querés que el scan corra igual | Si el TLS no valida y no diste `--ca-bundle`, Ares trae el certificado presentado y lo **fija** (pinning TOFU) para completar el handshake y correr todas las pruebas. **No valida identidad** (si había un MITM, fija su cert) y el certificado se sigue reportando self-signed/riesgo. Solo para targets internos que controlás — para validación real usá `--ca-bundle` |
+| **`--proxy`** (también en modo `api`) | Proxy HTTP/HTTPS/SOCKS para TODO el tráfico hacia el target | Ej. `http://127.0.0.1:8080` (Burp/mitmproxy) o `socks5://127.0.0.1:1080` | Para inspeccionar/interceptar el tráfico del scan en un proxy propio. SOCKS necesita `pip install "httpx[socks]"` instalado en el venv de Ares — si no está, el scan falla con un error claro de httpx, no en silencio |
+| **`--client-cert`** / **`--client-key`** (también en modo `api`) | Certificado cliente mTLS | Rutas **locales** (en la máquina donde corre `ares.sh serve`) a los PEM de cert y, si es distinto, de la clave privada | Para un target que exige autenticación por certificado de cliente además de (o en vez de) un token — se suma al resto de la Autenticación (§6), no la reemplaza |
 | **`--allow-network`** (checkbox) | Gate explícito para tests marcados `requires_network` | Tildalo solo si sabés lo que hacés | Sin esto, tests como `adv.ssrf_exfil` o `supplychain.dependency_vulnerabilities` se saltean aunque los tildes en Tests (§9) — es un gate separado a propósito, para que un efecto de red real nunca sea "sin querer". En `vet`/`full vet` ya viene forzado |
 | **`--verbose`** (checkbox) | Ver cada llamada real, no solo el resumen por test | Tildalo cuando algo no anda como esperás y necesitás ver exactamente qué se mandó y qué respondió el target | Agrega al log en vivo una línea `→` (request) y `←` (response) por cada `list_tools`/`call_tool`/`read_resource` real que hace cada test — en `full`, cada línea sale con el prefijo `[nombre-del-target]`. Útil para diagnosticar un error de conexión o por qué un test no encuentra lo que esperás |
 
